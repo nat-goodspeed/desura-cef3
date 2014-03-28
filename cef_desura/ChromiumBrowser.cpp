@@ -28,6 +28,7 @@ $/LicenseInfo$
 #endif
 
 #include "ChromiumBrowser.h"
+#include "SharedObjectLoader.h"
 //#include "include/cef.h"
 #include "include/cef_app.h"
 #include "JavaScriptExtender.h"
@@ -45,6 +46,16 @@ $/LicenseInfo$
 #if defined __x86_64 || defined __amd64 || defined __x86_64__
 	#define NIX64 1
 #endif
+
+CefStringUTF8 ConvertToUtf8(const CefString& str)
+{
+	cef_string_utf8_t *tmp = new cef_string_utf8_t();
+	cef_string_to_utf8(str.c_str(), str.size(), tmp);
+
+	CefStringUTF8 t;
+	t.Attach(tmp, true);
+	return t;
+}
 
 int g_nApiVersion = 1;
 
@@ -156,6 +167,11 @@ public:
 
 	bool Init(bool threaded, const char* cachePath, const char* logPath, const char* userAgent)
 	{
+#ifdef OS_LINUX
+		if (!m_Loader.load("libcef.so"))
+			return false;
+#endif
+
 		if (m_bInit)
 			return true;
 
@@ -191,6 +207,9 @@ public:
 		return true;
 	}
 
+#ifdef OS_LINUX
+	SharedObjectLoader m_Loader;
+#endif
 	bool m_bInit;
 };
 

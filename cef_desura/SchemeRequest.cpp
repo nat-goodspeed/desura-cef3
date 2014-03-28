@@ -115,14 +115,20 @@ void SchemeRequest::getHeaderItem(size_t index, char *key, size_t keysize, char*
 
 	if (key)
 	{
-		CefStringUTF8 t(it->first.c_str());
+		cef_string_utf8_t tmp;
+		cef_string_to_utf8(it->first.c_str(), it->first.size(), &tmp);
+		CefStringUTF8 t(&tmp);
+
 		mystrncpy_s(key, keysize, t.c_str(), t.size());
 	}
 		
 
 	if (data)
 	{
-		CefStringUTF8 t(it->first.c_str());
+		cef_string_utf8_t tmp;
+		cef_string_to_utf8(it->first.c_str(), it->first.size(), &tmp);
+		CefStringUTF8 t(&tmp);
+
 		mystrncpy_s(data, datasize, t.c_str(), t.size());
 	}
 }

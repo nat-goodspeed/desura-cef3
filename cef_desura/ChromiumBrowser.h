@@ -35,6 +35,8 @@ $/LicenseInfo$
 #include "include/cef_task.h"
 #include <string>
 
+CefStringUTF8 ConvertToUtf8(const CefString& str);
+
 class ChromiumBrowserEvents;
 
 

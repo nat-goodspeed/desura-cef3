@@ -5,7 +5,7 @@ if [ ! -d "cef3" ]; then
 		mkdir build_cef3
 	fi
 	cd build_cef3
-	cmake ..\cef3_dl
+	cmake ../cef3_dl
 	make
 	cd ..
 fi

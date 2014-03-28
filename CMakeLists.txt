@@ -27,8 +27,11 @@ else()
   endif()
 endif()
 
-set(CMAKE_OUTPUT "${CMAKE_SOURCE_DIR}/build/${CMAKE_BUILD_TYPE}")
-
+#set(CMAKE_BINARY_DIR "")
+set(CMAKE_OUTPUT "${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_OUTPUT})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_OUTPUT})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_OUTPUT})
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
   set(64BIT TRUE)
@@ -182,6 +185,12 @@ elseif(UNIX)
 		add_definitions(-DNDEBUG)
 	endif()
 	
+	add_compiler_flags(-std=c++11)
+	add_linker_flags(-std=c++11)
+
+	add_compiler_flags(-fPIC)
+	add_linker_flags(-fPIC)
+
 	# some mingw things
 	if(MINGW)
 	  set(WIN_TARGET 0x0502) # Windows XP SP2
@@ -213,6 +222,18 @@ endfunction()
 ###############################################################################
 # Projects
 ###############################################################################
+
+if(UNIX)
+	FIND_PACKAGE(GTK2 COMPONENTS gtk)
+	FIND_PACKAGE(OpenGL)
+	FIND_PACKAGE(GLUT)
+	include_directories(
+		${GTK2_INCLUDE_DIRS}
+		${OPENGL_INCLUDE_DIRS}
+		${GLUT_INCLUDE_DIR}
+	)
+endif()
+
 
 set(CEF_DL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cef3)
 
@@ -276,7 +297,6 @@ set_property(TARGET cef_desura PROPERTY COMPILE_DEFINITIONS BUILDING_CEF_DESURA_
 
 target_link_libraries(cef_desura
   libcef_dll_wrapper
-  ${CEF_BIN_PATH}/libcef.lib
 )
 
 target_link_libraries(cef_desura_host
@@ -294,6 +314,10 @@ if(WIN32)
 		${CMAKE_CURRENT_SOURCE_DIR}/cef_desura_test/freeglut/freeglut.lib
 	)
 
+	target_link_libraries(cef_desura
+		${CEF_BIN_PATH}/libcef.lib
+	)
+
 	add_copy_target_file_step(cef_desura_test_ogl cef_desura_test/freeglut.dll)
 
 	SetStaticRuntime(cef_desura_host)
@@ -303,6 +327,34 @@ if(WIN32)
 	SetStaticRunTime(cef_desura_test_ogl)
 
 	add_dependencies(cef_desura_test_msw cef_desura)
+elseif(UNIX)
+	add_definitions(-DNIX)
+
+	add_executable(cef_desura_test_gtk cef_desura_test/main_gtk.cpp)
+
+	target_link_libraries(cef_desura_test_ogl
+		${OPENGL_LIBRARIES}
+		${GLUT_glut_LIBRARY}
+		${CMAKE_DL_LIBS}
+	)
+
+	target_link_libraries(libcef_dll_wrapper
+		${GTK2_LIBRARIES}
+	)
+
+	target_link_libraries(cef_desura_test_gtk
+		${GTK2_LIBRARIES}
+		${CMAKE_DL_LIBS}
+	)
+
+	target_link_libraries(cef_desura
+		${CEF_BIN_PATH}/libcef.so
+	)
+
+	target_link_libraries(cef_desura_host
+		${GTK2_LIBRARIES}
+		${CMAKE_DL_LIBS}
+	)
 endif()
 
 
@@ -323,4 +375,4 @@ foreach(file ${cef_res_files})
 	add_copy_target_file_step(copy_bin_files ${file})
 endforeach()
 
-add_copy_target_dir_step(copy_bin_files ${CEF_DL_DIR}/Resources/locales) 
+add_copy_target_dir_step(copy_bin_files ${CEF_DL_DIR}/Resources/locales)

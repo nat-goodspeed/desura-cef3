@@ -239,7 +239,10 @@ void JavaScriptObject::getKey(int index, char* buff, size_t buffsize)
 
 	if (index >= 0 && index < (int)keys.size())
 	{
-		CefStringUTF8 t(keys[index].c_str());
+		cef_string_utf8_t tmp;
+		cef_string_to_utf8(keys[index].c_str(), keys[index].size(), &tmp);
+		CefStringUTF8 t(&tmp);
+
 		mystrncpy_s(buff, buffsize, t.c_str(), t.size());
 	}
 }
@@ -290,7 +293,10 @@ ChromiumDLL::JSObjHandle JavaScriptObject::executeFunction(ChromiumDLL::JavaScri
 		CefRefPtr<CefV8Exception> exception = m_pObject->GetException();
 		if (exception)
 		{
-			CefStringUTF8 t(exception->GetMessage().c_str());
+			cef_string_utf8_t tmp;
+			cef_string_to_utf8(exception->GetMessage().c_str(), exception->GetMessage().size(), &tmp);
+			CefStringUTF8 t(&tmp);
+
 			return GetJSFactory()->CreateException(t.c_str());
 		}
 			

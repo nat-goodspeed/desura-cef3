@@ -25,6 +25,7 @@ $/LicenseInfo$
 
 #include "MenuInfo.h"
 
+extern CefStringUTF8 ConvertToUtf8(const CefString& str);
 
 ChromiumMenuInfo::ChromiumMenuInfo(CefRefPtr<CefContextMenuParams> &params, MenuHandle_t hwnd)
 	: m_MenuInfo(params)
@@ -97,7 +98,8 @@ void ChromiumMenuInfo::getMousePos(int* x, int* y)
 const char* ChromiumMenuInfo::getLinkUrl()
 {
 	if (m_LinkUrl.empty())
-		m_LinkUrl = m_MenuInfo->GetLinkUrl().c_str();
+		m_LinkUrl = ConvertToUtf8(m_MenuInfo->GetLinkUrl());
+		
 
 	return m_LinkUrl.c_str();
 }
@@ -105,7 +107,7 @@ const char* ChromiumMenuInfo::getLinkUrl()
 const char* ChromiumMenuInfo::getImageUrl()
 {
 	if (m_ImgUrl.empty())
-		m_ImgUrl = m_MenuInfo->GetSourceUrl().c_str();
+		m_ImgUrl = ConvertToUtf8(m_MenuInfo->GetSourceUrl());
 
 	return m_ImgUrl.c_str();
 }
@@ -113,7 +115,7 @@ const char* ChromiumMenuInfo::getImageUrl()
 const char* ChromiumMenuInfo::getPageUrl()
 {
 	if (m_PageUrl.empty())
-		m_PageUrl = m_MenuInfo->GetPageUrl().c_str();
+		m_PageUrl = ConvertToUtf8(m_MenuInfo->GetPageUrl());
 
 	return m_PageUrl.c_str();
 }
@@ -121,7 +123,7 @@ const char* ChromiumMenuInfo::getPageUrl()
 const char* ChromiumMenuInfo::getFrameUrl()
 {
 	if (m_FrameUrl.empty())
-		m_FrameUrl = m_MenuInfo->GetFrameUrl().c_str();
+		m_FrameUrl = ConvertToUtf8(m_MenuInfo->GetFrameUrl());
 
 	return m_FrameUrl.c_str();
 }
@@ -129,7 +131,7 @@ const char* ChromiumMenuInfo::getFrameUrl()
 const char* ChromiumMenuInfo::getSelectionText()
 {
 	if (m_SelText.empty())
-		m_SelText = m_MenuInfo->GetSelectionText().c_str();
+		m_SelText = ConvertToUtf8(m_MenuInfo->GetSelectionText());
 
 	return m_SelText.c_str();
 }

@@ -28,11 +28,12 @@ $/LicenseInfo$
 #ifdef _WIN32
     #include "freeglut/freeglut.h"
 #else
-    #include <OpenGL/gl.h>
-    #include <GLUT/glut.h>
+    #include <GL/gl.h>
+    #include <GL/glut.h>
 #endif
 
 #include <mutex>
+#include <string.h>
 
 #define CEF_IGNORE_FUNCTIONS 1
 #include "ChromiumBrowserI.h"
@@ -82,11 +83,19 @@ class cefGL :
 
 		void initCEF()
 		{
+#ifdef WIN32
 			const char* szCefDLL = "cef_desura.dll";
+#else
+			const char* szCefDLL = "libcef_desura.so";
+#endif
 
 			if (!g_CEFDll.load(szCefDLL))
 			{
+#ifdef WIN32
 				printf("Failed to load cef library: {0}\n", GetLastError());
+#else
+				printf("Failed to load cef library\n");
+#endif
 				exit(1);
 			}
 			std::cout << "Loaded CEF library successfully" << std::endl;
@@ -100,7 +109,12 @@ class cefGL :
 			}
 			std::cout << "Found CEF library exports" << std::endl;
 
+#ifdef WIN32
 			pController = CEF_Init(true, "CachePath", "LogPath", "UserAgent");
+#else
+			pController = CEF_Init(false, "CachePath", "LogPath", "UserAgent");
+#endif
+
 			if ( ! pController  )
 			{
 				std::cout << "Failed to initialize CEF" << std::endl;
@@ -110,7 +124,12 @@ class cefGL :
 
 			pController->SetApiVersion(2);
 
+#ifdef WIN32
 			pRenderer = pController->NewChromiumRenderer((int*)GetForegroundWindow(), "http://news.google.com", mAppTextureWidth, mAppTextureHeight);
+#else
+			pRenderer = pController->NewChromiumRenderer((int*)NULL, "http://news.google.com", mAppTextureWidth, mAppTextureHeight);
+#endif
+
 			if ( ! pRenderer  )
 			{
 				std::cout << "Failed to create and initialize CEF renderer" << std::endl;

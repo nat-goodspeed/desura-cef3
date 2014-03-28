@@ -125,7 +125,7 @@ bool LifeSpanHandler::OnBeforePopup(CefRefPtr<CefBrowser> parentBrowser,
                                     bool* no_javascript_access)
 {
 	//dont show popups unless its the inspector
-	CefStringUTF8 t(target_url.c_str());
+	CefStringUTF8 t(ConvertToUtf8(target_url));
 	return (!t.empty() || std::string(t.c_str()).find("resources/inspector/devtools.") == std::string::npos);
 }
 
@@ -170,7 +170,7 @@ void LoadHandler::OnLoadError(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame>
 			errorMsg = stream.str();
 		}
 
-		CefStringUTF8 t(failedUrl.c_str());
+		CefStringUTF8 t(ConvertToUtf8(failedUrl));
 
 		if (GetCallback()->onLoadError(errorMsg.c_str(), t.c_str(), buff, size))
 		{
@@ -240,8 +240,8 @@ bool DisplayHandler::OnConsoleMessage(CefRefPtr<CefBrowser> browser, const CefSt
 {
 	if (GetCallback())
 	{
-		CefStringUTF8 m(message.c_str());
-		CefStringUTF8 s(source.c_str());
+		CefStringUTF8 m(ConvertToUtf8(message));
+		CefStringUTF8 s(ConvertToUtf8(source));
 		GetCallback()->onLogConsoleMsg(m.c_str(), s.c_str(), line);
 	}
 		
@@ -358,7 +358,7 @@ bool JSDialogHandler::OnJSDialog(CefRefPtr<CefBrowser> browser,
 	bool success = false;
 	bool res = false;
 
-	CefStringUTF8 m(message_text.c_str());
+	CefStringUTF8 m(ConvertToUtf8(message_text));
 
 	if (dialog_type == JSDIALOGTYPE_ALERT)
 	{
@@ -371,7 +371,7 @@ bool JSDialogHandler::OnJSDialog(CefRefPtr<CefBrowser> browser,
 	}
 	else if (dialog_type == JSDIALOGTYPE_PROMPT)
 	{
-		CefStringUTF8 d(default_prompt_text.c_str());
+		CefStringUTF8 d(ConvertToUtf8(default_prompt_text));
 		res = GetCallback()->onJScriptPrompt(m.c_str(), d.c_str(), &success, resultBuff);
 	}
 
