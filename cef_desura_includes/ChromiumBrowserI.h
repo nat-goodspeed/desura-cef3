@@ -991,6 +991,7 @@ namespace ChromiumDLL
 		virtual void SetApiVersion(int nVersion)=0;
 
 		virtual void DoMsgLoop()=0;
+		virtual void RunMsgLoop()=0;
 		virtual void Stop()=0;
 
 		virtual bool RegisterJSExtender(JavaScriptExtenderI* extender)=0;

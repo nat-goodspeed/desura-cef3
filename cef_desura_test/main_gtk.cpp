@@ -83,7 +83,7 @@ int main(int argc, char** argv)
 	gtk_container_add(GTK_CONTAINER(window), vbox);
 	gtk_widget_show_all(GTK_WIDGET(window));
 
-	g_ChromiumController->DoMsgLoop();
+	g_ChromiumController->RunMsgLoop();
 	g_ChromiumController->Stop();
 	return 0;
 }

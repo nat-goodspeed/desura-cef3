@@ -33,7 +33,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_OUTPUT})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_OUTPUT})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_OUTPUT})
 
-if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+if(NOT 32BITBUILD AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   set(64BIT TRUE)
   message("-- detected 64bit")
 else()
@@ -206,6 +206,11 @@ elseif(UNIX)
 	  # link libgcc staticly
 	  add_compiler_flags(-static-libgcc)
 	endif()	
+
+	if(32BITBUILD)
+		add_compiler_flags(-m32)
+		add_linker_flags(-m32)
+	endif()
 endif()
 
 

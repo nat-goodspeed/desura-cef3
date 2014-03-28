@@ -107,6 +107,11 @@ public:
 		CefDoMessageLoopWork();
 	}
 
+	virtual void RunMsgLoop()
+	{
+		CefRunMessageLoop();
+	}
+
 	virtual void Stop()
 	{
 		CefShutdown();
@@ -187,12 +192,7 @@ public:
 
 		settings.multi_threaded_message_loop = threaded;
 		settings.remote_debugging_port = 2323;
-
-
-
-#ifdef _DEBUG
-		//settings.single_process = true;
-#endif
+		settings.single_process = true;
 
 		if (!CefInitialize(args, settings, app, NULL))
 			return false;
@@ -583,7 +583,7 @@ void ChromiumBrowser::executeJScript(const char* code, const char* scripturl, in
 
 void ChromiumBrowser::onFocus()
 {
-	if (m_pBrowser)
+	if (m_pBrowser && m_pBrowser->GetHost())
 		m_pBrowser->GetHost()->SetFocus(true);
 }
 
