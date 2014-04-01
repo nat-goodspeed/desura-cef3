@@ -29,8 +29,6 @@ endif()
 
 set(CMAKE_OUTPUT "${CMAKE_SOURCE_DIR}/build/${CMAKE_BUILD_TYPE}")
 
-#include(CheckOptions)
-#include(CheckCompiler)
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
   set(64BIT TRUE)
@@ -38,39 +36,6 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 else()
   set(64BIT FALSE)
   message("-- detected 32bit")
-endif()
-
-
-###############################################################################
-# SVN, HTTP stuff
-###############################################################################
-
-set(DOWNLOAD_URL "https://s3-us-west-2.amazonaws.com/lecs.desura.lindenlab.com/" CACHE STRING "Download mirror for third party source code and binaries")
-
-macro(SetupDownloadUrlCustom name url md5)
-  set(${name}_URL_DEFAULT "${url}")
-  set(${name}_URL ${${name}_URL_DEFAULT} CACHE STRING "URL to get ${name} archive")
-  if(${name}_URL STREQUAL ${name}_URL_DEFAULT)
-    set(${name}_MD5 ${md5} CACHE STRING "Md5 for ${name} archive")
-  else()
-    unset(${name}_MD5)
-  endif()
-endmacro()
-
-macro(SetupDownloadUrl name url md5)
-  SetupDownloadUrlCustom(${name} "${DOWNLOAD_URL}${url}" ${md5})
-endmacro()
-
-if(APPLE)
-	SetupDownloadUrl(CEF_RELEASE "cef_mac32_1750.zip" faaa4fbda59c4d1fdd9449accaf12bf9)
-elseif(WIN32)
-	SetupDownloadUrl(CEF_RELEASE "cef_win32_1750.zip" 6820162583842d2b7ac665fb533ac412)
-else(UNIX)
-	if (64BIT)
-		SetupDownloadUrl(CEF_RELEASE "cef_lin64_1750.zip" bf63c230cfb45b9839a3125147413e21)
-	else()
-		SetupDownloadUrl(CEF_RELEASE "cef_lin32_1750.zip" 439fb6e30761034854bc3d2e672d2f39)
-	endif()
 endif()
 
 
@@ -238,17 +203,7 @@ endif()
 # Projects
 ###############################################################################
 
-ExternalProject_Add(
-	cef_bin_dl
-	URL "${CEF_RELEASE_URL}"
-	URL_MD5 ${CEF_RELEASE_MD5}
-	UPDATE_COMMAND ""
-	BUILD_COMMAND ""
-	INSTALL_COMMAND ""
-)
-
-ExternalProject_Get_Property(cef_bin_dl source_dir)
-set(CEF_DL_DIR ${source_dir})
+set(CEF_DL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cef3)
 
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/cef_desura_includes
