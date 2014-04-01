@@ -1,0 +1,354 @@
+#
+#
+#
+#
+
+project(cef_desura)
+
+if(APPLE) 
+  # see #418
+  cmake_minimum_required(VERSION 2.8.10)
+elseif(WIN32)
+  #needed for x120_xp target
+  cmake_minimum_required(VERSION 2.8.12)
+else()
+  cmake_minimum_required(VERSION 2.8.5)
+endif()
+
+SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
+
+if(DEBUG)
+  set(CMAKE_BUILD_TYPE Debug)
+else()
+  if(OFFICIAL_BUILD)
+    set(CMAKE_BUILD_TYPE RelWithDebInfo)
+  else()
+    set(CMAKE_BUILD_TYPE Release)
+  endif()
+endif()
+
+set(CMAKE_OUTPUT "${CMAKE_SOURCE_DIR}/build/${CMAKE_BUILD_TYPE}")
+
+#include(CheckOptions)
+#include(CheckCompiler)
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  set(64BIT TRUE)
+  message("-- detected 64bit")
+else()
+  set(64BIT FALSE)
+  message("-- detected 32bit")
+endif()
+
+
+###############################################################################
+# SVN, HTTP stuff
+###############################################################################
+
+set(DOWNLOAD_URL "https://s3-us-west-2.amazonaws.com/lecs.desura.lindenlab.com/" CACHE STRING "Download mirror for third party source code and binaries")
+
+macro(SetupDownloadUrlCustom name url md5)
+  set(${name}_URL_DEFAULT "${url}")
+  set(${name}_URL ${${name}_URL_DEFAULT} CACHE STRING "URL to get ${name} archive")
+  if(${name}_URL STREQUAL ${name}_URL_DEFAULT)
+    set(${name}_MD5 ${md5} CACHE STRING "Md5 for ${name} archive")
+  else()
+    unset(${name}_MD5)
+  endif()
+endmacro()
+
+macro(SetupDownloadUrl name url md5)
+  SetupDownloadUrlCustom(${name} "${DOWNLOAD_URL}${url}" ${md5})
+endmacro()
+
+if(APPLE)
+	SetupDownloadUrl(CEF_RELEASE "cef_mac32_1750.zip" faaa4fbda59c4d1fdd9449accaf12bf9)
+elseif(WIN32)
+	SetupDownloadUrl(CEF_RELEASE "cef_win32_1750.zip" 6820162583842d2b7ac665fb533ac412)
+else(UNIX)
+	if (64BIT)
+		SetupDownloadUrl(CEF_RELEASE "cef_lin64_1750.zip" bf63c230cfb45b9839a3125147413e21)
+	else()
+		SetupDownloadUrl(CEF_RELEASE "cef_lin32_1750.zip" 439fb6e30761034854bc3d2e672d2f39)
+	endif()
+endif()
+
+
+###############################################################################
+# macros
+###############################################################################
+
+
+MACRO(PARSE_ARGUMENTS prefix arg_names option_names)
+  SET(DEFAULT_ARGS)
+  FOREACH(arg_name ${arg_names})    
+    SET(${prefix}_${arg_name})
+  ENDFOREACH(arg_name)
+  FOREACH(option ${option_names})
+    SET(${prefix}_${option} FALSE)
+  ENDFOREACH(option)
+
+  SET(current_arg_name DEFAULT_ARGS)
+  SET(current_arg_list)
+  FOREACH(arg ${ARGN})            
+    SET(larg_names ${arg_names})    
+    LIST(FIND larg_names "${arg}" is_arg_name)                   
+    IF (is_arg_name GREATER -1)
+      SET(${prefix}_${current_arg_name} ${current_arg_list})
+      SET(current_arg_name ${arg})
+      SET(current_arg_list)
+    ELSE (is_arg_name GREATER -1)
+      SET(loption_names ${option_names})    
+      LIST(FIND loption_names "${arg}" is_option)            
+      IF (is_option GREATER -1)
+         SET(${prefix}_${arg} TRUE)
+      ELSE (is_option GREATER -1)
+         SET(current_arg_list ${current_arg_list} ${arg})
+      ENDIF (is_option GREATER -1)
+    ENDIF (is_arg_name GREATER -1)
+  ENDFOREACH(arg)
+  SET(${prefix}_${current_arg_name} ${current_arg_list})
+ENDMACRO(PARSE_ARGUMENTS)
+
+macro(add_linker_flags)
+  foreach(flag ${ARGN})
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${flag}")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${flag}")
+  endforeach()
+endmacro()
+
+
+macro(add_compiler_flags)
+  set(flags_list "")
+  parse_arguments(ARG "" "C;CXX;DEBUG;RELEASE" ${ARGN})
+
+  if(NOT ARG_DEBUG AND NOT ARG_RELEASE)
+    foreach(flag ${ARG_DEFAULT_ARGS})
+      set(flags_list "${flags_list} ${flag}")
+    endforeach()
+    if(NOT ARG_C AND NOT ARG_CXX OR ARG_C)
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${flags_list}")
+    endif()
+    if(NOT ARG_C AND NOT ARG_CXX OR ARG_CXX)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flags_list}")
+    endif()
+  elseif(ARG_DEBUG)
+    foreach(flag ${ARG_DEFAULT_ARGS})
+      set(flags_list "${flags_list} ${flag}")
+    endforeach()
+    if(NOT ARG_C AND NOT ARG_CXX OR ARG_C)
+      set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${flags_list}")
+    endif()
+    if(NOT ARG_C AND NOT ARG_CXX OR ARG_CXX)
+      set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${flags_list}")
+    endif()
+  elseif(ARG_RELEASE)
+    foreach(flag ${ARG_DEFAULT_ARGS})
+      set(flags_list "${flags_list} ${flag}")
+    endforeach()
+    if(NOT ARG_C AND NOT ARG_CXX OR ARG_C)
+      set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${flags_list}")
+      set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${flags_list}")
+    endif()
+    if(NOT ARG_C AND NOT ARG_CXX OR ARG_CXX)
+      set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${flags_list}")
+      set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${flags_list}")
+    endif()
+  endif()
+endmacro()
+
+###############################################################################
+# Setup
+###############################################################################
+
+if(WIN32)
+	if( MSVC_VERSION LESS 1800 )       # VC10-/VS2010- 
+		message(FATAL_ERROR "The project requires C++11 features. " 
+		  "You need at least Visual Studio 12 (Microsoft Visual Studio 2013)") 
+	endif()
+
+	if(DEBUG)
+		add_definitions(-DDEBUG -D_DEBUG)
+	else()
+		add_definitions(-DNDEBUG -D_NDEBUG)
+	endif()
+
+	# ignore some warnings
+	add_linker_flags(/ignore:4006
+					 /ignore:4099
+					 /ignore:4221)
+	add_compiler_flags(/wd4996 /MP)
+
+	# jom needs /FS msvc12 for parallel builds
+	if(MSVC12)
+	  add_compiler_flags(/FS)
+	endif()
+
+	set(CMAKE_GENERATOR_TOOLSET "v120_xp")
+	set(WIN_TARGET 0x0502) # Windows XP SP2
+	set(WIN_SDK_MIN 0x0600) # Windows Vista
+	set(WIN_IE_VERSION 0x0603) # IE 6 SP2
+	add_definitions(-DWINVER=${WIN_TARGET}
+					-D_WIN32_WINNT=${WIN_SDK_MIN}
+					-D_WIN32_IE=${WIN_IE_VERSION}
+					-D_USING_V120_SDK71_)
+									
+	macro(SetSharedRuntime target)
+	  if(DEBUG)
+		set_target_properties(${target} PROPERTIES COMPILE_FLAGS "/MDd")
+	  else()
+		set_target_properties(${target} PROPERTIES COMPILE_FLAGS "/MD")
+	  endif()
+	endmacro()
+
+	macro(SetStaticRuntime target)
+	  if(DEBUG)
+		set_target_properties(${target} PROPERTIES COMPILE_FLAGS "/MTd")
+	  else()
+		set_target_properties(${target} PROPERTIES COMPILE_FLAGS "/MT")
+	  endif()
+	endmacro()
+elseif(APPLE)
+
+elseif(UNIX)
+	if(DEBUG)
+		add_definitions(-DDEBUG)
+	else()
+		add_definitions(-DNDEBUG)
+	endif()
+	
+	# some mingw things
+	if(MINGW)
+	  set(WIN_TARGET 0x0502) # Windows XP SP2
+	  set(WIN_SDK_MIN 0x0600) # Windows Vista
+	  set(WIN_IE_VERSION 0x0603) # IE 6 SP2
+	  add_definitions(-U__STRICT_ANSI__
+					  -DWINVER=${WIN_TARGET}
+					  -D_WIN32_WINNT=${WIN_SDK_MIN}
+					  -D_WIN32_IE=${WIN_IE_VERSION}
+					  -DDONT_INCLUDE_AFXWIN
+					  -DMINGW_HAS_SECURE_API
+					  )
+	  # link libgcc staticly
+	  add_compiler_flags(-static-libgcc)
+	endif()	
+endif()
+
+###############################################################################
+# Projects
+###############################################################################
+
+ExternalProject_Add(
+	cef_bin_dl
+	URL "${CEF_RELEASE_URL}"
+	URL_MD5 ${CEF_RELEASE_MD5}
+	UPDATE_COMMAND ""
+	BUILD_COMMAND ""
+	INSTALL_COMMAND ""
+)
+
+ExternalProject_Get_Property(cef_bin_dl source_dir)
+set(CEF_DL_DIR ${source_dir})
+
+include_directories(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cef_desura_includes
+  ${CMAKE_CURRENT_SOURCE_DIR}/cef_desura
+  ${CEF_DL_DIR}
+  ${CEF_DL_DIR}/libcef_dll
+)
+
+set(CEF_INCLUDE_PATH ${CEF_DL_DIR}/include)
+set(CEF_DLLSOURCE_PATH ${CEF_DL_DIR}/libcef_dll)
+
+if(DEBUG)
+	set(CEF_BIN_PATH ${CEF_DL_DIR}/Debug)
+else()
+	set(CEF_BIN_PATH ${CEF_DL_DIR}/Release)
+endif()
+
+add_definitions(
+  -DUSING_CEF_SHARED
+  -DNOMINMAX
+  -DCHROMIUM_API_SUPPORTS_V2
+)
+
+file(GLOB cef_desura_sources 
+	cef_desura/*.cpp 
+	cef_desura/*.h 
+)
+
+file(GLOB cef_desura_host_sources 
+	cef_desura_host/*.cpp 
+	cef_desura_host/*.h 
+)
+
+file(GLOB libcef_dll_wrapper_sources 
+	${CEF_INCLUDE_PATH}/*.h 
+	${CEF_INCLUDE_PATH}/internal/*.h
+	${CEF_INCLUDE_PATH}/capi/cef_base_capi.h
+	${CEF_INCLUDE_PATH}/wrapper/*.h
+	${CEF_DLLSOURCE_PATH}/cpptoc/*.h
+	${CEF_DLLSOURCE_PATH}/cpptoc/*.cc
+	${CEF_DLLSOURCE_PATH}/ctocpp/*.h
+	${CEF_DLLSOURCE_PATH}/ctocpp/*.cc
+	${CEF_DLLSOURCE_PATH}/transfer_util.cpp
+	${CEF_DLLSOURCE_PATH}/transfer_util.h
+	${CEF_DLLSOURCE_PATH}/wrapper/*.h
+	${CEF_DLLSOURCE_PATH}/wrapper/*.cc
+)
+
+add_library(cef_desura SHARED ${cef_desura_sources})
+add_library(libcef_dll_wrapper STATIC ${libcef_dll_wrapper_sources})
+
+if(WIN32)
+	add_executable(cef_desura_host WIN32 ${cef_desura_host_sources})
+else()
+	add_executable(cef_desura_host ${cef_desura_host_sources})
+endif()
+
+set_property(TARGET cef_desura PROPERTY COMPILE_DEFINITIONS BUILDING_CEF_DESURA_SHARED)
+
+target_link_libraries(cef_desura
+  libcef_dll_wrapper
+  ${CEF_BIN_PATH}/libcef.lib
+)
+
+target_link_libraries(cef_desura_host
+)
+
+if(WIN32)
+	SetStaticRuntime(cef_desura_host)
+	SetStaticRuntime(cef_desura)
+	SetStaticRuntime(libcef_dll_wrapper)
+endif()
+
+
+###############################################################################
+# output files
+###############################################################################
+
+function(add_copy_target_file_step target target_loc)
+  get_filename_component(target_name "${target_loc}" NAME)
+  add_custom_command(TARGET copy_bin_files POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${target_loc}" "${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}/${target_name}")
+endfunction()
+
+function(add_copy_target_dir_step target target_loc)
+	get_filename_component(target_name "${target_loc}" NAME)
+	add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory "${target_loc}" "${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}/${target_name}")
+endfunction()
+
+file(GLOB cef_bin_files ${CEF_BIN_PATH}/*.*)
+file(GLOB cef_res_files ${CEF_DL_DIR}/Resources/*.*)
+
+
+add_custom_target(copy_bin_files ALL)
+
+foreach(file ${cef_bin_files})
+	add_copy_target_file_step(copy_bin_files ${file})
+endforeach()
+
+foreach(file ${cef_res_files})
+	add_copy_target_file_step(copy_bin_files ${file})
+endforeach()
+
+add_copy_target_dir_step(copy_bin_files ${CEF_DL_DIR}/Resources/locales) 
