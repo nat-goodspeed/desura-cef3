@@ -1022,9 +1022,13 @@ namespace ChromiumDLL
 
 #ifndef CEF_IGNORE_FUNCTIONS 
 #ifdef WIN32
+
+#include <windows.h>
+
 extern "C"
 {	
 	DLLINTERFACE ChromiumDLL::ChromiumControllerI* CEF_InitEx(bool threaded, const char* cachePath, const char* logPath, const char* userAgent);
+	DLLINTERFACE int CEF_ExecuteProcessWin(HINSTANCE instance);
 }
 #endif // TODO LINUX
 #endif
