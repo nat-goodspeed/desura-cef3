@@ -200,10 +200,6 @@ elseif(UNIX)
 endif()
 
 
-###############################################################################
-# output files
-###############################################################################
-
 function(add_copy_target_file_step target target_loc)
   get_filename_component(target_name "${target_loc}" NAME)
   add_custom_command(TARGET copy_bin_files POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${target_loc}" "${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}/${target_name}")
@@ -213,22 +209,6 @@ function(add_copy_target_dir_step target target_loc)
 	get_filename_component(target_name "${target_loc}" NAME)
 	add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory "${target_loc}" "${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}/${target_name}")
 endfunction()
-
-file(GLOB cef_bin_files ${CEF_BIN_PATH}/*.*)
-file(GLOB cef_res_files ${CEF_DL_DIR}/Resources/*.*)
-
-
-add_custom_target(copy_bin_files ALL)
-
-foreach(file ${cef_bin_files})
-	add_copy_target_file_step(copy_bin_files ${file})
-endforeach()
-
-foreach(file ${cef_res_files})
-	add_copy_target_file_step(copy_bin_files ${file})
-endforeach()
-
-add_copy_target_dir_step(copy_bin_files ${CEF_DL_DIR}/Resources/locales) 
 
 ###############################################################################
 # Projects
@@ -304,15 +284,17 @@ target_link_libraries(cef_desura_host
 
 add_executable(cef_desura_test_ogl cef_desura_test/main_opengl.cpp)
 
-target_link_libraries(cef_desura_test_ogl
-	${CMAKE_CURRENT_SOURCE_DIR}/cef_desura_test/freeglut/freeglut.lib
-)
-
 add_dependencies(cef_desura cef_desura_host)
 add_dependencies(cef_desura_test_ogl cef_desura)
 
 if(WIN32)
 	add_executable(cef_desura_test_msw WIN32 cef_desura_test/main_msw.cpp)
+
+	target_link_libraries(cef_desura_test_ogl
+		${CMAKE_CURRENT_SOURCE_DIR}/cef_desura_test/freeglut/freeglut.lib
+	)
+
+	add_copy_target_file_step(cef_desura_test_ogl cef_desura_test/freeglut.dll)
 
 	SetStaticRuntime(cef_desura_host)
 	SetStaticRuntime(cef_desura)
@@ -323,4 +305,22 @@ if(WIN32)
 	add_dependencies(cef_desura_test_msw cef_desura)
 endif()
 
-add_copy_target_file_step(cef_desura_test_ogl cef_desura_test/freeglut.dll)
+
+###############################################################################
+# output files
+###############################################################################
+
+file(GLOB cef_bin_files ${CEF_BIN_PATH}/*.*)
+file(GLOB cef_res_files ${CEF_DL_DIR}/Resources/*.*)
+
+add_custom_target(copy_bin_files ALL)
+
+foreach(file ${cef_bin_files})
+	add_copy_target_file_step(copy_bin_files ${file})
+endforeach()
+
+foreach(file ${cef_res_files})
+	add_copy_target_file_step(copy_bin_files ${file})
+endforeach()
+
+add_copy_target_dir_step(copy_bin_files ${CEF_DL_DIR}/Resources/locales) 
