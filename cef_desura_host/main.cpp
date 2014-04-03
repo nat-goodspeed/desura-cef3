@@ -23,20 +23,72 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-int main(int argc, char** argv)
-{
-
-}
-
+#include "ChromiumBrowserI.h"
+#include "SharedObjectLoader.h"
 
 
 #ifdef WIN32
 
 #include <Windows.h>
 
+typedef BOOL(WINAPI* SetDllDirectoryFunc)(LPCTSTR lpPathName);
+
+bool SetDllDir(const char* dir)
+{
+	SharedObjectLoader sol;
+
+	if (sol.load("kernel32.dll"))
+	{
+		SetDllDirectoryFunc set_dll_directory = sol.getFunction<SetDllDirectoryFunc>("SetDllDirectoryA");
+
+		if (set_dll_directory && set_dll_directory(dir))
+			return true;
+	}
+
+	return false;
+}
+
+typedef int(*CEF_ExecuteProcessFn)(HINSTANCE);
+
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-	return 0;
+#ifdef DEBUG
+	AllocConsole();
+#endif
+
+	if (!SetDllDir(".\\bin"))
+		return -1;
+
+	SharedObjectLoader sol;
+
+	if (!sol.load("cef_desura.dll"))
+		return -2;
+
+	CEF_ExecuteProcessFn CEF_ExecuteProcess = sol.getFunction<CEF_ExecuteProcessFn>("CEF_ExecuteProcessWin");
+
+	if (!CEF_ExecuteProcess)
+		return -3;
+
+	return CEF_ExecuteProcess(hInstance);
+}
+
+#else
+
+typedef int (*CEF_ExecuteProcessFn)(int, char**);
+
+int main(int argc, char** argv)
+{
+	SharedObjectLoader sol;
+
+	if (!sol.load("cef_desura.dll"))
+		return -1;
+
+	CEF_ExecuteProcessFn CEF_ExecuteProcess = sol.getFunction<CEF_ExecuteProcessFn>("CEF_ExecuteProcess");
+
+	if (!CEF_ExecuteProcess)
+		return -2;
+
+	return CEF_ExecuteProcess(argc, argv);
 }
 
 #endif

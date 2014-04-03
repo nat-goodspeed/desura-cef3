@@ -163,20 +163,19 @@ public:
 		CefMainArgs args;
 		CefRefPtr<CefApp> app;
 
-		// It turns out to be unreasonably difficult to discover an internal
-		// cross-platform API to obtain the pathname of the current executable.
-		// Otherwise I would concatenate its directory name with this filename.
-		static const char cefclient[] = "cefclient";
-		cef_string_utf8_to_utf16(cefclient, strlen(cefclient), &settings.browser_subprocess_path);
 
+		static const char browser_subprocess_path[] = "cef_desura_host";
+		cef_string_utf8_to_utf16(browser_subprocess_path, strlen(browser_subprocess_path), &settings.browser_subprocess_path);
 		cef_string_utf8_to_utf16(cachePath, strlen(cachePath), &settings.cache_path);
 		cef_string_utf8_to_utf16(userAgent, strlen(userAgent), &settings.user_agent);
 
 		settings.multi_threaded_message_loop = threaded;
 		settings.remote_debugging_port = 2323;
 
+
+
 #ifdef _DEBUG
-		settings.single_process = true;
+		//settings.single_process = true;
 #endif
 
 		if (!CefInitialize(args, settings, app, NULL))
@@ -662,7 +661,7 @@ void ChromiumBrowser::showInspector()
 	#endif
 
 		const char* name = "WebkitInspector";
-		cef_string_copy(name, strlen(name), &winInfo.window_name);
+		cef_string_utf8_to_utf16(name, strlen(name), &winInfo.window_name);
 
 		CefString devUrl = m_pBrowser->GetHost()->GetDevToolsURL(true);
 		m_Inspector = CefBrowserHost::CreateBrowserSync(winInfo, CefRefPtr<CefClient>(), devUrl, getBrowserDefaults(), CefRefPtr<CefRequestContext>());
