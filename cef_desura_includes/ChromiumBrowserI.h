@@ -455,14 +455,6 @@ namespace ChromiumDLL
 		virtual void set(const char* url, const char* method, PostDataI* postData) = 0;
 	};
 
-	class SchemeCallbackI
-	{
-	public:
-		virtual void responseReady() = 0;
-		virtual void dataReady() = 0;
-		virtual void cancel() = 0;
-	};
-
 	class SchemeExtenderI
 	{
 	public:
@@ -495,12 +487,6 @@ namespace ChromiumDLL
 		//! Cancel request
 		//!
 		virtual void cancel() = 0;
-
-		//! Called so the class can save an instance to the SchemeCallback
-		//!
-		//! @param callback
-		//!
-		virtual void registerCallback(SchemeCallbackI* callback) = 0;
 	};
 
 

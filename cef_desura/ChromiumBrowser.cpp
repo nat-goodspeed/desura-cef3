@@ -28,8 +28,7 @@ $/LicenseInfo$
 #endif
 
 #include "ChromiumBrowser.h"
-//#include "include/cef.h"
-#include "include/cef_app.h"
+#include "Controller.h"
 #include "JavaScriptExtender.h"
 #include "SchemeExtender.h"
 
@@ -56,17 +55,9 @@ CefStringUTF8 ConvertToUtf8(const CefString& str)
 	return t;
 }
 
-int g_nApiVersion = 1;
 
-ChromiumDLL::LogMessageHandlerFn g_pLogHandler = NULL;
 
-bool logHandler(int level, const std::string& msg)
-{
-	if (g_pLogHandler)
-		return g_pLogHandler(level, msg.c_str());
 
-	return false;
-}
 
 #ifdef OS_LINUX
 static void gtkFocus(GtkWidget *widget, GdkEvent *event, ChromiumBrowser *data)
@@ -75,132 +66,6 @@ static void gtkFocus(GtkWidget *widget, GdkEvent *event, ChromiumBrowser *data)
 		data->onFocus();
 }
 #endif
-
-extern void CEF_DeleteCookie_Internal(const char* url, const char* name);
-extern ChromiumDLL::CookieI* CEF_CreateCookie_Internal();
-extern void CEF_SetCookie_Internal(const char* url, ChromiumDLL::CookieI* cookie);
-
-class ChromiumController : public ChromiumDLL::ChromiumControllerI
-{
-public:
-	ChromiumController()
-		: m_bInit(false)
-	{
-	}
-
-	virtual int GetMaxApiVersion()
-	{
-		return 2;
-	}
-
-	virtual void SetApiVersion(int version)
-	{
-		if (version <= 0)
-			g_nApiVersion = 1;
-		else
-			g_nApiVersion = version;
-	}
-
-	virtual void DoMsgLoop()
-	{
-		CefDoMessageLoopWork();
-	}
-
-	virtual void RunMsgLoop()
-	{
-		CefRunMessageLoop();
-	}
-
-	virtual void Stop()
-	{
-		CefShutdown();
-	}
-
-	virtual bool RegisterJSExtender(ChromiumDLL::JavaScriptExtenderI* extender)
-	{
-		return false;
-		//return JavaScriptExtender::Register(extender);
-	}
-
-	virtual bool RegisterSchemeExtender(ChromiumDLL::SchemeExtenderI* extender)
-	{
-		return false;
-		//return SchemeExtender::Register(extender);
-	}
-
-	virtual ChromiumDLL::ChromiumBrowserI* NewChromiumBrowser(int* formHandle, const char* name, const char* defaultUrl)
-	{
-		return new ChromiumBrowser((WIN_HANDLE)formHandle, defaultUrl);
-	}
-
-	virtual ChromiumDLL::ChromiumRendererI* NewChromiumRenderer(int* formHandle, const char* defaultUrl, int width, int height)
-	{
-		return new ChromiumRenderer((WIN_HANDLE)formHandle, defaultUrl, width, height);
-	}
-	
-	virtual void SetLogHandler(ChromiumDLL::LogMessageHandlerFn logFn)
-	{
-		g_pLogHandler = logFn;
-	}
-
-	virtual void PostCallback(ChromiumDLL::CallbackI* callback)
-	{
-		CefPostTask(TID_UI, CefRefPtr<CefTask>(new TaskWrapper(callback)));
-	}
-
-	virtual void PostCallbackEx(ChromiumDLL::ThreadID thread, ChromiumDLL::CallbackI* callback)
-	{
-		CefPostTask((CefThreadId)thread, CefRefPtr<CefTask>(new TaskWrapper(callback)));
-	}
-
-	virtual void DeleteCookie(const char* url, const char* name)
-	{
-		CEF_DeleteCookie_Internal(url, name);
-	}
-
-	virtual ChromiumDLL::CookieI* CreateCookie()
-	{
-		return CEF_CreateCookie_Internal();
-	}
-
-	virtual void SetCookie(const char* url, ChromiumDLL::CookieI* cookie)
-	{
-		CEF_SetCookie_Internal(url, cookie);
-	}
-
-
-	bool Init(bool threaded, const char* cachePath, const char* logPath, const char* userAgent)
-	{
-		if (m_bInit)
-			return true;
-
-		CefSettings settings;
-		CefMainArgs args;
-		CefRefPtr<CefApp> app;
-
-		static const char browser_subprocess_path[] = "cef_desura_host";
-		cef_string_utf8_to_utf16(browser_subprocess_path, strlen(browser_subprocess_path), &settings.browser_subprocess_path);
-		cef_string_utf8_to_utf16(cachePath, strlen(cachePath), &settings.cache_path);
-		cef_string_utf8_to_utf16(userAgent, strlen(userAgent), &settings.user_agent);
-
-		settings.multi_threaded_message_loop = threaded;
-		settings.remote_debugging_port = 2323;
-
-		if (!CefInitialize(args, settings, app, NULL))
-			return false;
-
-#if defined(_WIN32)
-		CefAddWebPluginPath("gcswf32.dll");
-#else
-		CefAddWebPluginPath("libdesura_flashwrapper.so");
-#endif
-
-		m_bInit = true;
-		return true;
-	}
-
-	bool m_bInit;
-};
 
 ChromiumController* g_Controller = new ChromiumController();
 

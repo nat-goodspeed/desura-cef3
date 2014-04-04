@@ -23,6 +23,8 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
+#include "ChromiumBrowser.h"
+
 #include "SchemeExtender.h"
 #include "SchemeRequest.h"
 #include "SchemePost.h"
@@ -35,7 +37,7 @@ $/LicenseInfo$
 class SchemeHandlerFactory;
 class CefResourceHandler;
 
-std::map<std::string, SchemeHandlerFactory* > g_mSchemeExtenders;
+std::map<std::string, SchemeHandlerFactory*> g_mSchemeExtenders;
 
 class SchemeHandlerFactory : public CefSchemeHandlerFactory
 {
@@ -74,25 +76,47 @@ public:
 		if (slashes.size() < 3)
 			return NULL;
 
+		CefStringUTF8 t(ConvertToUtf8(scheme_name));
+
+		std::string scheme = t.c_str();
 		std::string host = url.substr(slashes[1]+1, slashes[2]-slashes[1]-1);
-		std::map<std::string, ChromiumDLL::SchemeExtenderI*>::iterator it = m_mSchemeMap.find(host);
+
+		std::string strKey = scheme + ":" + host;
+		std::map<std::string, ChromiumDLL::SchemeExtenderI*>::iterator it = m_mSchemeMap.find(strKey);
+
+		if (it == m_mSchemeMap.end())
+		{
+			strKey = scheme + ":__ALL__";
+			it = m_mSchemeMap.find(strKey);
+		}
 
 		if (it == m_mSchemeMap.end())
 			return NULL;
 
-		cef_string_utf8_t tmp;
-		cef_string_to_utf8(scheme_name.c_str(), scheme_name.size(), &tmp);
-		CefStringUTF8 t(&tmp);
-
-		return new SchemeExtender(it->second->clone(t.c_str()));
+		return new SchemeExtender(it->second->clone(scheme.c_str()));
 	}
 
 	bool registerScheme(ChromiumDLL::SchemeExtenderI* se)
 	{
-		if (m_mSchemeMap[se->getHostName()])
-			m_mSchemeMap[se->getHostName()]->destroy();
+		std::string strHostname;
+		std::string strScheme;
 
-		m_mSchemeMap[se->getHostName()] = se;
+		if (se->getHostName())
+			strHostname = se->getHostName();
+
+		if (se->getSchemeName())
+			strScheme = se->getSchemeName();
+		
+		if (strHostname.empty())
+			strHostname = "__ALL__";
+
+		std::string strKey = strScheme + ":" + strHostname;
+
+
+		if (m_mSchemeMap[strKey])
+			m_mSchemeMap[strKey]->destroy();
+
+		m_mSchemeMap[strKey] = se;
 
 		return CefRegisterSchemeHandlerFactory(se->getSchemeName(), se->getHostName(), this);
 	}
@@ -102,8 +126,6 @@ public:
 private:
 	std::map<std::string, ChromiumDLL::SchemeExtenderI*> m_mSchemeMap;
 };
-
-
 
 bool SchemeExtender::Register(ChromiumDLL::SchemeExtenderI* se)
 {
@@ -116,20 +138,10 @@ bool SchemeExtender::Register(ChromiumDLL::SchemeExtenderI* se)
 	return g_mSchemeExtenders[se->getSchemeName()]->registerScheme(se);
 }
 
-
-
-
-
-
-
-
 SchemeExtender::SchemeExtender(ChromiumDLL::SchemeExtenderI* se):
 	m_redirect(false)
 {
 	m_pSchemeExtender = se;
-
-	if (m_pSchemeExtender)
-		se->registerCallback(this);
 }
 
 SchemeExtender::~SchemeExtender()
@@ -138,18 +150,18 @@ SchemeExtender::~SchemeExtender()
 		m_pSchemeExtender->destroy();
 }
 
-
 bool SchemeExtender::ProcessRequest(CefRefPtr<CefRequest> request, CefRefPtr<CefCallback> callback)
 {
 	if (!m_pSchemeExtender)
 		return false;
 
-	m_Callback = callback;
-
 	SchemeRequest r(request);
 
 	// capture redirect flag in bool member for GetResponseHeaders()
 	bool res = m_pSchemeExtender->processRequest(&r, &m_redirect);
+
+	if (res)
+		callback->Continue();
 
 	return res;
 }
@@ -184,6 +196,8 @@ void SchemeExtender::GetResponseHeaders(CefRefPtr<CefResponse> response, int64& 
 
 	if (mime)
 		response->SetMimeType(mime);
+
+
 }
 
 bool SchemeExtender::ReadResponse(void* data_out, int bytes_to_read, int& bytes_read, CefRefPtr<CefCallback> callback)
@@ -191,30 +205,10 @@ bool SchemeExtender::ReadResponse(void* data_out, int bytes_to_read, int& bytes_
 	if (!m_pSchemeExtender)
 		return false;
 
-	m_Callback = callback;
-	return m_pSchemeExtender->read((char*)data_out, bytes_to_read, &bytes_read);
-}
+	bool res = m_pSchemeExtender->read((char*)data_out, bytes_to_read, &bytes_read);
 
-void SchemeExtender::responseReady()
-{
-/*==========================================================================*|
-	// nat: no such method
-	if (m_Callback.get())
-		m_Callback->HeadersAvailable();
-|*==========================================================================*/
-}
+	if (res)
+		callback->Continue();
 
-void SchemeExtender::dataReady()
-{
-/*==========================================================================*|
-	// nat: no such method
-	if (m_Callback.get())
-		m_Callback->BytesAvailable();
-|*==========================================================================*/
-}
-
-void SchemeExtender::cancel()
-{
-	if (m_Callback.get())
-		m_Callback->Cancel();
+	return res;
 }

@@ -27,11 +27,12 @@ else()
   endif()
 endif()
 
-#set(CMAKE_BINARY_DIR "")
-set(CMAKE_OUTPUT "${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_OUTPUT})
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_OUTPUT})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_OUTPUT})
+if(NOT WIN32)
+	set(CMAKE_OUTPUT "${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}")
+	set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_OUTPUT})
+	set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_OUTPUT})
+	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_OUTPUT})
+endif()
 
 if(NOT 32BITBUILD AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   set(64BIT TRUE)
@@ -313,7 +314,7 @@ add_dependencies(cef_desura cef_desura_host)
 add_dependencies(cef_desura_test_ogl cef_desura)
 
 if(WIN32)
-	add_executable(cef_desura_test_msw WIN32 cef_desura_test/main_msw.cpp)
+	add_executable(cef_desura_test_msw WIN32 cef_desura_test/main_msw.cpp cef_desura_test/desura_scheme.cpp)
 
 	target_link_libraries(cef_desura_test_ogl
 		${CMAKE_CURRENT_SOURCE_DIR}/cef_desura_test/freeglut/freeglut.lib

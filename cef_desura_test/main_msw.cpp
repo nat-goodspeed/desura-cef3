@@ -204,6 +204,8 @@ HWND CreateMessageWindow(HINSTANCE hInstance)
 
 typedef ChromiumDLL::ChromiumControllerI* (*CEF_InitFn)(bool, const char*, const char*, const char*);
 
+extern ChromiumDLL::SchemeExtenderI* NewExternalLoaderScheme();
+
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
 	hInst = hInstance;
@@ -226,6 +228,8 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 	if (!g_ChromiumController)
 		return -3;
+
+	g_ChromiumController->RegisterSchemeExtender(NewExternalLoaderScheme());
 
 	MyRegisterClass(hInstance);
 

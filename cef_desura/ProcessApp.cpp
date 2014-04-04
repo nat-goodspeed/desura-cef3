@@ -25,15 +25,32 @@ $/LicenseInfo$
 
 #include "ChromiumBrowserI.h"
 #include "include/cef_app.h"
+#include "include/cef_scheme.h"
+#include "ChromiumBrowser.h"
+
+#include <string>
+#include <sstream>
+
+CefRefPtr<CefCommandLine> g_command_line;
 
 class ProcessApp 
 	: public CefApp
 	, protected CefRenderProcessHandler
 {
 public:
+	/////////////////////////////////////////////////////////////////////////////////////////////////
+	// CefApp
+	/////////////////////////////////////////////////////////////////////////////////////////////////
+
 	virtual void OnRegisterCustomSchemes(CefRefPtr<CefSchemeRegistrar> registrar) OVERRIDE
 	{
-		//TODO Register schemes here
+		CefStringUTF8 strSchemes = ConvertToUtf8(g_command_line->GetSwitchValue("desura-schemes"));
+		
+		std::stringstream ss(strSchemes.c_str());
+		std::string s;
+
+		while (std::getline(ss, s, '&')) 
+			registrar->AddCustomScheme(s, true, false, false);
 	}
 
 	virtual CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() OVERRIDE
@@ -41,17 +58,18 @@ public:
 		return (CefRenderProcessHandler*)this;
 	}
 
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////
+	// CefRenderProcessHandler
+	/////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 	virtual void OnRenderThreadCreated(CefRefPtr<CefListValue> extra_info) OVERRIDE
 	{
 		//TODO Register js extenders here
 	}
 
-	virtual void OnBrowserCreated(CefRefPtr<CefBrowser> browser) OVERRIDE
-	{
-
-	}
-
-	virtual void OnBrowserDestroyed(CefRefPtr<CefBrowser> browser) OVERRIDE
+	virtual void OnWebKitInitialized()
 	{
 
 	}
@@ -62,6 +80,11 @@ public:
 	}
 
 	virtual void OnContextReleased(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefV8Context> context) OVERRIDE
+	{
+
+	}
+
+	virtual void OnUncaughtException(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefV8Context> context, CefRefPtr<CefV8Exception> exception, CefRefPtr<CefV8StackTrace> stackTrace)
 	{
 
 	}
@@ -80,6 +103,10 @@ extern "C"
 #ifdef WIN32
 	DLLINTERFACE int CEF_ExecuteProcessWin(HINSTANCE instance)
 	{
+		g_command_line = CefCommandLine::CreateCommandLine();
+		g_command_line->InitFromString(::GetCommandLineW());
+
+
 		CefMainArgs main_args(instance);
 		CefRefPtr<ProcessApp> app(new ProcessApp);
 
@@ -89,6 +116,9 @@ extern "C"
 #else
 	DLLINTERFACE int CEF_ExecuteProcess(int argc, char** argv)
 	{
+		g_command_line = CefCommandLine::CreateCommandLine();
+		g_command_line->InitFromArgv(argc, argv);
+
 		CefMainArgs main_args;
 		CefRefPtr<ProcessApp> app(new ProcessApp);
 

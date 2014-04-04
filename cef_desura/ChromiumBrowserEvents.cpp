@@ -147,6 +147,23 @@ void LoadHandler::OnLoadEnd(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> f
 
 void LoadHandler::OnLoadError(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, ErrorCode errorCode, const CefString& errorText, const CefString& failedUrl)
 {
+	std::string errorMsg;
+
+	std::map<int, std::string>::iterator it = g_mErrorMsgMap.find(errorCode);
+
+	if (it != g_mErrorMsgMap.end())
+	{
+		std::stringstream stream;
+		stream << g_mErrorMsgMap[errorCode] << " [" << errorCode << "]";
+		errorMsg = stream.str();
+	}
+	else
+	{
+		std::stringstream stream;
+		stream << "Error Code " << errorCode;
+		errorMsg = stream.str();
+	}
+
 	//if no frame its the whole page
 	if (GetCallback())
 	{
@@ -154,46 +171,28 @@ void LoadHandler::OnLoadError(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame>
 		char buff[size];
 		buff[0] = 0;
 
-		std::string errorMsg;
-		std::map<int,std::string>::iterator it = g_mErrorMsgMap.find(errorCode);
-
-		if (it != g_mErrorMsgMap.end())
-		{
-			std::stringstream stream;
-			stream << g_mErrorMsgMap[errorCode] << " [" << errorCode << "]";
-			errorMsg = stream.str();
-		}
-		else
-		{
-			std::stringstream stream;
-			stream << "Error Code " << errorCode;
-			errorMsg = stream.str();
-		}
-
 		CefStringUTF8 t(ConvertToUtf8(failedUrl));
 
 		if (GetCallback()->onLoadError(errorMsg.c_str(), t.c_str(), buff, size))
 		{
-/*==========================================================================*|
-			// nat: no longer valid
-			errorText = buff;
-|*==========================================================================*/
+			std::string e(buff, size);
+			frame->LoadString(e, failedUrl);
 			return;
 		}
 	}
+
+	CefStringUTF8 strUrl = ConvertToUtf8(failedUrl);
 		
 	// All other messages.
 	std::stringstream ss;
 	ss <<       "<html><head><title>Load Failed</title></head>"
 				"<body><h1>Load Failed</h1>"
-				"<h2>Load of URL " << failedUrl.c_str() <<
-				" failed with error code " << static_cast<int>(errorCode) <<
+				"<h2>Load of URL " << strUrl.c_str() <<
+				" failed: " << errorMsg <<
 				".</h2></body>"
 				"</html>";
-/*==========================================================================*|
-	// nat: no longer valid
-	errorText = ss.str();
-|*==========================================================================*/
+
+	frame->LoadString(ss.str(), failedUrl);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////

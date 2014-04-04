@@ -33,8 +33,9 @@ $/LicenseInfo$
 //#include "include/cef.h"
 #include "include/cef_response.h"
 #include "include/cef_resource_handler.h"
+#include "include/cef_scheme.h"
 
-class SchemeExtender : public CefResourceHandler, public ChromiumDLL::SchemeCallbackI
+class SchemeExtender : public CefResourceHandler
 {
 public:
 	static bool Register(ChromiumDLL::SchemeExtenderI* se);
@@ -49,10 +50,6 @@ public:
                                     int64& response_length,
                                     CefString& redirectUrl);
 	virtual bool ReadResponse(void* data_out, int bytes_to_read, int& bytes_read, CefRefPtr<CefCallback> callback);
-
-	virtual void responseReady();
-	virtual void dataReady();
-	virtual void cancel();
 
 	IMPLEMENT_REFCOUNTING(SchemeExtender);
 
