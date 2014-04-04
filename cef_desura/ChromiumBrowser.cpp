@@ -96,6 +96,11 @@ public:
 		CefDoMessageLoopWork();
 	}
 
+	virtual void RunMsgLoop()
+	{
+		CefRunMessageLoop();
+	}
+
 	virtual void Stop()
 	{
 		CefShutdown();
@@ -163,7 +168,6 @@ public:
 		CefMainArgs args;
 		CefRefPtr<CefApp> app;
 
-
 		static const char browser_subprocess_path[] = "cef_desura_host";
 		cef_string_utf8_to_utf16(browser_subprocess_path, strlen(browser_subprocess_path), &settings.browser_subprocess_path);
 		cef_string_utf8_to_utf16(cachePath, strlen(cachePath), &settings.cache_path);
@@ -171,12 +175,6 @@ public:
 
 		settings.multi_threaded_message_loop = threaded;
 		settings.remote_debugging_port = 2323;
-
-
-
-#ifdef _DEBUG
-		//settings.single_process = true;
-#endif
 
 		if (!CefInitialize(args, settings, app, NULL))
 			return false;
@@ -343,17 +341,11 @@ ChromiumBrowser::~ChromiumBrowser()
 CefBrowserSettings ChromiumBrowser::getBrowserDefaults()
 {
 	CefBrowserSettings browserDefaults;
-
-//	browserDefaults.developer_tools_disabled = false;
-	browserDefaults.webgl = STATE_DISABLED;
 	browserDefaults.universal_access_from_file_urls = STATE_ENABLED;
 	browserDefaults.file_access_from_file_urls = STATE_ENABLED;
 	browserDefaults.java = STATE_DISABLED;
 	browserDefaults.javascript_close_windows = STATE_DISABLED;
 	browserDefaults.javascript_open_windows = STATE_DISABLED;
-//	browserDefaults.drag_drop = STATE_DISABLED;
-
-	browserDefaults.accelerated_compositing = STATE_DISABLED;
 
 	return browserDefaults;
 }

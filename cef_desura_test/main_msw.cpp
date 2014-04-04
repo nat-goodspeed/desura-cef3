@@ -141,7 +141,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 
 	case WM_DESTROY:
-		// Quitting CEF is handled in ClientHandler::OnBeforeClose().
+		g_ChromiumController->Stop();
 		return 0;
 	};
 
@@ -222,7 +222,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	if (!CEF_Init)
 		return -2;
 
-	g_ChromiumController = CEF_Init(true, "cache", "log", "UserAgent");
+	g_ChromiumController = CEF_Init(false, "cache", "log", "UserAgent");
 
 	if (!g_ChromiumController)
 		return -3;
@@ -233,20 +233,6 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	if (!InitInstance(hInstance, nCmdShow))
 		return FALSE;
 
-	HWND hMessageWnd = CreateMessageWindow(hInstance);
-
-	MSG msg;
-
-	// Run the application message loop.
-	while (GetMessage(&msg, NULL, 0, 0)) 
-	{
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
-	}
-
-	DestroyWindow(hMessageWnd);
-	hMessageWnd = NULL;
-
-	g_ChromiumController->Stop();
+	g_ChromiumController->RunMsgLoop();
 	return 0;
 }
