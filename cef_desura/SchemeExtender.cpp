@@ -80,7 +80,10 @@ public:
 		if (it == m_mSchemeMap.end())
 			return NULL;
 
-		CefStringUTF8 t(scheme_name.c_str());
+		cef_string_utf8_t tmp;
+		cef_string_to_utf8(scheme_name.c_str(), scheme_name.size(), &tmp);
+		CefStringUTF8 t(&tmp);
+
 		return new SchemeExtender(it->second->clone(t.c_str()));
 	}
 

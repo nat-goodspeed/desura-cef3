@@ -46,6 +46,16 @@ $/LicenseInfo$
 	#define NIX64 1
 #endif
 
+CefStringUTF8 ConvertToUtf8(const CefString& str)
+{
+	cef_string_utf8_t *tmp = new cef_string_utf8_t();
+	cef_string_to_utf8(str.c_str(), str.size(), tmp);
+
+	CefStringUTF8 t;
+	t.Attach(tmp, true);
+	return t;
+}
+
 int g_nApiVersion = 1;
 
 ChromiumDLL::LogMessageHandlerFn g_pLogHandler = NULL;
@@ -556,7 +566,7 @@ void ChromiumBrowser::executeJScript(const char* code, const char* scripturl, in
 
 void ChromiumBrowser::onFocus()
 {
-	if (m_pBrowser)
+	if (m_pBrowser && m_pBrowser->GetHost())
 		m_pBrowser->GetHost()->SetFocus(true);
 }
 

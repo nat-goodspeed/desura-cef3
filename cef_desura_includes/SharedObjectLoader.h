@@ -36,7 +36,9 @@ $/LicenseInfo$
 #endif
 
 #ifdef NIX
+#ifndef OS_LINUX
 #define OS_LINUX
+#endif
 #endif
 
 class SharedObjectLoader

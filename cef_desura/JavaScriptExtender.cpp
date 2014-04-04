@@ -57,7 +57,11 @@ bool JavaScriptExtender::Execute(const CefString& name, CefRefPtr<CefV8Value> ob
 
 	ChromiumDLL::JavaScriptFunctionArgs args;
 
-	CefStringUTF8 t(name.c_str());
+	cef_string_utf8_t tmp;
+	cef_string_to_utf8(name.c_str(), name.size(), &tmp);
+
+	CefStringUTF8 t(&tmp);
+	
 
 	args.function = t.c_str();
 	args.argc = argc;
@@ -148,7 +152,9 @@ ChromiumDLL::JSObjHandle JavaScriptWrapper::execute(ChromiumDLL::JavaScriptFunct
 
 	m_pObject->Execute(function, object, arguments, ret, exception);
 
-	CefStringUTF8 t(exception.c_str());
+	cef_string_utf8_t tmp;
+	cef_string_to_utf8(exception.c_str(), exception.size(), &tmp);
+	CefStringUTF8 t(&tmp);
 
 	if (t.size() > 0)
 		return factory->CreateException(t.c_str());
