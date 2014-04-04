@@ -28,7 +28,6 @@ $/LicenseInfo$
 #endif
 
 #include "ChromiumBrowser.h"
-#include "SharedObjectLoader.h"
 //#include "include/cef.h"
 #include "include/cef_app.h"
 #include "JavaScriptExtender.h"
@@ -172,18 +171,12 @@ public:
 
 	bool Init(bool threaded, const char* cachePath, const char* logPath, const char* userAgent)
 	{
-#ifdef OS_LINUX
-		if (!m_Loader.load("libcef.so"))
-			return false;
-#endif
-
 		if (m_bInit)
 			return true;
 
 		CefSettings settings;
 		CefMainArgs args;
 		CefRefPtr<CefApp> app;
-
 
 		static const char browser_subprocess_path[] = "cef_desura_host";
 		cef_string_utf8_to_utf16(browser_subprocess_path, strlen(browser_subprocess_path), &settings.browser_subprocess_path);
@@ -192,7 +185,6 @@ public:
 
 		settings.multi_threaded_message_loop = threaded;
 		settings.remote_debugging_port = 2323;
-		settings.single_process = true;
 
 		if (!CefInitialize(args, settings, app, NULL))
 			return false;
@@ -207,9 +199,6 @@ public:
 		return true;
 	}
 
-#ifdef OS_LINUX
-	SharedObjectLoader m_Loader;
-#endif
 	bool m_bInit;
 };
 
@@ -362,17 +351,11 @@ ChromiumBrowser::~ChromiumBrowser()
 CefBrowserSettings ChromiumBrowser::getBrowserDefaults()
 {
 	CefBrowserSettings browserDefaults;
-
-//	browserDefaults.developer_tools_disabled = false;
-	browserDefaults.webgl = STATE_DISABLED;
 	browserDefaults.universal_access_from_file_urls = STATE_ENABLED;
 	browserDefaults.file_access_from_file_urls = STATE_ENABLED;
 	browserDefaults.java = STATE_DISABLED;
 	browserDefaults.javascript_close_windows = STATE_DISABLED;
 	browserDefaults.javascript_open_windows = STATE_DISABLED;
-//	browserDefaults.drag_drop = STATE_DISABLED;
-
-	browserDefaults.accelerated_compositing = STATE_DISABLED;
 
 	return browserDefaults;
 }
