@@ -35,7 +35,7 @@ macro(SetupDownloadUrl name url md5)
 endmacro()
 
 if(APPLE)
-	SetupDownloadUrl(CEF_RELEASE "cef_mac32_1750.zip" faaa4fbda59c4d1fdd9449accaf12bf9)
+	SetupDownloadUrl(CEF_RELEASE "cef_mac32_1750.zip" d8f73d0c78071faa82f9095079a09b42)
 elseif(WIN32)
 	SetupDownloadUrl(CEF_RELEASE "cef_win32_1750.zip" 20806ca5a97892f19389431ce69b2952)
 else(UNIX)
