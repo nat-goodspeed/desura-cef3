@@ -225,7 +225,7 @@ CefBrowserSettings ChromiumBrowser::getBrowserDefaults()
 	return browserDefaults;
 }
 
-#ifdef OS_WIN
+#ifdef WIN32
 void ChromiumBrowser::init(const char *defaultUrl, bool offScreen, int width, int height)
 {
 	if (width <= 0)
