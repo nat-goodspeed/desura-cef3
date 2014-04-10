@@ -1,5 +1,4 @@
 
-
 project(cef3)
 
 cmake_minimum_required(VERSION 2.8.5)
@@ -48,21 +47,44 @@ else(UNIX)
 	endif()
 endif()
 
-ExternalProject_Add(
-	cef_bin_dl
-	URL "${CEF_RELEASE_URL}"
-	URL_MD5 ${CEF_RELEASE_MD5}
-    UPDATE_COMMAND ""
-    CONFIGURE_COMMAND ""
-    BUILD_IN_SOURCE 1
-    BUILD_COMMAND ""
-    INSTALL_COMMAND ""
-  )
-  
-ExternalProject_Add_Step(
-	cef_bin_dl
-	custom_build
-	DEPENDEES configure
-	DEPENDERS build
-	COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR> "${CMAKE_BINARY_DIR}/../cef3"
-)
+if (UNIX AND 32BITBUILD)
+	get_filename_component(CEF_FILE "${CEF_RELEASE_URL}" NAME)
+	get_filename_component(CEF_FILE_WE "${CEF_RELEASE_URL}" NAME_WE)
+
+	ExternalProject_Add(
+		cef_bin_dl
+	    DOWNLOAD_COMMAND wget ${CEF_RELEASE_URL} -o ${CEF_FILE} -nv && unzip -q -o ${CEF_FILE} -d <SOURCE_DIR>
+	    UPDATE_COMMAND ""
+	    CONFIGURE_COMMAND ""
+	    BUILD_IN_SOURCE 1
+	    BUILD_COMMAND ""
+	    INSTALL_COMMAND ""
+	  )
+	  
+	ExternalProject_Add_Step(
+		cef_bin_dl
+		custom_build
+		DEPENDEES configure
+		DEPENDERS build
+		COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR>/${CEF_FILE_WE} "${CMAKE_BINARY_DIR}/../cef3"
+	)
+else()
+	ExternalProject_Add(
+		cef_bin_dl
+		URL "${CEF_RELEASE_URL}"
+		URL_MD5 ${CEF_RELEASE_MD5}
+	    UPDATE_COMMAND ""
+	    CONFIGURE_COMMAND ""
+	    BUILD_IN_SOURCE 1
+	    BUILD_COMMAND ""
+	    INSTALL_COMMAND ""
+	  )
+	  
+	ExternalProject_Add_Step(
+		cef_bin_dl
+		custom_build
+		DEPENDEES configure
+		DEPENDERS build
+		COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR> "${CMAKE_BINARY_DIR}/../cef3"
+	)
+endif()
