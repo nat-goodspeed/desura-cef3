@@ -53,7 +53,7 @@ if (UNIX AND 32BITBUILD)
 
 	ExternalProject_Add(
 		cef_bin_dl
-	    DOWNLOAD_COMMAND wget ${CEF_RELEASE_URL} -o ${CEF_FILE} -nv && unzip -q -o ${CEF_FILE} -d <SOURCE_DIR>
+	    DOWNLOAD_COMMAND curl ${CEF_RELEASE_URL} -o ${CEF_FILE} -C - && unzip -q -o ${CEF_FILE} -d <SOURCE_DIR>
 	    UPDATE_COMMAND ""
 	    CONFIGURE_COMMAND ""
 	    BUILD_IN_SOURCE 1
