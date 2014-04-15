@@ -177,7 +177,9 @@ if(WIN32)
 		set_target_properties(${target} PROPERTIES COMPILE_FLAGS "/MT")
 	  endif()
 	endmacro()
+
 elseif(APPLE)
+	add_compiler_flags(-std=c++11)
 
 elseif(UNIX)
 	if(DEBUG)
@@ -333,6 +335,22 @@ if(WIN32)
 	SetStaticRunTime(cef_desura_test_ogl)
 
 	add_dependencies(cef_desura_test_msw cef_desura)
+
+elseif(APPLE)
+	add_definitions(-DNIX)
+
+	target_link_libraries(cef_desura_test_ogl
+		${OPENGL_LIBRARIES}
+		${GLUT_glut_LIBRARY}
+		${CMAKE_DL_LIBS}
+	)
+
+	find_library(LIBCEF NAMES "Chromium Embedded Framework" PATHS "${CEF_BIN_PATH}")
+
+	target_link_libraries(cef_desura
+		${LIBCEF}
+	)
+
 elseif(UNIX)
 	add_definitions(-DNIX)
 

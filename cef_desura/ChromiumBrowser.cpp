@@ -473,6 +473,10 @@ void ChromiumBrowser::onResize()
 	}
 }
 
+#elif defined(__APPLE__)
+
+// la la la la la...
+
 #else
 void ChromiumBrowser::onResize(int x, int y, int width, int height)
 {
