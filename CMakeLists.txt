@@ -179,7 +179,8 @@ if(WIN32)
 	endmacro()
 
 elseif(APPLE)
-	add_compiler_flags(-std=c++11)
+	# we download the mac32 buildbot package
+	add_compiler_flags(-std=c++11 -m32)
 
 elseif(UNIX)
 	if(DEBUG)
