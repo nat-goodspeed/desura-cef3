@@ -297,6 +297,8 @@ add_library(libcef_dll_wrapper STATIC ${libcef_dll_wrapper_sources})
 
 if(WIN32)
 	add_executable(cef_desura_host WIN32 ${cef_desura_host_sources})
+elseif(APPLE)
+	add_executable(cef_desura_host MACOSX_BUNDLE ${cef_desura_host_sources})
 else()
 	add_executable(cef_desura_host ${cef_desura_host_sources})
 endif()
@@ -350,7 +352,14 @@ elseif(APPLE)
 	target_link_libraries(cef_desura
 		${LIBCEF}
 	)
-
+	add_executable(cef_desura_test_mac MACOSX_BUNDLE cef_desura_test/main_mac.mm)
+	
+	set_target_properties(cef_desura_test_mac PROPERTIES MACOSX_BUNDLE_INFO_PLIST cef_desura_test/mac/Info.plist)
+	set_target_properties(cef_desura_host PROPERTIES MACOSX_BUNDLE_INFO_PLIST cef_desura_test/mac/helper-Info.plist)
+	
+	target_link_libraries(cef_desura_test_mac
+		${CMAKE_DL_LIBS}
+	)	
 elseif(UNIX)
 	add_definitions(-DNIX)
 
