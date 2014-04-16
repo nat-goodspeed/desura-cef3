@@ -144,7 +144,7 @@ public:
 
 	virtual void onMouseClick(int x, int y, ChromiumDLL::MouseButtonType type, bool mouseUp, int clickCount);
 	virtual void onMouseMove(int x, int y, bool mouseLeave);
-	virtual void onKeyPress(ChromiumDLL::KeyType type, int key, int modifiers, bool sysChar, bool imeChar);
+	virtual void onKeyPress(ChromiumDLL::ChromiumKeyPressI* pKeyPress);
 
 	virtual void onFocus(bool setFocus);
 	virtual void onCaptureLost();

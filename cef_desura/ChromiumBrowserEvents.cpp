@@ -130,11 +130,16 @@ bool LifeSpanHandler::OnBeforePopup(CefRefPtr<CefBrowser> parentBrowser,
 	if (!t.empty() && std::string(t.c_str()).find("resources/inspector/devtools.") != std::string::npos)
 		return false;
 
-	if (!GetCallbackV2())
-		return true;
-
-	if (GetCallbackV2()->onNewWindowUrl(t.c_str()))
-		GetBrowser()->GetMainFrame()->LoadURL(target_url);
+	if (GetCallbackV2())
+	{
+		if (GetCallbackV2()->onNewWindowUrl(t.c_str()))
+			GetBrowser()->GetMainFrame()->LoadURL(target_url);
+	}
+	else
+	{
+		if (GetCallback()->onNavigateUrl(t.c_str(), true))
+			GetBrowser()->GetMainFrame()->LoadURL(target_url);
+	}
 	
 	return true;
 }

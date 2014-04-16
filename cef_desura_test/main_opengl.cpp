@@ -291,10 +291,10 @@ class cefGL :
 
 			std::cout << "Key press was " << keyIn << " is down: " << isDown << std::endl;
 
-			if (isDown)
-				pRenderer->onKeyPress(ChromiumDLL::KT_KEYDOWN, keyIn, 0, 0, 0);
-			else
-				pRenderer->onKeyPress(ChromiumDLL::KT_KEYUP, keyIn, 0, 0, 0);
+			//if (isDown)
+			//	pRenderer->onKeyPress(ChromiumDLL::KT_KEYDOWN, keyIn, 0, 0, 0);
+			//else
+			//	pRenderer->onKeyPress(ChromiumDLL::KT_KEYUP, keyIn, 0, 0, 0);
         };
 
 		bool onNavigateUrl(const char* url, bool isMain) override
