@@ -765,6 +765,9 @@ namespace ChromiumDLL
 
 		//! Return false to show default tool tip
 		virtual bool onToolTip(const char* szToolTop) = 0;
+
+		//! Called when a url wants to open in new window, return true to open in current browser, false to ignore
+		virtual bool onNewWindowUrl(const char* url) = 0;
 	};
 
 	enum KeyType

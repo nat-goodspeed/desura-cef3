@@ -126,7 +126,17 @@ bool LifeSpanHandler::OnBeforePopup(CefRefPtr<CefBrowser> parentBrowser,
 {
 	//dont show popups unless its the inspector
 	CefStringUTF8 t(ConvertToUtf8(target_url));
-	return (!t.empty() || std::string(t.c_str()).find("resources/inspector/devtools.") == std::string::npos);
+
+	if (!t.empty() && std::string(t.c_str()).find("resources/inspector/devtools.") != std::string::npos)
+		return false;
+
+	if (!GetCallbackV2())
+		return true;
+
+	if (GetCallbackV2()->onNewWindowUrl(t.c_str()))
+		GetBrowser()->GetMainFrame()->LoadURL(target_url);
+	
+	return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -205,10 +215,6 @@ bool RequestHandler::OnBeforeBrowse(CefRefPtr<CefBrowser> browser, CefRefPtr<Cef
 		return false;
 
 	std::string url = request->GetURL();
-
-	if (url.find("resources/inspector/devtools.") != std::string::npos)
-		return false;
-
 	return !GetCallback()->onNavigateUrl(url.c_str(), frame->IsMain());
 }
 

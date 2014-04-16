@@ -302,6 +302,11 @@ class cefGL :
 			return true;
 		}
 
+		bool onNewWindowUrl(const char* url) override
+		{
+			return true;
+		}
+
 		void onPageLoadStart() override
 		{
 			std::cout << "Page loading started" << std::endl;
