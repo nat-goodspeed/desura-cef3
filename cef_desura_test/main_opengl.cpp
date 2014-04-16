@@ -89,6 +89,8 @@ class cefGL :
 		{
 #ifdef WIN32
 			const char* szCefDLL = "cef_desura.dll";
+#elif defined(__APPLE__)
+			const char* szCefDLL = "Chromium Embedded Framework";
 #else
 			const char* szCefDLL = "libcef_desura.so";
 #endif
