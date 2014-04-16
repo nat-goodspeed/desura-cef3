@@ -232,12 +232,16 @@ endfunction()
 # Projects
 ###############################################################################
 
-if(UNIX)
-	FIND_PACKAGE(GTK2 COMPONENTS gtk)
+if(UNIX OR APPLE)
+	if(UNIX)
+		FIND_PACKAGE(GTK2 COMPONENTS gtk)
+		include_directories(
+			${GTK2_INCLUDE_DIRS}
+		)
+	endif()
 	FIND_PACKAGE(OpenGL)
 	FIND_PACKAGE(GLUT)
 	include_directories(
-		${GTK2_INCLUDE_DIRS}
 		${OPENGL_INCLUDE_DIRS}
 		${GLUT_INCLUDE_DIR}
 	)
