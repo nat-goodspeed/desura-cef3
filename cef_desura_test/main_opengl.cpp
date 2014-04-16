@@ -29,7 +29,11 @@ $/LicenseInfo$
     #include "freeglut/freeglut.h"
 #else
     #include <GL/gl.h>
-    #include <GL/glut.h>
+    #if defined(__APPLE__)
+        #include "glut.h"
+    #else
+        #include <GL/glut.h>
+    #endif
 #endif
 
 #include <mutex>
