@@ -225,7 +225,7 @@ CefBrowserSettings ChromiumBrowser::getBrowserDefaults()
 	return browserDefaults;
 }
 
-#ifdef OS_WIN
+#if defined(WIN32) || defined(__APPLE__)
 void ChromiumBrowser::init(const char *defaultUrl, bool offScreen, int width, int height)
 {
 	if (width <= 0)
@@ -235,14 +235,20 @@ void ChromiumBrowser::init(const char *defaultUrl, bool offScreen, int width, in
 		height = 500;
 
 	CefWindowInfo winInfo;
+#if defined(WIN32)
 	winInfo.parent_window = m_hFormHandle;
+#elif defined(__APPLE__)
+	winInfo.parent_view = m_hFormHandle;
+#endif
 	winInfo.height = width;
 	winInfo.width = height;
 
 	if (offScreen)
 		winInfo.window_rendering_disabled = true;
+#if defined(WIN32)
 	else
 		winInfo.style = WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_TABSTOP;
+#endif
 
 	const char* name = "DesuraCEFBrowser";
 	cef_string_utf8_to_utf16(name, strlen(name), &winInfo.window_name);
@@ -466,6 +472,10 @@ void ChromiumBrowser::onResize()
 		EndDeferWindowPos(hdwp);
 	}
 }
+
+#elif defined(__APPLE__)
+
+// la la la la la...
 
 #else
 void ChromiumBrowser::onResize(int x, int y, int width, int height)

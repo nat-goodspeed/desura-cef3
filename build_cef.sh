@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 if [ ! -d "cef3" ]; then
 	if [ ! -d "build_cef3" ]; then
 		mkdir build_cef3
@@ -14,6 +16,6 @@ if [ ! -d "build_nix" ]; then
 	mkdir build_nix
 fi
 cd build_nix
-cmake .. || exit 1
+cmake ..
 make $@
 cd ..
