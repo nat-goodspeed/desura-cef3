@@ -131,11 +131,6 @@ endmacro()
 ###############################################################################
 
 if(WIN32)
-	if( MSVC_VERSION LESS 1800 )       # VC10-/VS2010- 
-		message(FATAL_ERROR "The project requires C++11 features. " 
-		  "You need at least Visual Studio 12 (Microsoft Visual Studio 2013)") 
-	endif()
-
 	if(DEBUG)
 		add_definitions(-DDEBUG -D_DEBUG)
 	else()
@@ -189,9 +184,6 @@ elseif(UNIX)
 		add_definitions(-DNDEBUG)
 	endif()
 	
-	add_compiler_flags(-std=c++11)
-	add_linker_flags(-std=c++11)
-
 	add_compiler_flags(-fPIC)
 	add_linker_flags(-fPIC)
 
