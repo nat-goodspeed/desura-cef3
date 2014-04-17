@@ -78,6 +78,18 @@ extern "C"
 
 		return NULL;
 	}
+
+#ifdef WIN32
+	DLLINTERFACE int CEF_ExecuteProcessWin(HINSTANCE instance)
+	{
+		return g_Controller->ExecuteProcess(instance);
+	}
+#else
+	DLLINTERFACE int CEF_ExecuteProcess(int argc, char** argv)
+	{
+		return g_Controller->ExecuteProcess(argc, argv);
+	}
+#endif
 }
 
 enum ACTION

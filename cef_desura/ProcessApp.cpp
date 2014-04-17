@@ -27,6 +27,7 @@ $/LicenseInfo$
 #include "include/cef_app.h"
 #include "include/cef_scheme.h"
 #include "ChromiumBrowser.h"
+#include "Controller.h"
 
 #include <string>
 #include <sstream>
@@ -101,32 +102,36 @@ public:
 };
 
 
-extern "C"
-{
+
+
 #ifdef WIN32
-	DLLINTERFACE int CEF_ExecuteProcessWin(HINSTANCE instance)
-	{
-		g_command_line = CefCommandLine::CreateCommandLine();
-		g_command_line->InitFromString(::GetCommandLineW());
+int ChromiumController::ExecuteProcess(HINSTANCE instance)
+{
+	g_command_line = CefCommandLine::CreateCommandLine();
+	g_command_line->InitFromString(::GetCommandLineW());
 
+	CefMainArgs main_args(instance);
+	CefRefPtr<ProcessApp> app(new ProcessApp);
 
-		CefMainArgs main_args(instance);
-		CefRefPtr<ProcessApp> app(new ProcessApp);
-
-		// Execute the secondary process, if any.
-		return CefExecuteProcess(main_args, app.get(), NULL);
-	}
+#ifdef WIN32_SANDBOX_ENABLED
+	void* sandbox_info = m_pSandbox.sandbox_info();
 #else
-	DLLINTERFACE int CEF_ExecuteProcess(int argc, char** argv)
-	{
-		g_command_line = CefCommandLine::CreateCommandLine();
-		g_command_line->InitFromArgv(argc, argv);
-
-		CefMainArgs main_args;
-		CefRefPtr<ProcessApp> app(new ProcessApp);
-
-		// Execute the secondary process, if any.
-		return CefExecuteProcess(main_args, app.get(), NULL);
-	}
+	void* sandbox_info = NULL;
 #endif
+
+	// Execute the secondary process, if any.
+	return CefExecuteProcess(main_args, app.get(), sandbox_info);
 }
+#else
+int ChromiumController::ExecuteProcess(int argc, char** argv)
+{
+	g_command_line = CefCommandLine::CreateCommandLine();
+	g_command_line->InitFromArgv(argc, argv);
+
+	CefMainArgs main_args;
+	CefRefPtr<ProcessApp> app(new ProcessApp);
+
+	// Execute the secondary process, if any.
+	return CefExecuteProcess(main_args, app.get(), NULL);
+}
+#endif
