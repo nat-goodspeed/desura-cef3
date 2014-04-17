@@ -4,7 +4,7 @@ compiler:
   - clang
 before_install:
   - sudo apt-get update
-  - sudo apt-get install -qq cmake libfreeglut3-dev
+  - sudo apt-get install -qq cmake freeglut3-dev
 script:
   - mkdir build_nix
   - mkdir build_cef3
