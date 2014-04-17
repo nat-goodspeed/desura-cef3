@@ -359,8 +359,8 @@ elseif(APPLE)
 	)
 	add_executable(cef_desura_test_mac MACOSX_BUNDLE cef_desura_test/main_mac.mm)
 	
-	set_target_properties(cef_desura_test_mac PROPERTIES MACOSX_BUNDLE_INFO_PLIST cef_desura_test/mac/Info.plist)
-	set_target_properties(cef_desura_host PROPERTIES MACOSX_BUNDLE_INFO_PLIST cef_desura_test/mac/helper-Info.plist)
+	set_target_properties(cef_desura_test_mac PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/cef_desura_test/mac/Info.plist")
+	set_target_properties(cef_desura_host PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/cef_desura_test/mac/helper-Info.plist")
 	
 	target_link_libraries(cef_desura_test_mac
 		${CMAKE_DL_LIBS}
