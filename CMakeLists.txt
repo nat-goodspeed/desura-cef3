@@ -317,7 +317,7 @@ if(WIN32)
 
 	#build bot builds with visual studio 2010 and so should we
 	if(MSVC_VERSION EQUAL 1600)
-		set_property(TARGET cef_desura PROPERTY COMPILE_DEFINITIONS WIN32_SANDBOX_ENABLED)
+		add_definitions(-DWIN32_SANDBOX_ENABLED)
 		target_link_libraries(cef_desura ${CEF_BIN_PATH}/cef_sandbox.lib)
 	endif()
 
