@@ -38,6 +38,10 @@ $/LicenseInfo$
 #include "ChromiumBrowserI.h"
 #include "SharedObjectLoader.h"
 
+#ifndef WIN32
+#define override
+#endif
+
 #if defined(NIX)
 #include <pthread.h>
 
