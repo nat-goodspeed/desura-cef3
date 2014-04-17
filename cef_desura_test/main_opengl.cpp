@@ -33,6 +33,7 @@ $/LicenseInfo$
 #endif
 
 #include <string.h>
+#include <stdio.h>
 
 #define CEF_IGNORE_FUNCTIONS 1
 #include "ChromiumBrowserI.h"
