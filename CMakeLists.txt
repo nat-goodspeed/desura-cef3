@@ -406,7 +406,11 @@ file(GLOB cef_res_files ${CEF_DL_DIR}/Resources/*.*)
 add_custom_target(copy_bin_files ALL)
 
 foreach(file ${cef_bin_files})
-	add_copy_target_file_step(copy_bin_files ${file})
+	if(IS_DIRECTORY "${file}")
+	  add_copy_target_dir_step(copy_bin_files "${file}")
+	else()
+	  add_copy_target_file_step(copy_bin_files "${file}")
+	endif()
 endforeach()
 
 foreach(file ${cef_res_files})
