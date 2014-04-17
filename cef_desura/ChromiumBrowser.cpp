@@ -501,16 +501,38 @@ void ChromiumBrowser::setBrowser(CefBrowser* browser)
 #endif
 }
 
-template <typename T>
-CefRefPtr<CefTask> NewCallbackT(T t)
+class BrowserCallback : public CefTask
 {
-	return CefRefPtr<CefTask>(new TaskWrapper(new ChromiumDLL::CallbackT<T>(t)));
-}
+public:
+	typedef void(ChromiumBrowser::*CallbackFn)();
+
+	BrowserCallback(ChromiumBrowser* pBrowser, CallbackFn callback)
+		: m_pBrowser(pBrowser)
+		, m_fnCallback(callback)
+	{
+	}
+
+	void Execute() OVERRIDE
+	{
+		(*m_pBrowser.*m_fnCallback)();
+	}
+
+	IMPLEMENT_REFCOUNTING(BrowserCallback);
+
+private:
+	CallbackFn m_fnCallback;
+	ChromiumBrowser *m_pBrowser;
+};
+
+
 
 void ChromiumBrowser::showInspector()
 {
-	CefPostTask(TID_UI, NewCallbackT([&](){
-
+	if (!CefCurrentlyOn(TID_UI)) {
+		CefPostTask(TID_UI, new BrowserCallback(this, &ChromiumBrowser::showInspector));
+	}
+	else
+	{
 #ifdef CEF_NEW_DEVTOOL_API
 		if (m_Inspector)
 		{
@@ -536,13 +558,16 @@ void ChromiumBrowser::showInspector()
 		CefWindowInfo info;
 		m_pBrowser->GetHost()->ShowDevTools(info, CefRefPtr<CefClient>(), getBrowserDefaults());
 #endif
-	}));
+	}
 }
 
 void ChromiumBrowser::hideInspector()
 {
-	CefPostTask(TID_UI, NewCallbackT([&](){
-
+	if (!CefCurrentlyOn(TID_UI)) {
+		CefPostTask(TID_UI, new BrowserCallback(this, &ChromiumBrowser::hideInspector));
+	}
+	else
+	{
 #ifdef CEF_NEW_DEVTOOL_API
 		if (!m_Inspector)
 			return;
@@ -552,7 +577,7 @@ void ChromiumBrowser::hideInspector()
 #else
 		m_pBrowser->GetHost()->CloseDevTools();
 #endif
-	}));
+	}
 }
 
 void ChromiumBrowser::inspectElement(int x, int y)
