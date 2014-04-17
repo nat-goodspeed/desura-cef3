@@ -346,6 +346,12 @@ if(WIN32)
 elseif(APPLE)
 	add_definitions(-DNIX)
 
+	find_library(COCOA_LIBRARY Cocoa)
+
+	include_directories(
+		${COCOA_INCLUDE_DIR}
+	)
+
 	target_link_libraries(cef_desura_test_ogl
 		${OPENGL_LIBRARIES}
 		${GLUT_glut_LIBRARY}
@@ -364,6 +370,7 @@ elseif(APPLE)
 	
 	target_link_libraries(cef_desura_test_mac
 		${CMAKE_DL_LIBS}
+		${COCOA_LIBRARY}
 	)	
 elseif(UNIX)
 	add_definitions(-DNIX)

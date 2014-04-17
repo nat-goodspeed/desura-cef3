@@ -110,12 +110,14 @@ private:
 	[NSApp setDelegate:self];
 
 
+	float kWindowHeight =0.75;
+    float kWindowWidth = 0.75;
 	// Create the main application window.
 	NSRect screen_rect = [[NSScreen mainScreen] visibleFrame];
 	NSRect window_rect = { {0, screen_rect.size.height - kWindowHeight},
 	{kWindowWidth, kWindowHeight} };
 	
-	NSWindow* mainWnd = [[UnderlayOpenGLHostingWindow alloc]
+	NSWindow* mainWnd = [[NSWindow alloc]//[UnderlayOpenGLHostingWindow alloc]
 					   initWithContentRect:window_rect
 					   styleMask:(NSTitledWindowMask |
 								  NSClosableWindowMask |
@@ -144,8 +146,8 @@ private:
       (NSApplication *)sender 
 {
 	// Request that all browser windows close.
-	if (g_Browser)
-		g_Browser->Close();
+	//if (g_Browser)
+		////g_Browser->Close();
 
 	// Cancel the termination. The application will exit after all windows have
 	// closed.
@@ -155,7 +157,7 @@ private:
 // Sent immediately before the application terminates. This signal should not
 // be called because we cancel the termination.
 - (void)applicationWillTerminate:(NSNotification *)aNotification {
-  ASSERT(false);  // Not reached.
+  //ASSERT(false);  // Not reached.
 }
 
 @end
@@ -190,7 +192,7 @@ int main(int argc, char* argv[])
 	[delegate performSelectorOnMainThread:@selector(createApp:) withObject:nil
 						  waitUntilDone:NO];
 
-	g_Browser = g_ChromiumController->NewChromiumBrowser(g_ContentView, "", "http://google.com");
+	g_Browser = g_ChromiumController->NewChromiumBrowser((int*)g_ContentView, "", "http://google.com");
 
 	g_ChromiumController->RunMsgLoop();
 	g_ChromiumController->Stop();
