@@ -16,6 +16,7 @@ if [ ! -d "build_nix" ]; then
 	mkdir build_nix
 fi
 cd build_nix
-cmake ..
+# cmake .. -G Xcode    #Uncomment this line to generate an xcode project.
+cmake .. 
 make $@
 cd ..

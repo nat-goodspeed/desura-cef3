@@ -94,7 +94,7 @@ private:
 
 
 // Receives notifications from the application.
-@interface SimpleAppDelegate : NSObject
+@interface SimpleAppDelegate : NSObject <NSWindowDelegate>
 - (void)createApp:(id)object;
 @end
 
@@ -110,8 +110,9 @@ private:
 	[NSApp setDelegate:self];
 
 
-	float kWindowHeight =0.75;
+ 	float kWindowHeight =0.75;
     float kWindowWidth = 0.75;
+    
 	// Create the main application window.
 	NSRect screen_rect = [[NSScreen mainScreen] visibleFrame];
 	NSRect window_rect = { {0, screen_rect.size.height - kWindowHeight},

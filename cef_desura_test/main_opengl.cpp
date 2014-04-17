@@ -28,11 +28,12 @@ $/LicenseInfo$
 #ifdef _WIN32
     #include "freeglut/freeglut.h"
 #else
-    #include <GL/gl.h>
     #if defined(__APPLE__)
+        #include "OpenGL/gl.h"
         #include "glut.h"
     #else
-        #include <GL/glut.h>
+        #include <GL/gl.h>
+       #include <GL/glut.h>
     #endif
 #endif
 
