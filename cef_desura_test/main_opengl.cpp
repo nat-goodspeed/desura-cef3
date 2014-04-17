@@ -32,12 +32,94 @@ $/LicenseInfo$
     #include <GL/glut.h>
 #endif
 
-#include <mutex>
 #include <string.h>
 
 #define CEF_IGNORE_FUNCTIONS 1
 #include "ChromiumBrowserI.h"
 #include "SharedObjectLoader.h"
+
+#if defined(NIX)
+#include <pthread.h>
+
+class Mutex
+{
+public:
+	Mutex()
+	{
+		pthread_mutex_init(&m_Mutex, NULL);
+	}
+
+	~Mutex()
+	{
+		pthread_mutex_destroy(&m_Mutex);
+	}
+
+	bool lock()
+	{
+		return pthread_mutex_lock(&m_Mutex);
+	}
+
+	bool unlock()
+	{
+		return pthread_mutex_unlock(&m_Mutex);
+	}
+
+private:
+	pthread_mutex_t m_Mutex;
+};
+
+#elif defined(WIN32)
+#include <windows.h>
+#include <process.h>
+
+class Mutex
+{
+public:
+	Mutex()
+	{
+		m_Mutex = CreateMutex(NULL, FALSE, NULL);
+	}
+
+	~Mutex()
+	{
+		CloseHandle(m_Mutex);
+	}
+
+	bool lock()
+	{
+		return WaitForSingleObject(m_Mutex, INFINITE) == WAIT_FAILED;
+	}
+
+	bool unlock()
+	{
+		return ReleaseMutex(m_Mutex) == 0;
+	}
+
+private:
+	HANDLE m_Mutex;
+};
+#endif
+
+
+class LockGaurd
+{
+public:
+	LockGaurd(Mutex &mutex)
+		: m_Mutex(mutex)
+	{
+		m_Mutex.lock();
+	}
+
+	~LockGaurd()
+	{
+		m_Mutex.unlock();
+	}
+
+private:
+	Mutex &m_Mutex;
+};
+
+
 
 class cefGL : 
 	public ChromiumDLL::ChromiumBrowserEventI_V2,
@@ -255,7 +337,7 @@ class cefGL :
 
 			if (mNeedsUpdate && mAppTexturePixels)
 			{
-				std::lock_guard<std::mutex> guard(m_BufferLock);
+				LockGaurd guard(m_BufferLock);
 				glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, mAppTextureWidth, mAppTextureHeight, GL_BGRA_EXT, GL_UNSIGNED_BYTE, mAppTexturePixels );
 				mNeedsUpdate = false;
 			};
@@ -459,7 +541,7 @@ class cefGL :
 			std::cout << "onPaint at " << x << " x " << y << " of size " << w << " x " << h << std::endl;
 
 			{
-				std::lock_guard<std::mutex> guard(m_BufferLock);
+				LockGaurd guard(m_BufferLock);
 				mAppTextureWidth = w;
 				mAppWindowHeight = h;
 
@@ -544,7 +626,7 @@ class cefGL :
 		ChromiumDLL::ChromiumRendererI* pRenderer;
 		ChromiumDLL::ChromiumControllerI* pController;
 
-		std::mutex m_BufferLock;
+		Mutex m_BufferLock;
 };
 
 #ifdef WIN32
