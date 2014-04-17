@@ -131,7 +131,12 @@ class cefGL :
 			pController->SetApiVersion(2);
 
 #ifdef WIN32
-			pRenderer = pController->NewChromiumRenderer((int*)GetForegroundWindow(), "http://news.google.com", mAppTextureWidth, mAppTextureHeight);
+			HWND hWnd = FindWindow(NULL, mAppWindowName.c_str());
+
+			pRenderer = pController->NewChromiumRenderer((int*)hWnd, "http://news.google.com", mAppTextureWidth, mAppTextureHeight);
+
+			g_pRenderer = &pRenderer;
+			HHOOK hook = SetWindowsHookEx(WH_GETMESSAGE, handleWinMsg, GetModuleHandle(NULL), GetWindowThreadProcessId(hWnd, 0));
 #else
 			pRenderer = pController->NewChromiumRenderer((int*)NULL, "http://news.google.com", mAppTextureWidth, mAppTextureHeight);
 #endif
@@ -147,6 +152,56 @@ class cefGL :
 
 			pRenderer->setEventCallback(this);
 		}
+
+#ifdef WIN32
+		static ChromiumDLL::ChromiumRendererI** g_pRenderer;
+
+#ifndef GET_X_LPARAM
+#define GET_X_LPARAM(lp)                        ((int)(short)LOWORD(lp))
+#endif
+#ifndef GET_Y_LPARAM
+#define GET_Y_LPARAM(lp)                        ((int)(short)HIWORD(lp))
+#endif
+
+		static LRESULT CALLBACK handleWinMsg(int nCode, WPARAM wParam, LPARAM lParam)
+		{
+			if (nCode != HC_ACTION || wParam != PM_REMOVE || !*g_pRenderer)
+				return CallNextHookEx(0, nCode, wParam, lParam);
+
+			MSG *pMsg = (MSG*)lParam;
+
+			switch (pMsg->message)
+			{
+			case WM_SYSCHAR:
+			case WM_SYSKEYDOWN:
+			case WM_SYSKEYUP:
+			case WM_KEYDOWN:
+			case WM_KEYUP:
+			case WM_CHAR:
+				(*g_pRenderer)->onKeyPress(new ChromiumDLL::Win32ChromiumKeyPress(pMsg->message, pMsg->wParam, pMsg->lParam));
+				break;
+
+			case WM_MOUSEWHEEL:
+				//(*g_pRenderer)->getBrowser()->scroll(GET_X_LPARAM(pMsg->lParam), GET_Y_LPARAM(pMsg->lParam), GET_WHEEL_DELTA_WPARAM(pMsg->wParam), 0);
+				break;
+
+			case WM_MOUSEMOVE:
+				break;
+
+			case WM_LBUTTONUP:
+			case WM_RBUTTONUP:
+			case WM_MBUTTONUP:
+				break;
+
+			case WM_LBUTTONDOWN:
+			case WM_RBUTTONDOWN:
+			case WM_MBUTTONDOWN:
+				break;
+			}
+
+			return CallNextHookEx(0, nCode, wParam, lParam);
+		}
+#endif
 
         void init()
         {
@@ -297,13 +352,18 @@ class cefGL :
 
 			std::cout << "Key press was " << keyIn << " is down: " << isDown << std::endl;
 
-			if (isDown)
-				pRenderer->onKeyPress(ChromiumDLL::KT_KEYDOWN, keyIn, 0, 0, 0);
-			else
-				pRenderer->onKeyPress(ChromiumDLL::KT_KEYUP, keyIn, 0, 0, 0);
+			//if (isDown)
+			//	pRenderer->onKeyPress(ChromiumDLL::KT_KEYDOWN, keyIn, 0, 0, 0);
+			//else
+			//	pRenderer->onKeyPress(ChromiumDLL::KT_KEYUP, keyIn, 0, 0, 0);
         };
 
 		bool onNavigateUrl(const char* url, bool isMain) override
+		{
+			return true;
+		}
+
+		bool onNewWindowUrl(const char* url) override
 		{
 			return true;
 		}
@@ -492,6 +552,10 @@ class cefGL :
 
 		std::mutex m_BufferLock;
 };
+
+#ifdef WIN32
+ChromiumDLL::ChromiumRendererI** cefGL::g_pRenderer = nullptr;
+#endif
 
 cefGL* theApp;
 

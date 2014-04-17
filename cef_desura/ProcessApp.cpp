@@ -46,6 +46,9 @@ public:
 	{
 		CefStringUTF8 strSchemes = ConvertToUtf8(g_command_line->GetSwitchValue("desura-schemes"));
 		
+		if (strSchemes.empty())
+			return;
+
 		std::stringstream ss(strSchemes.c_str());
 		std::string s;
 

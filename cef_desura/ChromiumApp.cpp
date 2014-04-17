@@ -69,7 +69,8 @@ void ChromiumApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> command_l
 		strSchemes += vSchemes[x];
 	}
 
-	command_line->AppendSwitchWithValue("desura-schemes", strSchemes);
+	if (!strSchemes.empty())
+		command_line->AppendSwitchWithValue("desura-schemes", strSchemes);
 }
 
 void ChromiumApp::OnRenderProcessThreadCreated(CefRefPtr<CefListValue> extra_info)

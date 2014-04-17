@@ -670,48 +670,28 @@ void ChromiumRenderer::onMouseMove(int x, int y, bool mouseLeave)
 	}
 }
 
-// cef_key_event_type_t is NOT THE SAME as ChromiumDLL::KeyType
-class KeyTypeFinder
+void ChromiumRenderer::onKeyPress(ChromiumDLL::ChromiumKeyPressI* pKeyPress)
 {
-public:
-	KeyTypeFinder()
-	{
-		mMap[ChromiumDLL::KT_KEYUP]   = KEYEVENT_KEYUP;
-		mMap[ChromiumDLL::KT_KEYDOWN] = KEYEVENT_KEYDOWN;
-		mMap[ChromiumDLL::KT_CHAR]    = KEYEVENT_CHAR;
-	}
+	if (!pKeyPress)
+		return;
 
-	cef_key_event_type_t find(ChromiumDLL::KeyType type) const
-	{
-		KeyTypeMap::const_iterator found = mMap.find(type);
-		if (found != mMap.end())
-			return found->second;
-
-		return cef_key_event_type_t(); // invalid
-	}
-
-private:
-	typedef std::map<ChromiumDLL::KeyType, cef_key_event_type_t> KeyTypeMap;
-	KeyTypeMap mMap;
-};
-static const KeyTypeFinder keyfinder;
-
-void ChromiumRenderer::onKeyPress(ChromiumDLL::KeyType type, int key, int modifiers, bool sysChar, bool imeChar)
-{
 	if (m_pBrowser)
 	{
 		CefKeyEvent event;
-		event.type = keyfinder.find(type);
-		// BUG: we probably also need to translate modifier bits, but I find
-		// no definition for the ChromiumDLL modifier bits.
-		event.modifiers = modifiers;
-		// BUG: no idea what to set for windows_key_code
-		event.native_key_code = key;
-		event.is_system_key = sysChar;
-		// BUG: no idea how to set character or unmodified_character
-		// BUG: no idea what to do about imeChar
+		event.type = (cef_key_event_type_t)pKeyPress->getType();
+		event.modifiers = pKeyPress->getModifiers();
+		event.native_key_code = pKeyPress->getNativeCode();
+		event.character = pKeyPress->getCharacter();
+		event.unmodified_character = pKeyPress->getUnModCharacter();
+
+#ifdef WIN32
+		event.windows_key_code = pKeyPress->getWinKeyCode();
+		event.is_system_key = pKeyPress->isSystemKey();
+#endif
 		m_pBrowser->GetHost()->SendKeyEvent(event);
 	}
+
+	pKeyPress->destroy();
 }
 
 void ChromiumRenderer::onFocus(bool setFocus)
