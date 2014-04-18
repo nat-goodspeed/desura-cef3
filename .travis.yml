@@ -1,0 +1,27 @@
+language: cpp
+compiler:
+  - gcc
+  - clang
+before_install:
+  - sudo apt-get update
+  - sudo apt-get install -qq cmake freeglut3-dev
+script:
+  - mkdir build_nix
+  - mkdir build_cef3
+  - cd build_cef3
+  - cmake ../cef3_dl
+  - make
+  - cd ../build_nix
+  - cmake ..
+  - make -j4
+notifications:
+  irc:
+    channels:
+      - "irc.freenode.org#desura"
+    template:
+      - "%{repository} (%{commit}) by %{author} : %{message} %{foo} "
+      - "Build details: %{build_url}"
+      - "Latest commit: %{compare_url}"
+    on_success: change
+    on_failure: change
+    skip_join: true

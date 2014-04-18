@@ -9,8 +9,7 @@ if(APPLE)
   # see #418
   cmake_minimum_required(VERSION 2.8.10)
 elseif(WIN32)
-  #needed for x120_xp target
-  cmake_minimum_required(VERSION 2.8.12)
+  cmake_minimum_required(VERSION 2.8.10)
 else()
   cmake_minimum_required(VERSION 2.8.5)
 endif()
@@ -131,11 +130,6 @@ endmacro()
 ###############################################################################
 
 if(WIN32)
-	if( MSVC_VERSION LESS 1800 )       # VC10-/VS2010- 
-		message(FATAL_ERROR "The project requires C++11 features. " 
-		  "You need at least Visual Studio 12 (Microsoft Visual Studio 2013)") 
-	endif()
-
 	if(DEBUG)
 		add_definitions(-DDEBUG -D_DEBUG)
 	else()
@@ -189,9 +183,6 @@ elseif(UNIX)
 		add_definitions(-DNDEBUG)
 	endif()
 	
-	add_compiler_flags(-std=c++11)
-	add_linker_flags(-std=c++11)
-
 	add_compiler_flags(-fPIC)
 	add_linker_flags(-fPIC)
 
@@ -333,6 +324,12 @@ if(WIN32)
 		${CEF_BIN_PATH}/libcef.lib
 	)
 
+	#build bot builds with visual studio 2010 and so should we
+	if(MSVC_VERSION EQUAL 1600)
+		add_definitions(-DWIN32_SANDBOX_ENABLED)
+		target_link_libraries(cef_desura ${CEF_BIN_PATH}/cef_sandbox.lib)
+	endif()
+
 	add_copy_target_file_step(cef_desura_test_ogl cef_desura_test/freeglut.dll)
 
 	SetStaticRuntime(cef_desura_host)
@@ -345,6 +342,12 @@ if(WIN32)
 
 elseif(APPLE)
 	add_definitions(-DNIX)
+
+	find_library(COCOA_LIBRARY Cocoa)
+
+	include_directories(
+		${COCOA_INCLUDE_DIR}
+	)
 
 	target_link_libraries(cef_desura_test_ogl
 		${OPENGL_LIBRARIES}
@@ -364,6 +367,7 @@ elseif(APPLE)
 	
 	target_link_libraries(cef_desura_test_mac
 		${CMAKE_DL_LIBS}
+		${COCOA_LIBRARY}
 	)	
 elseif(UNIX)
 	add_definitions(-DNIX)

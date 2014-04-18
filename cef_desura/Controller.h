@@ -26,6 +26,10 @@ $/LicenseInfo$
 #include "ChromiumBrowserI.h"
 #include "ChromiumApp.h"
 
+#ifdef WIN32_SANDBOX_ENABLED
+#include "include/cef_sandbox_win.h"
+#endif
+
 class ChromiumController : public ChromiumDLL::ChromiumControllerI
 {
 public:
@@ -60,6 +64,12 @@ public:
 
 	bool Init(bool threaded, const char* cachePath, const char* logPath, const char* userAgent);
 
+#ifdef WIN32
+	int ExecuteProcess(HINSTANCE instance);
+#else
+	int ExecuteProcess(int argc, char** argv);
+#endif
+
 protected:
 	bool DoInit(bool threaded, const char* cachePath, const char* logPath, const char* userAgent);
 
@@ -73,4 +83,8 @@ private:
 	std::string m_strCachePath;
 	std::string m_strLogPath;
 	std::string m_strUserAgent;
+
+#ifdef WIN32_SANDBOX_ENABLED
+	CefScopedSandboxInfo m_pSandbox;
+#endif
 };
