@@ -1076,11 +1076,8 @@ namespace ChromiumDLL
 	public:
 		virtual void destroy() = 0;
 
-		virtual void setWindowSize(int width, int height) = 0;
-		virtual void getWindowSize(int &width, int &height) = 0;
-
-		virtual void renderRectToBuffer(void *pBuffer, unsigned int x, unsigned int y, unsigned int w, unsigned h) = 0;
-		virtual void renderToBuffer(void* pBuffer, unsigned int width, unsigned int height) = 0;
+		//Call when need to resize browser. Will call ChromiumRendererEventI::getViewRect to get new size
+		virtual void invalidateSize() = 0;
 
 		virtual void onMouseClick(int x, int y, MouseButtonType type, bool mouseUp, int clickCount) = 0;
 		virtual void onMouseMove(int x, int y, bool mouseLeave) = 0;
