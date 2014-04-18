@@ -78,6 +78,18 @@ extern "C"
 
 		return NULL;
 	}
+
+#ifdef WIN32
+	DLLINTERFACE int CEF_ExecuteProcessWin(HINSTANCE instance)
+	{
+		return g_Controller->ExecuteProcess(instance);
+	}
+#else
+	DLLINTERFACE int CEF_ExecuteProcess(int argc, char** argv)
+	{
+		return g_Controller->ExecuteProcess(argc, argv);
+	}
+#endif
 }
 
 enum ACTION
@@ -640,36 +652,10 @@ ChromiumRenderer::ChromiumRenderer(WIN_HANDLE handle, const char* defaultUrl, in
 	init(defaultUrl, true, width, height);
 }
 
-void ChromiumRenderer::setWindowSize(int width, int height)
+void ChromiumRenderer::invalidateSize()
 {
-/*==========================================================================*|
-	// nat: no such method
 	if (m_pBrowser)
-		m_pBrowser->SetSize(PET_VIEW, width, height);
-|*==========================================================================*/
-}
-
-void ChromiumRenderer::getWindowSize(int &width, int &height)
-{
-/*==========================================================================*|
-	// nat: no such method
-	if (m_pBrowser)
-		m_pBrowser->GetSize(PET_VIEW, width, height);
-|*==========================================================================*/
-}
-
-void ChromiumRenderer::renderRectToBuffer(void *pBuffer, unsigned int x, unsigned int y, unsigned int w, unsigned h)
-{
-
-}
-
-void ChromiumRenderer::renderToBuffer(void* pBuffer, unsigned int width, unsigned int height)
-{
-/*==========================================================================*|
-	// nat: no such method
-	if (m_pBrowser)
-		m_pBrowser->GetImage(PET_VIEW, width, height, pBuffer);
-|*==========================================================================*/
+		m_pBrowser->GetHost()->WasResized();
 }
 
 void ChromiumRenderer::onMouseClick(int x, int y, ChromiumDLL::MouseButtonType type, bool mouseUp, int clickCount)
@@ -734,7 +720,7 @@ void ChromiumRenderer::onCaptureLost()
 void ChromiumRenderer::setBrowser(CefBrowser* browser)
 {
 	ChromiumBrowser::setBrowser(browser);
-	setWindowSize(m_nDefaultWidth, m_nDefaultHeight);
+	invalidateSize();
 }
 
 void ChromiumRenderer::setEventCallback(ChromiumDLL::ChromiumRendererEventI* cbeI)

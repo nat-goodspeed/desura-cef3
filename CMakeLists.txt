@@ -9,8 +9,7 @@ if(APPLE)
   # see #418
   cmake_minimum_required(VERSION 2.8.10)
 elseif(WIN32)
-  #needed for x120_xp target
-  cmake_minimum_required(VERSION 2.8.12)
+  cmake_minimum_required(VERSION 2.8.10)
 else()
   cmake_minimum_required(VERSION 2.8.5)
 endif()
@@ -324,6 +323,12 @@ if(WIN32)
 	target_link_libraries(cef_desura
 		${CEF_BIN_PATH}/libcef.lib
 	)
+
+	#build bot builds with visual studio 2010 and so should we
+	if(MSVC_VERSION EQUAL 1600)
+		add_definitions(-DWIN32_SANDBOX_ENABLED)
+		target_link_libraries(cef_desura ${CEF_BIN_PATH}/cef_sandbox.lib)
+	endif()
 
 	add_copy_target_file_step(cef_desura_test_ogl cef_desura_test/freeglut.dll)
 

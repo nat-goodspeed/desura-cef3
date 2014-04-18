@@ -178,7 +178,14 @@ bool ChromiumController::DoInit(bool threaded, const char* cachePath, const char
 	settings.multi_threaded_message_loop = threaded;
 	settings.remote_debugging_port = 2323;
 
-	if (!CefInitialize(args, settings, m_App.get(), NULL))
+#ifdef WIN32_SANDBOX_ENABLED
+	void* sandbox_info = m_pSandbox.sandbox_info();
+#else
+	settings.no_sandbox = true;
+	void* sandbox_info = NULL;
+#endif
+
+	if (!CefInitialize(args, settings, m_App.get(), sandbox_info))
 	{
 		m_bInit = false;
 		m_bPendingInit = false;

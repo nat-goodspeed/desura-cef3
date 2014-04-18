@@ -138,11 +138,7 @@ class ChromiumRenderer : public ChromiumBrowser, public ChromiumDLL::ChromiumRen
 public:
 	ChromiumRenderer(WIN_HANDLE handle, const char* defaultUrl, int width, int height);
 
-	virtual void setWindowSize(int width, int height);
-	virtual void getWindowSize(int &width, int &height);
-
-	virtual void renderRectToBuffer(void *pBuffer, unsigned int x, unsigned int y, unsigned int w, unsigned h);
-	virtual void renderToBuffer(void* pBuffer, unsigned int width, unsigned int height);
+	virtual void invalidateSize();
 
 	virtual void onMouseClick(int x, int y, ChromiumDLL::MouseButtonType type, bool mouseUp, int clickCount);
 	virtual void onMouseMove(int x, int y, bool mouseLeave);
