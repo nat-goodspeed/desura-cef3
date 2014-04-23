@@ -229,6 +229,7 @@ class ChromiumBrowserEvents :
 	, public RenderHandler
 	, public ContextMenuHandler
 	, public RenderProcessHandler
+	, public DownloadHandler
 {
 public:
 	ChromiumBrowserEvents(ChromiumBrowser* pParent);
@@ -246,16 +247,16 @@ public:
 	virtual CefRefPtr<CefBrowser> GetBrowser();
 	virtual void setContext(CefRefPtr<CefV8Context> context);
 
-	virtual CefRefPtr<CefLifeSpanHandler>	GetLifeSpanHandler()	{ return (CefLifeSpanHandler*)this; }
-	virtual CefRefPtr<CefLoadHandler>		GetLoadHandler()		{ return (CefLoadHandler*)this; }
-	virtual CefRefPtr<CefRequestHandler>	GetRequestHandler()		{ return (CefRequestHandler*)this; }
-	virtual CefRefPtr<CefDisplayHandler>	GetDisplayHandler()		{ return (CefDisplayHandler*)this; }
-	virtual CefRefPtr<CefKeyboardHandler>	GetKeyboardHandler()	{ return (CefKeyboardHandler*)this; }
-	virtual CefRefPtr<CefJSDialogHandler>	GetJSDialogHandler()	{ return (CefJSDialogHandler*)this; }
-	virtual CefRefPtr<CefRenderHandler>		GetRenderHandler()		{ return (RenderHandler*)this; }
-	virtual CefRefPtr<CefDownloadHandler>	GetDownloadHandler()	{ return (CefDownloadHandler*)this; }
-	virtual CefRefPtr<CefContextMenuHandler>	GetContextMenuHandler()	{ return (CefContextMenuHandler*)this; }
-	virtual CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() { return (CefRenderProcessHandler*)this; }
+	virtual CefRefPtr<CefLifeSpanHandler>	GetLifeSpanHandler()	{ return this; }
+	virtual CefRefPtr<CefLoadHandler>		GetLoadHandler()		{ return this; }
+	virtual CefRefPtr<CefRequestHandler>	GetRequestHandler()		{ return this; }
+	virtual CefRefPtr<CefDisplayHandler>	GetDisplayHandler()		{ return this; }
+	virtual CefRefPtr<CefKeyboardHandler>	GetKeyboardHandler()	{ return this; }
+	virtual CefRefPtr<CefJSDialogHandler>	GetJSDialogHandler()	{ return this; }
+	virtual CefRefPtr<CefRenderHandler>		GetRenderHandler()		{ return this; }
+	virtual CefRefPtr<CefDownloadHandler>	GetDownloadHandler()	{ return this; }
+	virtual CefRefPtr<CefContextMenuHandler>	GetContextMenuHandler()	{ return this; }
+	virtual CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() { return this; }
 
 private:
 	CefRefPtr<CefBrowser> m_Browser;

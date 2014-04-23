@@ -41,7 +41,7 @@ class FillMap
 public:
 	FillMap()
 	{
-		g_mErrorMsgMap[ERR_FAILED] = "A generic failure occured";
+		g_mErrorMsgMap[ERR_FAILED] = "A generic failure occurred";
 		g_mErrorMsgMap[ERR_ABORTED] = "An operation was aborted (due to user action)";
 		g_mErrorMsgMap[ERR_INVALID_ARGUMENT] = "An argument to the function is incorrect";
 		g_mErrorMsgMap[ERR_INVALID_HANDLE] = "The handle or file descriptor is invalid";
@@ -229,16 +229,24 @@ bool RequestHandler::OnBeforeBrowse(CefRefPtr<CefBrowser> browser, CefRefPtr<Cef
 /// DownloadHandler
 /////////////////////////////////////////////////////////////////////////////////////////////
 
+#include <algorithm>
+
 void DownloadHandler::OnBeforeDownload(CefRefPtr<CefBrowser> browser, CefRefPtr<CefDownloadItem> download_item, const CefString& suggested_name, CefRefPtr<CefBeforeDownloadCallback> callback)
 {
-	if (!GetCallbackV2())
-		return;
-
 	std::string strUrl = download_item->GetURL();
-	std::string strMimeType = download_item->GetMimeType();
-	int64 contentLength = download_item->GetTotalBytes();
 
-	GetCallbackV2()->onDownloadFile(strUrl.c_str(), strMimeType.c_str(), contentLength);
+	if (GetCallbackV2())
+	{
+		std::string strMimeType = download_item->GetMimeType();
+		int64 contentLength = download_item->GetTotalBytes();
+		
+		GetCallbackV2()->onDownloadFile(strUrl.c_str(), strMimeType.c_str(), contentLength);
+	}
+		
+	std::transform(strUrl.begin(), strUrl.end(), strUrl.begin(), ::tolower);
+
+	if (strUrl.find_last_of(".swf") == strUrl.size() - 1)
+		callback->Continue("", false);
 }
 
 
