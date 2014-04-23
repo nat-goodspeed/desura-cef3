@@ -170,10 +170,21 @@ bool ChromiumController::DoInit(bool threaded, const char* cachePath, const char
 	CefSettings settings;
 	CefMainArgs args;
 
+	if (userAgent)
+	{
+		std::string temp(userAgent);
+		size_t pos = temp.find("Desura/");
+
+		if (pos != std::string::npos)
+			temp = temp.substr(pos);
+
+		cef_string_utf8_to_utf16(temp.c_str(), temp.size(), &settings.product_version);
+	}
+
 	static const char browser_subprocess_path[] = "cef_desura_host";
 	cef_string_utf8_to_utf16(browser_subprocess_path, strlen(browser_subprocess_path), &settings.browser_subprocess_path);
 	cef_string_utf8_to_utf16(cachePath, strlen(cachePath), &settings.cache_path);
-	cef_string_utf8_to_utf16(userAgent, strlen(userAgent), &settings.user_agent);
+	
 
 	settings.multi_threaded_message_loop = threaded;
 	settings.remote_debugging_port = 2323;
