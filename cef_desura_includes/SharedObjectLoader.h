@@ -37,7 +37,8 @@ typedef void* (*FactoryFn)(const char*);
 	#include <dlfcn.h>
 #endif
 
-#include "util/UtilOs.h"
+#include <string>
+#include <stdio.h>
 
 class SharedObjectLoader
 {
@@ -50,16 +51,18 @@ public:
 
 	SharedObjectLoader()
 	{
-		m_hHandle = nullptr;
+		m_hHandle = NULL;
 		m_bHasFailed = false;
+		m_bIgnoreUnload = false;
 	}
 
 	SharedObjectLoader(const SharedObjectLoader& sol)
 	{
 		m_hHandle = sol.m_hHandle;
 		m_bHasFailed = sol.m_bHasFailed;
+		m_bIgnoreUnload = false;
 
-		sol.m_hHandle = nullptr;
+		sol.m_hHandle = NULL;
 		sol.m_bHasFailed = false;
 	}
 
@@ -68,10 +71,10 @@ public:
 		unload();
 	}
 
-    void dontUnloadOnDelete()
-    {
-        m_bIgnoreUnload = true;
-    }
+	void dontUnloadOnDelete()
+	{
+		m_bIgnoreUnload = true;
+	}
 
 	bool load(const char* module)
 	{
@@ -81,8 +84,8 @@ public:
 		m_bHasFailed = false;
 
 #ifdef NIX
-		gcString strModule(convertToLinuxModule(module));
-		m_hHandle = dlopen((UTIL::OS::getRuntimeLibPath() + strModule).c_str(), RTLD_NOW);
+		std::string strModule(convertToLinuxModule(module));
+		m_hHandle = dlopen(strModule.c_str(), RTLD_NOW);
 
 		if (!m_hHandle)
 			fprintf(stderr, "%s:%d - Error loading library %s: '%s' [LD_LIBRARY_PATH=%s]\n", __FILE__, __LINE__, strModule.c_str(), dlerror(), getenv("LD_LIBRARY_PATH"));
@@ -108,21 +111,21 @@ public:
 #endif
         }
 
-		m_hHandle = nullptr;
+		m_hHandle = NULL;
 	}
 
 	template <typename T>
 	T getFunction(const char* functionName, bool failIfNotFound = true)
 	{
 		if (!m_hHandle)
-			return nullptr;
+			return NULL;
 #ifdef NIX
 		char* error;
 		T fun = (T)dlsym(m_hHandle, functionName);
-		if ((error = dlerror()) != nullptr)
+		if ((error = dlerror()) != NULL)
 		{
 			printf("%s:%d - Error getting function %s: '%s'\n", __FILE__, __LINE__, functionName, dlerror());
-			return nullptr;
+			return NULL;
 		}
 
 #else
@@ -152,26 +155,32 @@ public:
 
 	std::string convertToLinuxModule(const char* szModule)
 	{
-		gcString strModule(szModule);
+		if (!szModule)
+			return "";
+
+		std::string strModule(szModule);
 
 		if (strModule.find(".dll") == strModule.size() - 4)
-			strModule = gcString("lib") + strModule.substr(0, strModule.size() - 3) + "so";
+			strModule = std::string("lib") + strModule.substr(0, strModule.size() - 3) + "so";
 
 		return strModule;
 	}
 
 	std::string convertToMacModule(const char* szModule)
 	{
-		gcString strModule(szModule);
+		if (!szModule)
+			return "";
+
+		std::string strModule(szModule);
 
 		if (strModule.find(".dll") == strModule.size() - 4)
-			strModule = gcString("lib") + strModule.substr(0, strModule.size() - 3) + "dylib";
+			strModule = std::string("lib") + strModule.substr(0, strModule.size() - 3) + "dylib";
 
 		return strModule;
 	}
 
 private:
-    bool m_bIgnoreUnload = false;
+	bool m_bIgnoreUnload;
 	mutable bool m_bHasFailed;
 	mutable SOHANDLE m_hHandle;
 };
