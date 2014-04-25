@@ -128,7 +128,7 @@ int ChromiumController::ExecuteProcess(int argc, char** argv)
 	g_command_line = CefCommandLine::CreateCommandLine();
 	g_command_line->InitFromArgv(argc, argv);
 
-	CefMainArgs main_args;
+	CefMainArgs main_args(argc, argv);
 	CefRefPtr<ProcessApp> app(new ProcessApp);
 
 	// Execute the secondary process, if any.
