@@ -140,14 +140,15 @@ class cefGL :
 			// TODO make this work with non power of two sizes
             mAppWindowWidth( 1024 ),                     // dimensions of the app window - can be anything
             mAppWindowHeight( 1024 ),
-            mBrowserWindowWidth( mAppWindowWidth ),     // dimensions of the embedded browser - can be anything
-            mBrowserWindowHeight( mAppWindowHeight ),   //     but looks best when it's the same as the app window
             mAppTextureWidth( -1 ),                     // dimensions of the texture that the browser is rendered into
             mAppTextureHeight( -1 ),                    // calculated at initialization
-			mAppTextureDepth( 4 ),						// format is ARGB
+
             mAppTexture( 0 ),                           // OpenGL texture handle
+			mAppTexturePixels( NULL ),
+
             mAppWindowName( "cefGL" ),
-            mNeedsUpdate( true )                        // flag to indicate if browser texture needs an update
+            mNeedsUpdate( true ),                        // flag to indicate if browser texture needs an update
+			mNeedsResize( true )
         {
 			//std::cout << "LLQtWebKit version: " << LLQtWebKit::getInstance()->getVersion() << std::endl;
         };
@@ -167,10 +168,7 @@ class cefGL :
             glBindTexture( GL_TEXTURE_2D, mAppTexture );
             glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
             glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-            glTexImage2D( GL_TEXTURE_2D, 0,
-                GL_RGB,
-                    mAppTextureWidth, mAppTextureHeight,
-                        0, GL_RGB, GL_UNSIGNED_BYTE, 0 );
+            glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, mAppTextureWidth, mAppTextureHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0 );
 		}
 
 		void initCEF()
@@ -293,17 +291,7 @@ class cefGL :
 
         void init()
         {
-            // calculate texture size required (next power of two above browser window size)
-            for ( mAppTextureWidth = 1; mAppTextureWidth < mBrowserWindowWidth; mAppTextureWidth <<= 1 ) { };
-            for ( mAppTextureHeight = 1; mAppTextureHeight < mBrowserWindowHeight; mAppTextureHeight <<= 1 ) { };
-			std::cout << "Browser page size in pixels is " << mBrowserWindowWidth << " x " << mBrowserWindowHeight << std::endl;
-			std::cout << "Texture size in pixels is " << mAppTextureWidth << " x " << mAppTextureHeight << std::endl;
-
-			//mAppTexturePixels = new unsigned char[ mAppTextureWidth * mAppTextureHeight * mAppTextureDepth ];
-			mAppTexturePixels = 0;
-
 			initCEF();
-			
 			initOpenGL();
         };
 
@@ -330,8 +318,6 @@ class cefGL :
 
 			mAppWindowWidth = widthIn;
 			mAppWindowHeight = heightIn;
-			mBrowserWindowWidth = widthIn;
-            mBrowserWindowHeight = heightIn;
 
 			glMatrixMode( GL_MODELVIEW );
 			glLoadIdentity();
@@ -339,6 +325,9 @@ class cefGL :
 			mNeedsUpdate = true;
 
 			glutPostRedisplay();	
+
+			if (pRenderer)
+				pRenderer->invalidateSize();
         };
 
         ////////////////////////////////////////////////////////////////////////////////
@@ -347,19 +336,25 @@ class cefGL :
         {
             glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
+			glBindTexture(GL_TEXTURE_2D, mAppTexture);
+
 			if (mNeedsUpdate && mAppTexturePixels)
 			{
 				LockGaurd guard(m_BufferLock);
-				glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, mAppTextureWidth, mAppTextureHeight, GL_BGRA_EXT, GL_UNSIGNED_BYTE, mAppTexturePixels );
+				
+				if (mNeedsResize)
+					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, mAppTextureWidth, mAppTextureHeight, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, mAppTexturePixels);
+				else
+					glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mAppTextureWidth, mAppTextureHeight, GL_BGRA_EXT, GL_UNSIGNED_BYTE, mAppTexturePixels);
+
+				mNeedsResize = false;
 				mNeedsUpdate = false;
-			};
+			}
 
             // scale the texture so that it fits the screen
 			// TODO: move this to reshape method
-            GLfloat textureScaleX = ( GLfloat )mBrowserWindowWidth / ( GLfloat )mAppTextureWidth;
-            GLfloat textureScaleY = ( GLfloat )mBrowserWindowHeight / ( GLfloat )mAppTextureHeight;
-
-			glBindTexture( GL_TEXTURE_2D, mAppTexture );
+			GLfloat textureScaleX = (GLfloat)mAppTextureWidth / (GLfloat)mAppTextureWidth;
+			GLfloat textureScaleY = (GLfloat)mAppTextureHeight / (GLfloat)mAppTextureHeight;
 
             // draw the single quad full screen (orthographic)
             glMatrixMode( GL_TEXTURE );
@@ -393,8 +388,8 @@ class cefGL :
         void mouseButton( int button, int state, int xIn, int yIn )
         {
             // texture is scaled to fit the screen so we scale mouse coords in the same way
-            xIn = ( xIn * mBrowserWindowWidth ) / mAppWindowWidth;
-            yIn = ( yIn * mBrowserWindowHeight ) / mAppWindowHeight;
+			xIn = (xIn * mAppTextureWidth) / mAppWindowWidth;
+			yIn = (yIn * mAppTextureHeight) / mAppWindowHeight;
 
             if ( button == GLUT_LEFT_BUTTON )
             {
@@ -418,8 +413,8 @@ class cefGL :
         //
         void mouseMove( int xIn , int yIn )
         {
-            xIn = ( xIn * mBrowserWindowWidth ) / mAppWindowWidth;
-            yIn = ( yIn * mBrowserWindowHeight ) / mAppWindowHeight;
+			xIn = (xIn * mAppTextureWidth) / mAppWindowWidth;
+			yIn = (yIn * mAppTextureHeight) / mAppWindowHeight;
 
 			pRenderer->onMouseMove(xIn, yIn, false);
 
@@ -436,7 +431,12 @@ class cefGL :
                 reset();
 
                 exit( 0 );
-            };
+            }
+
+			if (keyIn == 'z' && isDown)
+			{
+				pRenderer->getBrowser()->loadUrl("http://desura.com");
+			}
 
 			std::cout << "Key press was " << keyIn << " is down: " << isDown << std::endl;
 
@@ -554,11 +554,14 @@ class cefGL :
 
 			{
 				LockGaurd guard(m_BufferLock);
-				mAppTextureWidth = w;
-				mAppWindowHeight = h;
 
-				size_t totSize = mAppTextureWidth * mAppWindowHeight * 4;
-				mAppTexturePixels = (unsigned char*)realloc(mAppTexturePixels, totSize*2);
+				mNeedsResize = mNeedsResize || mAppWindowHeight != h || mAppTextureWidth != w;
+	
+				mAppTextureWidth = w;
+				mAppTextureHeight = h;
+
+				size_t totSize = mAppTextureWidth * mAppTextureHeight * 4;
+				mAppTexturePixels = (unsigned char*)realloc(mAppTexturePixels, totSize);
 				memcpy(mAppTexturePixels, buffer, totSize);
 				mNeedsUpdate = true;
 			}
@@ -601,20 +604,6 @@ class cefGL :
 
         ////////////////////////////////////////////////////////////////////////////////
         //
-        int getAppWindowWidth()
-        {
-            return mAppWindowWidth;
-        }
-
-        ////////////////////////////////////////////////////////////////////////////////
-        //
-        int getAppWindowHeight()
-        {
-            return mAppWindowHeight;
-        }
-
-        ////////////////////////////////////////////////////////////////////////////////
-        //
         std::string getAppWindowName()
         {
             return mAppWindowName;
@@ -623,15 +612,16 @@ class cefGL :
     private:
         int mAppWindowWidth;
         int mAppWindowHeight;
-        int mBrowserWindowWidth;
-        int mBrowserWindowHeight;
+
         int mAppTextureWidth;
         int mAppTextureHeight;
-        int mAppTextureDepth;
+
 		unsigned char* mAppTexturePixels;
+
         GLuint mAppTexture;
         std::string mAppWindowName;
         bool mNeedsUpdate;
+		bool mNeedsResize;
 		SharedObjectLoader g_CEFDll;
 		typedef ChromiumDLL::ChromiumControllerI* (*CEF_InitFn)(bool, const char*, const char*, const char*);
 		CEF_InitFn CEF_Init;
@@ -662,7 +652,7 @@ int main( int argc, char* argv[] )
     theApp = new cefGL();
 
     glutInitWindowPosition( 80, 0 );
-    glutInitWindowSize( theApp->getAppWindowWidth(), theApp->getAppWindowHeight() );
+    glutInitWindowSize( 1024, 1024 );
 
     glutCreateWindow( theApp->getAppWindowName().c_str() );
 

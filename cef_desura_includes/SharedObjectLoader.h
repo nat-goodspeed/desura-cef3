@@ -29,23 +29,22 @@ $/LicenseInfo$
 #pragma once
 #endif
 
+typedef void* (*FactoryFn)(const char*);
+
 #ifdef WIN32
 	#include <Windows.h>
 #else
-    #include <dlfcn.h>
+	#include <dlfcn.h>
 #endif
 
-#ifdef NIX
-#ifndef OS_LINUX
-#define OS_LINUX
-#endif
-#endif
+#include <string>
+#include <stdio.h>
 
 class SharedObjectLoader
 {
 public:
-#ifdef OS_LINUX
-    typedef void* SOHANDLE;
+#ifdef NIX
+	typedef void* SOHANDLE;
 #else
 	typedef HINSTANCE SOHANDLE;
 #endif
@@ -54,12 +53,14 @@ public:
 	{
 		m_hHandle = NULL;
 		m_bHasFailed = false;
+		m_bIgnoreUnload = false;
 	}
 
 	SharedObjectLoader(const SharedObjectLoader& sol)
 	{
 		m_hHandle = sol.m_hHandle;
 		m_bHasFailed = sol.m_bHasFailed;
+		m_bIgnoreUnload = false;
 
 		sol.m_hHandle = NULL;
 		sol.m_bHasFailed = false;
@@ -70,6 +71,11 @@ public:
 		unload();
 	}
 
+	void dontUnloadOnDelete()
+	{
+		m_bIgnoreUnload = true;
+	}
+
 	bool load(const char* module)
 	{
 		if (m_hHandle)
@@ -77,11 +83,16 @@ public:
 
 		m_bHasFailed = false;
 
-#ifdef OS_LINUX
-		m_hHandle = dlopen(module, RTLD_LAZY);
+#ifdef NIX
+		std::string strModule(convertToLinuxModule(module));
+		m_hHandle = dlopen(strModule.c_str(), RTLD_NOW);
+
+		if (!m_hHandle)
+			fprintf(stderr, "%s:%d - Error loading library %s: '%s' [LD_LIBRARY_PATH=%s]\n", __FILE__, __LINE__, strModule.c_str(), dlerror(), getenv("LD_LIBRARY_PATH"));
 #else
 		m_hHandle = LoadLibraryA(module);
 #endif
+
 		return m_hHandle?true:false;
 	}
 
@@ -90,27 +101,38 @@ public:
 		if (!m_hHandle)
 			return;
 
+        if (!m_bIgnoreUnload)
+        {
 #ifdef NIX
-		dlclose(m_hHandle);
+            if (dlclose(m_hHandle) != 0)
+                printf("%s:%d - Error unloading library: '%s'\n", __FILE__, __LINE__, dlerror());
 #else
-		FreeLibrary(m_hHandle);
+            FreeLibrary(m_hHandle);
 #endif
+        }
 
 		m_hHandle = NULL;
 	}
 
 	template <typename T>
-	T getFunction(const char* functionName)
+	T getFunction(const char* functionName, bool failIfNotFound = true)
 	{
 		if (!m_hHandle)
 			return NULL;
 #ifdef NIX
+		char* error;
 		T fun = (T)dlsym(m_hHandle, functionName);
+		if ((error = dlerror()) != NULL)
+		{
+			printf("%s:%d - Error getting function %s: '%s'\n", __FILE__, __LINE__, functionName, dlerror());
+			return NULL;
+		}
+
 #else
 		T fun = (T)GetProcAddress(m_hHandle, functionName);
 #endif
 
-		if (!fun)
+		if (!fun && failIfNotFound)
 			m_bHasFailed = true;
 
 		return fun;
@@ -126,13 +148,41 @@ public:
 		return m_hHandle;
 	}
 
+	void resetFailed()
+	{
+		m_bHasFailed = false;
+	}
+
+	std::string convertToLinuxModule(const char* szModule)
+	{
+		if (!szModule)
+			return "";
+
+		std::string strModule(szModule);
+
+		if (strModule.find(".dll") == strModule.size() - 4)
+			strModule = std::string("lib") + strModule.substr(0, strModule.size() - 3) + "so";
+
+		return strModule;
+	}
+
+	std::string convertToMacModule(const char* szModule)
+	{
+		if (!szModule)
+			return "";
+
+		std::string strModule(szModule);
+
+		if (strModule.find(".dll") == strModule.size() - 4)
+			strModule = std::string("lib") + strModule.substr(0, strModule.size() - 3) + "dylib";
+
+		return strModule;
+	}
+
 private:
+	bool m_bIgnoreUnload;
 	mutable bool m_bHasFailed;
-#ifdef WIN32
 	mutable SOHANDLE m_hHandle;
-#else
-	mutable void* m_hHandle;
-#endif
 };
 
 #endif //DESURA_SHAREDOBJECTLOADER_H
