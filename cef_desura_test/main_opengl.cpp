@@ -129,8 +129,6 @@ private:
 	Mutex &m_Mutex;
 };
 
-
-
 class cefGL : 
 	public ChromiumDLL::ChromiumBrowserEventI_V2,
 	public ChromiumDLL::ChromiumRendererEventI
@@ -148,14 +146,16 @@ class cefGL :
 
             mAppWindowName( "cefGL" ),
             mNeedsUpdate( true ),                        // flag to indicate if browser texture needs an update
-			mNeedsResize( true )
+            mNeedsResize( true ),
+
+            pRenderer( NULL )
         {
 			//std::cout << "LLQtWebKit version: " << LLQtWebKit::getInstance()->getVersion() << std::endl;
         };
 
 		void initOpenGL()
 		{
-            glClearColor( 0.0f, 0.0f, 0.0f, 0.5f);
+            glClearColor(0.0f, 0.0f, 0.0f, 0.5f);
             glEnable( GL_COLOR_MATERIAL );
             glColorMaterial( GL_FRONT, GL_AMBIENT_AND_DIFFUSE );
             glEnable( GL_TEXTURE_2D );
@@ -199,7 +199,7 @@ class cefGL :
 				printf("Failed to find cef library exports\n");
 				exit(1);
 			}
-			std::cout << "Found CEF library exports" << std::endl;
+            std::cout << "Found CEF library exports" << std::endl;
 
 #ifdef WIN32
 			pController = CEF_Init(true, "CachePath", "LogPath", "UserAgent");
@@ -224,7 +224,7 @@ class cefGL :
 			g_pRenderer = &pRenderer;
 			HHOOK hook = SetWindowsHookEx(WH_GETMESSAGE, handleWinMsg, GetModuleHandle(NULL), GetWindowThreadProcessId(hWnd, 0));
 #else
-			pRenderer = pController->NewChromiumRenderer((int*)NULL, "http://news.google.com", mAppTextureWidth, mAppTextureHeight);
+            pRenderer = pController->NewChromiumRenderer((int*)NULL, "http://news.google.com", mAppTextureWidth, mAppTextureHeight);
 #endif
 
 			if ( ! pRenderer  )
@@ -289,11 +289,19 @@ class cefGL :
 		}
 #endif
 
+        void idle()
+        {
+#ifdef NIX
+            if (pController)
+                pController->DoMsgLoop();
+#endif
+        }
+
         void init()
         {
 			initCEF();
 			initOpenGL();
-        };
+        }
 
         ////////////////////////////////////////////////////////////////////////////////
         //
@@ -301,12 +309,14 @@ class cefGL :
         {
 			pController->Stop();
 			//delete [] mAppTexturePixels;
-        };
+        }
 
         ////////////////////////////////////////////////////////////////////////////////
         //
         void reshape( int widthIn, int heightIn )
         {
+            std::cout << "reshape " <<  widthIn << " x " << heightIn << std::endl;
+
 			if ( heightIn == 0 )
 				heightIn = 1;
 
@@ -328,7 +338,7 @@ class cefGL :
 
 			if (pRenderer)
 				pRenderer->invalidateSize();
-        };
+        }
 
         ////////////////////////////////////////////////////////////////////////////////
         //
@@ -381,7 +391,7 @@ class cefGL :
 
             glutSwapBuffers();
 			glutPostRedisplay();
-        };
+        }
 
         ////////////////////////////////////////////////////////////////////////////////
         //
@@ -419,7 +429,7 @@ class cefGL :
 			pRenderer->onMouseMove(xIn, yIn, false);
 
             glutPostRedisplay();
-        };
+        }
 
         ////////////////////////////////////////////////////////////////////////////////
         //
@@ -444,15 +454,17 @@ class cefGL :
 			//	pRenderer->onKeyPress(ChromiumDLL::KT_KEYDOWN, keyIn, 0, 0, 0);
 			//else
 			//	pRenderer->onKeyPress(ChromiumDLL::KT_KEYUP, keyIn, 0, 0, 0);
-        };
+        }
 
 		bool onNavigateUrl(const char* url, bool isMain) override
 		{
+			std::cout << "onNavigateUrl: " << url << std::endl;
 			return true;
 		}
 
 		bool onNewWindowUrl(const char* url) override
 		{
+			std::cout << "onNewWindowUrl: " << url << std::endl;
 			return true;
 		}
 
@@ -487,6 +499,7 @@ class cefGL :
 
 		void onLogConsoleMsg(const char* message, const char* source, int line) override
 		{
+			std::cout << "onLogConsoleMsg: " << message << std::endl;
 		}
 
 		void launchLink(const char* url) override
@@ -540,6 +553,8 @@ class cefGL :
 
 		bool getViewRect(int &x, int &y, int &w, int &h) override
 		{
+			std::cout << "getViewRect" << std::endl;
+
 			x = glutGet(GLUT_WINDOW_X);
 			y = glutGet(GLUT_WINDOW_Y);
 			w = glutGet(GLUT_WINDOW_WIDTH);
@@ -643,6 +658,8 @@ void glutKeyboard( unsigned char keyIn, int /*xIn*/, int /*yIn*/ ) { theApp->key
 void glutKeyboardUp( unsigned char keyIn, int /*xIn*/, int /*yIn*/ ) { theApp->keyboard( keyIn, false ); };
 void glutMouseMove( int xIn , int yIn ) { theApp->mouseMove( xIn, yIn ); }
 void glutMouseButton( int buttonIn, int stateIn, int xIn, int yIn ) { theApp->mouseButton( buttonIn, stateIn, xIn, yIn ); }
+void glutIdle(){ theApp->idle(); }
+
 
 int main( int argc, char* argv[] )
 {
@@ -668,6 +685,7 @@ int main( int argc, char* argv[] )
     glutDisplayFunc( glutDisplay );
     glutReshapeFunc( glutReshape );
 
+    glutIdleFunc( glutIdle );
     glutMainLoop();
 
     delete theApp;
