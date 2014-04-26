@@ -84,7 +84,12 @@ public:
 		m_bHasFailed = false;
 
 #ifdef NIX
+#ifdef APPLE
+		std::string strModule(convertToMacModule(module));
+#else
 		std::string strModule(convertToLinuxModule(module));
+#endif
+
 		m_hHandle = dlopen(strModule.c_str(), RTLD_NOW);
 
 		if (!m_hHandle)
