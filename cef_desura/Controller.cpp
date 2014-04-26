@@ -196,6 +196,16 @@ bool ChromiumController::DoInit(bool threaded, const char* cachePath, const char
 	void* sandbox_info = NULL;
 #endif
 
+#if defined(__APPLE__)
+	// The Mac buildbot packages a Resources directory containing en.lproj and
+	// en_GB.lproj -- but despite the fact that the hardcoded default locale
+	// string is en-US, there is no en-US.lproj.
+	setCefString(settings.locale, "en");
+
+	// give up in disgust?!
+	settings.pack_loading_disabled = true;
+#endif
+
 	if (!CefInitialize(args, settings, m_App.get(), sandbox_info))
 	{
 		m_bInit = false;
