@@ -92,6 +92,8 @@ public:
 	JavaScriptWrapper();
 	JavaScriptWrapper(CefRefPtr<CefV8Handler> obj);
 
+	virtual ~JavaScriptWrapper() {}
+
 	virtual void destroy();
 	virtual ChromiumDLL::JavaScriptExtenderI* clone();
 	virtual ChromiumDLL::JSObjHandle execute(ChromiumDLL::JavaScriptFunctionArgs *args);

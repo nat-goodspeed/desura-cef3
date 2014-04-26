@@ -39,6 +39,7 @@ class JavaScriptContext : public ChromiumDLL::JavaScriptContextI
 public:
 	JavaScriptContext();
 	JavaScriptContext(CefRefPtr<CefV8Context> context);
+	virtual ~JavaScriptContext() {}
 
 	virtual void destroy();
 	virtual ChromiumDLL::JavaScriptContextI* clone();

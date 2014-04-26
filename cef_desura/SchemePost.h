@@ -39,6 +39,7 @@ class PostElement : public ChromiumDLL::PostElementI
 public:
 	PostElement();
 	PostElement(CefRefPtr<CefPostDataElement> element);
+	virtual ~PostElement() {}
 
 	//! Deletes the object. Should never be called by user code!
 	//!
@@ -74,7 +75,7 @@ class PostData : public ChromiumDLL::PostDataI
 public:
 	PostData();
 	PostData(CefRefPtr<CefPostData> data);
-
+	virtual ~PostData() {}
 
 	//! Deletes the object. Should never be called by user code!
 	//!

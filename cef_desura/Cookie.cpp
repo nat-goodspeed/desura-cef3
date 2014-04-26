@@ -24,6 +24,7 @@ $/LicenseInfo$
 */
 
 #include "ChromiumBrowserI.h"
+#include "ChromiumBrowser.h"
 //#include "include/cef.h"
 #include "include/cef_task.h"
 #include "include/cef_cookie.h"
@@ -38,6 +39,8 @@ public:
 		m_rCookie.httponly = false;
 	}
 
+	virtual ~Cookie() {}
+
 	virtual void destroy()
 	{
 		delete this;
@@ -45,22 +48,22 @@ public:
 
 	virtual void SetDomain(const char* domain)
 	{
-		cef_string_utf8_to_utf16(domain, strlen(domain), &m_rCookie.domain);
+		setCefString(m_rCookie.domain, domain);
 	}
 
 	virtual void SetName(const char* name)
 	{
-		cef_string_utf8_to_utf16(name, strlen(name), &m_rCookie.name);
+		setCefString(m_rCookie.name, name);
 	}
 
 	virtual void SetData(const char* data)
 	{
-		cef_string_utf8_to_utf16(data, strlen(data), &m_rCookie.value);
+		setCefString(m_rCookie.value, data);
 	}
 
 	virtual void SetPath(const char* path)
 	{
-		cef_string_utf8_to_utf16(path, strlen(path), &m_rCookie.path);
+		setCefString(m_rCookie.path, path);
 	}
 
 	CefCookie m_rCookie;

@@ -39,6 +39,7 @@ class SchemeRequest : public ChromiumDLL::SchemeRequestI
 public:
 	SchemeRequest();
 	SchemeRequest(CefRefPtr<CefRequest> request);
+	virtual ~SchemeRequest() {}
 
 	virtual void destroy()
 	{

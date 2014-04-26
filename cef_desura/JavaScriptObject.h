@@ -51,7 +51,7 @@ class JavaScriptObject : public ChromiumDLL::JavaScriptObjectI
 public:
 	JavaScriptObject();
 	JavaScriptObject(CefRefPtr<CefV8Value> obj);
-	~JavaScriptObject();
+	virtual ~JavaScriptObject();
 
 	virtual void destory();
 	virtual ChromiumDLL::JavaScriptObjectI* clone();

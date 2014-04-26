@@ -56,7 +56,7 @@ class JavaScriptFactory : public ChromiumDLL::JavaScriptFactoryI
 {
 public:
 	JavaScriptFactory();
-	~JavaScriptFactory();
+	virtual ~JavaScriptFactory();
 
 	virtual ChromiumDLL::JSObjHandle CreateUndefined();
 	virtual ChromiumDLL::JSObjHandle CreateNull();

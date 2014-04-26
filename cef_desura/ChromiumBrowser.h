@@ -35,7 +35,28 @@ $/LicenseInfo$
 #include "include/cef_task.h"
 #include <string>
 
+// for converting strings from CEF back to ChromiumBrowserI consumer
 CefStringUTF8 ConvertToUtf8(const CefString& str);
+// for converting C-style string literals (specifically) to CefString
+// Why do we care? Because we assume that string literals are plain ASCII
+// rather than UTF8. We can't assume that about any variable string.
+template <std::size_t N>
+inline bool setCefString(cef_string_t& dest, const char (&value)[N])
+{
+    return cef_string_from_ascii(value, strlen(value), &dest);
+}
+// shouldn't need overload for literals as non-const char[] ??
+template <std::size_t N>
+inline bool setCefString(cef_string_t& dest, char (&value)[N])
+{
+    return cef_string_from_ascii(value, strlen(value), &dest);
+}
+// for converting UTF8 string values to CefString; any const char* that is NOT
+// a string literal should implicitly convert to std::string.
+inline bool setCefString(cef_string_t& dest, const std::string& value)
+{
+    return cef_string_from_utf8(value.c_str(), value.length(), &dest);
+}
 
 class ChromiumBrowserEvents;
 
@@ -161,8 +182,10 @@ public:
 	virtual void setEventCallback(ChromiumDLL::ChromiumRendererEventI* cbe);
 
 private:
+/*==========================================================================*|
 	int m_nDefaultWidth;
 	int m_nDefaultHeight;
+|*==========================================================================*/
 };
 
 

@@ -47,9 +47,9 @@ bool logHandler(int level, const std::string& msg)
 
 
 ChromiumController::ChromiumController()
-	: m_bInit(false)
+	: m_App(new ChromiumApp())
+	, m_bInit(false)
 	, m_bPendingInit(false)
-	, m_App(new ChromiumApp())
 {
 }
 
@@ -178,13 +178,11 @@ bool ChromiumController::DoInit(bool threaded, const char* cachePath, const char
 		if (pos != std::string::npos)
 			temp = temp.substr(pos);
 
-		cef_string_utf8_to_utf16(temp.c_str(), temp.size(), &settings.product_version);
+		setCefString(settings.product_version, temp);
 	}
 
-	static const char browser_subprocess_path[] = "cef_desura_host";
-	cef_string_utf8_to_utf16(browser_subprocess_path, strlen(browser_subprocess_path), &settings.browser_subprocess_path);
-	cef_string_utf8_to_utf16(cachePath, strlen(cachePath), &settings.cache_path);
-	
+	setCefString(settings.browser_subprocess_path, "cef_desura_host");
+	setCefString(settings.cache_path, cachePath);
 
 	settings.multi_threaded_message_loop = threaded;
 	settings.remote_debugging_port = 2323;

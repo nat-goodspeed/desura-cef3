@@ -262,8 +262,7 @@ void ChromiumBrowser::init(const char *defaultUrl, bool offScreen, int width, in
 		winInfo.style = WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_TABSTOP;
 #endif
 
-	const char* name = "DesuraCEFBrowser";
-	cef_string_utf8_to_utf16(name, strlen(name), &winInfo.window_name);
+	setCefString(winInfo.window_name, "DesuraCEFBrowser");
 
 	CefBrowserHost::CreateBrowser(winInfo, m_rEventHandler, defaultUrl, getBrowserDefaults(), CefRefPtr<CefRequestContext>());
 }
@@ -531,8 +530,8 @@ public:
 	typedef void(ChromiumBrowser::*CallbackFn)();
 
 	BrowserCallback(ChromiumBrowser* pBrowser, CallbackFn callback)
-		: m_pBrowser(pBrowser)
-		, m_fnCallback(callback)
+		: m_fnCallback(callback)
+		, m_pBrowser(pBrowser)
 	{
 	}
 
@@ -573,8 +572,7 @@ void ChromiumBrowser::showInspector()
 		winInfo.SetAsPopup(NULL, "Webkit Inspector");
 	#endif
 
-		const char* name = "WebkitInspector";
-		cef_string_utf8_to_utf16(name, strlen(name), &winInfo.window_name);
+		setCefString(winInfo.window_name, "WebkitInspector");
 
 		CefString devUrl = m_pBrowser->GetHost()->GetDevToolsURL(true);
 		m_Inspector = CefBrowserHost::CreateBrowserSync(winInfo, CefRefPtr<CefClient>(), devUrl, getBrowserDefaults(), CefRefPtr<CefRequestContext>());
@@ -646,8 +644,10 @@ void ChromiumBrowser::setContext(CefRefPtr<CefV8Context> context)
 
 ChromiumRenderer::ChromiumRenderer(WIN_HANDLE handle, const char* defaultUrl, int width, int height)
 	: ChromiumBrowser(handle)
+/*==========================================================================*|
 	, m_nDefaultWidth(width)
 	, m_nDefaultHeight(height)
+|*==========================================================================*/
 {
 	init(defaultUrl, true, width, height);
 }

@@ -45,6 +45,9 @@ $/LicenseInfo$
 
 class ChromiumBrowser;
 
+#ifdef OVERRIDE
+#undef OVERRIDE
+#endif
 #ifdef WIN32
 #define OVERRIDE override
 #else
