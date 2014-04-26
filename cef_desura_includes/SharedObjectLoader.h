@@ -84,7 +84,7 @@ public:
 		m_bHasFailed = false;
 
 #ifdef NIX
-#ifdef APPLE
+#ifdef __APPLE__
 		std::string strModule(convertToMacModule(module));
 #else
 		std::string strModule(convertToLinuxModule(module));
