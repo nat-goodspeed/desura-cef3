@@ -31,6 +31,9 @@ $/LicenseInfo$
 
 #include "SharedMem.h"
 
+#include "JSONOptions.h"
+#include "libjson.h"
+
 #include <string>
 #include <sstream>
 
@@ -52,6 +55,84 @@ int readInt(char* szBuff)
 
 class ProcessApp;
 
+class WaitCondition
+{
+public:
+
+	void notify()
+	{
+
+	}
+
+	bool wait()
+	{
+		return false;
+	}
+};
+
+CefRefPtr<CefV8Value> ConvertJsonToV8(const JSONNode &node)
+{
+	if (node.type() == JSON_NULL)
+		return CefV8Value::CreateNull();
+	else if (node.type() == JSON_STRING)
+		return CefV8Value::CreateString(node.as_string());
+	else if (node.type() == JSON_NUMBER)
+		return CefV8Value::CreateDouble(node.as_float());
+	else if (node.type() == JSON_BOOL)
+		return CefV8Value::CreateBool(node.as_bool());
+	else if (node.type() == JSON_ARRAY)
+	{
+		CefRefPtr<CefV8Value> ret = CefV8Value::CreateArray(node.size());
+
+		for (size_t x = 0; x < node.size(); ++x)
+			ret->SetValue(x, ConvertJsonToV8(node[x]));
+
+		return ret;
+	}
+	else if (node.type() == JSON_NODE)
+	{
+
+	}
+
+	return CefV8Value::CreateUndefined();
+}
+
+JSONNode ConvertV8ToJson(const CefRefPtr<CefV8Value>& val)
+{
+	if (val->IsBool())
+		return JSONNode("", val->GetBoolValue());
+	else if (val->IsDouble())
+		return JSONNode("", val->GetDoubleValue());
+	else if (val->IsInt())
+		return JSONNode("", val->GetIntValue());
+	else if (val->IsUndefined() || val->IsNull())
+		return JSONNode();
+	else if (val->IsUInt())
+		return JSONNode("", val->GetUIntValue());
+	else if (val->IsString())
+		return JSONNode("", val->GetStringValue().c_str());
+	else if (val->IsArray())
+	{
+		JSONNode ret;
+
+		for (int x = 0; x < val->GetArrayLength(); ++x)
+			ret[x] = ConvertV8ToJson(val->GetValue(x));
+
+		return ret;
+	}
+	else if (val->IsObject())
+	{
+
+	}
+	else if (val->IsFunction())
+	{
+
+	}
+
+	return JSONNode();
+}
+
+
 class V8ProxyHandler : public CefV8Handler
 {
 public:
@@ -63,13 +144,82 @@ public:
 
 	bool Execute(const CefString& name, CefRefPtr<CefV8Value> object, const CefV8ValueList& arguments, CefRefPtr<CefV8Value>& retval, CefString& exception) OVERRIDE
 	{
-		retval = CefV8Value::CreateString("Hello from render process!");
+		CefRefPtr<CefBrowser> pBrowser = CefV8Context::GetCurrentContext()->GetBrowser();
+
+		CefRefPtr<CefProcessMessage> msg = CefProcessMessage::Create("JSE-Request");
+		CefRefPtr<CefListValue> args = msg->GetArgumentList();
+
+		args->SetString(0, m_strName);
+		args->SetString(1, "FunctionCall");
+		args->SetString(2, name);
+		args->SetString(3, convertV8ToJson(object, arguments));
+
+		pBrowser->SendProcessMessage(PID_BROWSER, msg);
+
+		if (!m_WaitCond.wait())
+			exception = "Timed out waiting for response from browser";
+		else
+		{
+			try
+			{
+				retval = convertResponseToV8();
+			}
+			catch (std::exception &e)
+			{
+				exception = e.what();
+			}
+		}
+
 		return true;
+	}
+
+	const char* getName()
+	{
+		return m_strName.c_str();
+	}
+
+	void onMessageReceived(CefRefPtr<CefListValue> &args)
+	{
+		CefString strAction = args->GetString(1);
+
+		if (strAction == "FunctionReturn")
+		{
+			m_strFunctionReturn = args->GetString(2);
+			m_WaitCond.notify();
+		}
+	}
+
+protected:
+	CefRefPtr<CefV8Value> convertResponseToV8()
+	{
+		if (m_strFunctionReturn.empty())
+			return CefV8Value::CreateUndefined();
+
+		JSONNode node = JSONWorker::parse(m_strFunctionReturn);
+		return ConvertJsonToV8(node);
+	}
+
+	CefString convertV8ToJson(CefRefPtr<CefV8Value> &object, const CefV8ValueList& arguments)
+	{
+		JSONNode o = ConvertV8ToJson(object);
+		JSONNode a;
+
+		for (int x = 0; x < arguments.size(); ++x)
+			a[x] = ConvertV8ToJson(arguments[x]);
+
+		JSONNode r;
+		r["object"] = o;
+		r["args"] = a;
+
+		return r.write();
 	}
 
 private:
 	CefRefPtr<ProcessApp> m_App;
-	std::string m_strName;
+	const std::string m_strName;
+
+	CefString m_strFunctionReturn;
+	WaitCondition m_WaitCond;
 
 	IMPLEMENT_REFCOUNTING(V8ProxyHandler);
 };
@@ -171,6 +321,29 @@ public:
 
 	virtual bool OnProcessMessageReceived(CefRefPtr<CefBrowser> browser, CefProcessId source_process, CefRefPtr<CefProcessMessage> message) OVERRIDE
 	{
+		if (message->GetName() == "JSE-Request")
+		{
+
+
+			return true;
+		}
+		else if (message->GetName() == "JSE-Response")
+		{
+			CefRefPtr<CefListValue> args = message->GetArgumentList();
+			CefString strName = args->GetString(0);
+
+			for (size_t x = 0; x < m_vJSExtenders.size(); ++x)
+			{
+				if (strName != m_vJSExtenders[x]->getName())
+					continue;
+
+				m_vJSExtenders[x]->onMessageReceived(args);
+				break;
+			}
+
+			return true;
+		}
+
 		return CefRenderProcessHandler::OnProcessMessageReceived(browser, source_process, message);
 	}
 

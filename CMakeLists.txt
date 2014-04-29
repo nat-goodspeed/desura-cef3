@@ -237,6 +237,8 @@ set(CEF_DL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cef3)
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/cef_desura_includes
   ${CMAKE_CURRENT_SOURCE_DIR}/cef_desura
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libjson/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libjson/code
   ${CEF_DL_DIR}
   ${CEF_DL_DIR}/libcef_dll
 )
@@ -256,6 +258,12 @@ add_definitions(
   -DCHROMIUM_API_SUPPORTS_V2
 )
 
+if(DEBUG)
+	add_definitions(
+		-DJSON_DEBUG
+	)
+endif()
+
 file(GLOB cef_desura_sources 
 	cef_desura/*.cpp 
 	cef_desura/*.h 
@@ -264,6 +272,11 @@ file(GLOB cef_desura_sources
 file(GLOB cef_desura_host_sources 
 	cef_desura_host/*.cpp 
 	cef_desura_host/*.h 
+)
+
+file(GLOB libjson_sources
+	third_party/libjson/code/*.cpp
+	third_party/libjson/code/*.h
 )
 
 file(GLOB libcef_dll_wrapper_sources 
@@ -284,6 +297,8 @@ file(GLOB libcef_dll_wrapper_sources
 add_library(cef_desura SHARED ${cef_desura_sources})
 add_library(libcef_dll_wrapper STATIC ${libcef_dll_wrapper_sources})
 
+add_library(libjson STATIC ${libjson_sources})
+
 if(WIN32)
 	add_executable(cef_desura_host WIN32 ${cef_desura_host_sources})
 else()
@@ -294,6 +309,7 @@ set_property(TARGET cef_desura PROPERTY COMPILE_DEFINITIONS BUILDING_CEF_DESURA_
 
 target_link_libraries(cef_desura
   libcef_dll_wrapper
+  libjson
 )
 
 target_link_libraries(cef_desura_host
@@ -328,6 +344,7 @@ if(WIN32)
 	SetStaticRuntime(libcef_dll_wrapper)
 	SetStaticRuntime(cef_desura_test_msw)
 	SetStaticRunTime(cef_desura_test_ogl)
+	SetStaticRuntime(libjson)
 
 	add_dependencies(cef_desura_test_msw cef_desura)
 elseif(UNIX)
