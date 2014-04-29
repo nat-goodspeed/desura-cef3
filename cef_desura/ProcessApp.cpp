@@ -29,10 +29,50 @@ $/LicenseInfo$
 #include "ChromiumBrowser.h"
 #include "Controller.h"
 
+#include "SharedMem.h"
+
 #include <string>
 #include <sstream>
 
 CefRefPtr<CefCommandLine> g_command_line;
+
+union IntToBuff
+{
+	int i;
+	char b[4];
+};
+
+int readInt(char* szBuff)
+{
+	IntToBuff t;
+	memcpy(t.b, szBuff, 4);
+
+	return t.i;
+}
+
+class ProcessApp;
+
+class V8ProxyHandler : public CefV8Handler
+{
+public:
+	V8ProxyHandler(CefRefPtr<ProcessApp> &app, const std::string &strName)
+		: m_App(app)
+		, m_strName(strName)
+	{
+	}
+
+	bool Execute(const CefString& name, CefRefPtr<CefV8Value> object, const CefV8ValueList& arguments, CefRefPtr<CefV8Value>& retval, CefString& exception) OVERRIDE
+	{
+		retval = CefV8Value::CreateString("Hello from render process!");
+		return true;
+	}
+
+private:
+	CefRefPtr<ProcessApp> m_App;
+	std::string m_strName;
+
+	IMPLEMENT_REFCOUNTING(V8ProxyHandler);
+};
 
 class ProcessApp 
 	: public CefApp
@@ -47,14 +87,14 @@ public:
 	{
 		CefStringUTF8 strSchemes = ConvertToUtf8(g_command_line->GetSwitchValue("desura-schemes"));
 		
-		if (strSchemes.empty())
-			return;
+		if (!strSchemes.empty())
+		{
+			std::stringstream ss(strSchemes.c_str());
+			std::string s;
 
-		std::stringstream ss(strSchemes.c_str());
-		std::string s;
-
-		while (std::getline(ss, s, '&')) 
-			registrar->AddCustomScheme(s, true, false, false);
+			while (std::getline(ss, s, '&'))
+				registrar->AddCustomScheme(s, true, false, false);
+		}
 	}
 
 	virtual CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() OVERRIDE
@@ -70,12 +110,48 @@ public:
 
 	virtual void OnRenderThreadCreated(CefRefPtr<CefListValue> extra_info) OVERRIDE
 	{
-		//TODO Register js extenders here
+#ifdef DEBUG
+		while (!IsDebuggerPresent())
+			Sleep(1000);
+#endif
 	}
 
 	virtual void OnWebKitInitialized()
 	{
+		CefStringUTF8 strJSEName = ConvertToUtf8(g_command_line->GetSwitchValue("desura-jse-name"));
+		CefStringUTF8 strJSESize = ConvertToUtf8(g_command_line->GetSwitchValue("desura-jse-size"));
 
+		if (!strJSEName.empty() && !strJSESize.empty())
+		{
+			int nSize = atoi(strJSESize.c_str());
+
+			if (m_SharedMemInfo.init(strJSEName.c_str(), nSize))
+			{
+				char* pBuff = static_cast<char*>(m_SharedMemInfo.getMem());
+
+				int nCount = readInt(pBuff);
+				pBuff += 4;
+
+				for (int x = 0; x < nCount; ++x)
+				{
+					int nNameSize = readInt(pBuff);
+					pBuff += 4;
+
+					std::string strName(pBuff, nNameSize);
+					pBuff += nNameSize;
+
+					int nBindingSize = readInt(pBuff);
+					pBuff += 4;
+
+					std::string strBinding(pBuff, nBindingSize);
+					pBuff += nBindingSize;
+
+					CefRefPtr<V8ProxyHandler> pJSExtender = new V8ProxyHandler(CefRefPtr<ProcessApp>(this), strName);
+					CefRegisterExtension(strName, strBinding, CefRefPtr<CefV8Handler>(pJSExtender));
+					m_vJSExtenders.push_back(pJSExtender);
+				}
+			}
+		}
 	}
 
 	virtual void OnContextCreated(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefV8Context> context) OVERRIDE
@@ -99,6 +175,8 @@ public:
 	}
 
 	IMPLEMENT_REFCOUNTING(ProcessApp);
+	SharedMem m_SharedMemInfo;
+	std::vector<CefRefPtr<V8ProxyHandler>> m_vJSExtenders;
 };
 
 

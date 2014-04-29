@@ -71,6 +71,92 @@ void ChromiumApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> command_l
 
 	if (!strSchemes.empty())
 		command_line->AppendSwitchWithValue("desura-schemes", strSchemes);
+
+	if (initJSExtenderSharedMem())
+	{
+		char szBuff[16] = { 0 };
+		_snprintf(szBuff, 16, "%d", m_SharedMemInfo.getSize());
+
+		command_line->AppendSwitchWithValue("desura-jse-name", m_SharedMemInfo.getName());
+		command_line->AppendSwitchWithValue("desura-jse-size", szBuff);
+	}
+}
+
+union IntToBuff
+{
+	int i;
+	char b[4];
+};
+
+void writeInt(char* szBuff, int nVal)
+{
+	IntToBuff t;
+	t.i = nVal;
+	memcpy(szBuff, t.b, 4);
+}
+
+bool ChromiumApp::initJSExtenderSharedMem()
+{
+	if (m_SharedMemInfo.getMem())
+		return true;
+
+	if (m_vJSExtenders.empty())
+		return false;
+
+	class JSInfo
+	{
+	public:
+		std::string strName;
+		std::string strBinding;
+	};
+
+	std::vector<JSInfo> vInfo;
+
+	for (size_t x = 0; x < m_vJSExtenders.size(); ++x)
+	{
+		JSInfo i;
+		i.strBinding = m_vJSExtenders[x]->getRegistrationCode();
+		i.strName = m_vJSExtenders[x]->getName();
+
+		vInfo.push_back(i);
+	}
+
+	size_t nSize = 4; //number of entries
+
+	for (size_t x = 0; x < vInfo.size(); ++x)
+		nSize += 8 + vInfo[x].strBinding.size() + vInfo[x].strName.size();
+
+#ifdef WIN32
+	char strShared[255] = { 0 };
+	_snprintf(strShared, 255, "DESURA_JSEXTENDER_%d", GetCurrentProcessId());
+
+	if (!m_SharedMemInfo.init(strShared, nSize, false))
+		return false;
+#else
+	return false;
+#endif
+
+	char* pBuff = (char*)m_SharedMemInfo.getMem();
+
+	writeInt(pBuff, vInfo.size());
+	pBuff += 4;
+
+	for (size_t x = 0; x < vInfo.size(); ++x)
+	{
+		writeInt(pBuff, vInfo[x].strName.size());
+		pBuff += 4;
+
+		memcpy(pBuff, vInfo[x].strName.c_str(), vInfo[x].strName.size());
+		pBuff += vInfo[x].strName.size();
+
+		writeInt(pBuff, vInfo[x].strBinding.size());
+		pBuff += 4;
+
+		memcpy(pBuff, vInfo[x].strBinding.c_str(), vInfo[x].strBinding.size());
+		pBuff += vInfo[x].strBinding.size();
+	}
+
+	return true;
 }
 
 void ChromiumApp::OnRenderProcessThreadCreated(CefRefPtr<CefListValue> extra_info)

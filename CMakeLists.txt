@@ -305,7 +305,7 @@ add_dependencies(cef_desura cef_desura_host)
 add_dependencies(cef_desura_test_ogl cef_desura)
 
 if(WIN32)
-	add_executable(cef_desura_test_msw WIN32 cef_desura_test/main_msw.cpp cef_desura_test/desura_scheme.cpp)
+	add_executable(cef_desura_test_msw WIN32 cef_desura_test/main_msw.cpp cef_desura_test/desura_scheme.cpp cef_desura_test/desura_jsextender.cpp)
 
 	target_link_libraries(cef_desura_test_ogl
 		${CMAKE_CURRENT_SOURCE_DIR}/cef_desura_test/freeglut/freeglut.lib

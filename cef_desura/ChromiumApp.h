@@ -27,6 +27,8 @@ $/LicenseInfo$
 #include "ChromiumBrowserI.h"
 #include "include/cef_app.h"
 
+#include "SharedMem.h"
+
 
 class ChromiumApp : public CefApp, protected CefBrowserProcessHandler
 {
@@ -64,9 +66,13 @@ public:
 protected:
 	std::vector<std::string> getSchemeList();
 
+	bool initJSExtenderSharedMem();
+
 private:
 	std::vector<ChromiumDLL::JavaScriptExtenderI*> m_vJSExtenders;
 	std::vector<ChromiumDLL::SchemeExtenderI*> m_vSchemeExtenders;
+
+	SharedMem m_SharedMemInfo;
 
 	bool m_bInit;
 

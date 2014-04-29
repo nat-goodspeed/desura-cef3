@@ -536,7 +536,11 @@ private:
 	ChromiumBrowser *m_pBrowser;
 };
 
-
+class CefMockClient : public CefClient
+{
+public:
+	IMPLEMENT_REFCOUNTING(CefMockClient);
+};
 
 void ChromiumBrowser::showInspector()
 {
@@ -568,7 +572,13 @@ void ChromiumBrowser::showInspector()
 		m_Inspector = CefBrowserHost::CreateBrowserSync(winInfo, CefRefPtr<CefClient>(), devUrl, getBrowserDefaults(), CefRefPtr<CefRequestContext>());
 #else
 		CefWindowInfo info;
-		m_pBrowser->GetHost()->ShowDevTools(info, CefRefPtr<CefClient>(), getBrowserDefaults());
+
+#if defined(OS_WIN)
+		info.style = WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_TABSTOP;
+		info.SetAsPopup(NULL, "Webkit Inspector");
+#endif
+
+		m_pBrowser->GetHost()->ShowDevTools(info, CefRefPtr<CefClient>(new CefMockClient()), getBrowserDefaults());
 #endif
 	}
 }

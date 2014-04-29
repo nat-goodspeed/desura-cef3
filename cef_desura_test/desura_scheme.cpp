@@ -109,14 +109,14 @@ private:
 
 ExternalLoaderScheme::ExternalLoaderScheme() 
 	: DesuraSchemeBase<ExternalLoaderScheme>("desura", "")
-	, m_Js("alert('Hi From scheme!');")
+	, m_Js("<html><body><h1>Say hi cef3!</h1><script>alert(desura.getString());</script></body></html>")
 {
 }
 
 bool ExternalLoaderScheme::processRequest(ChromiumDLL::SchemeRequestI* request, bool* redirect)
 {
 	m_uiResponseSize = m_Js.size();
-	m_szMimeType = "application/javascript";
+	m_szMimeType = "text/html";
 
 	return true;
 }
