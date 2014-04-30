@@ -28,6 +28,8 @@ $/LicenseInfo$
 #include "JavaScriptObject.h"
 #include "JavaScriptContext.h"
 
+/*
+
 bool JavaScriptExtender::Register(ChromiumDLL::JavaScriptExtenderI* jse)
 {
 	return CefRegisterExtension(jse->getName(), jse->getRegistrationCode(), new JavaScriptExtender(jse));
@@ -191,7 +193,7 @@ CefRefPtr<CefBase> JavaScriptWrapper::getCefBase()
 
 
 
-
+*/
 
 
 

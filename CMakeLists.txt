@@ -239,6 +239,7 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/cef_desura
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libjson/include
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libjson/code
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libtinythread
   ${CEF_DL_DIR}
   ${CEF_DL_DIR}/libcef_dll
 )
@@ -279,6 +280,11 @@ file(GLOB libjson_sources
 	third_party/libjson/code/*.h
 )
 
+file(GLOB libtinythread_sources
+	third_party/libtinythread/*.cpp
+	third_party/libtinythread/*.h
+)
+
 file(GLOB libcef_dll_wrapper_sources 
 	${CEF_INCLUDE_PATH}/*.h 
 	${CEF_INCLUDE_PATH}/internal/*.h
@@ -298,6 +304,7 @@ add_library(cef_desura SHARED ${cef_desura_sources})
 add_library(libcef_dll_wrapper STATIC ${libcef_dll_wrapper_sources})
 
 add_library(libjson STATIC ${libjson_sources})
+add_library(libtinythread STATIC ${libtinythread_sources})
 
 if(WIN32)
 	add_executable(cef_desura_host WIN32 ${cef_desura_host_sources})
@@ -310,6 +317,7 @@ set_property(TARGET cef_desura PROPERTY COMPILE_DEFINITIONS BUILDING_CEF_DESURA_
 target_link_libraries(cef_desura
   libcef_dll_wrapper
   libjson
+  libtinythread
 )
 
 target_link_libraries(cef_desura_host
@@ -345,7 +353,8 @@ if(WIN32)
 	SetStaticRuntime(cef_desura_test_msw)
 	SetStaticRunTime(cef_desura_test_ogl)
 	SetStaticRuntime(libjson)
-
+	SetStaticRuntime(libtinythread)
+	
 	add_dependencies(cef_desura_test_msw cef_desura)
 elseif(UNIX)
 	add_definitions(-DNIX)

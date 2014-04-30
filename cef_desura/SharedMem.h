@@ -31,6 +31,27 @@ $/LicenseInfo$
 
 #include <string>
 
+union IntToBuff
+{
+	int i;
+	char b[4];
+};
+
+inline void writeInt(char* szBuff, int nVal)
+{
+	IntToBuff t;
+	t.i = nVal;
+	memcpy(szBuff, t.b, 4);
+}
+
+inline int readInt(char* szBuff)
+{
+	IntToBuff t;
+	memcpy(t.b, szBuff, 4);
+
+	return t.i;
+}
+
 class SharedMem
 {
 public:

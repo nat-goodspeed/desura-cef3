@@ -70,6 +70,8 @@ public:
 	int ExecuteProcess(int argc, char** argv);
 #endif
 
+	bool processMessageReceived(CefRefPtr<CefBrowser> &browser, CefRefPtr<CefProcessMessage> &message);
+
 protected:
 	bool DoInit(bool threaded, const char* cachePath, const char* logPath, const char* userAgent);
 

@@ -33,6 +33,8 @@ $/LicenseInfo$
 //#include "include/cef.h"
 #include "include/cef_v8.h"
 
+/*
+
 class V8HandleBaseWrapper : public CefBase
 {
 public:
@@ -105,5 +107,7 @@ public:
 private:
 	CefRefPtr<CefV8Handler> m_pObject;
 };
+
+*/
 
 #endif //DESURA_JAVASCRIPTEXTENDER_H

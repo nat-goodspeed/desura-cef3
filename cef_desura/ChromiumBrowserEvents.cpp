@@ -461,11 +461,29 @@ void RenderProcessHandler::OnRenderThreadCreated(CefRefPtr<CefListValue> extra_i
 /// ChromiumBrowserEvents
 /////////////////////////////////////////////////////////////////////////////////////////////
 
+#include "Controller.h"
+
+extern ChromiumController* g_Controller;
+
 ChromiumBrowserEvents::ChromiumBrowserEvents(ChromiumBrowser* pParent)
 {
 	m_pParent = pParent;
 	m_pEventCallBack = NULL;
 	m_pRendereEventCallBack = NULL;
+}
+
+bool ChromiumBrowserEvents::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser, CefProcessId source_process, CefRefPtr<CefProcessMessage> message)
+{
+	if (g_Controller->processMessageReceived(browser, message))
+		return true;
+
+	if (message->GetName() == "Statistics")
+	{
+		//todo 
+		return true;
+	}
+
+	return false;
 }
 
 void ChromiumBrowserEvents::setCallBack(ChromiumDLL::ChromiumBrowserEventI* cbe)

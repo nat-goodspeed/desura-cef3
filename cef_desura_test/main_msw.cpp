@@ -40,6 +40,8 @@ class EventCallback : public ChromiumDLL::ChromiumBrowserEventI
 public:
 	virtual bool onNavigateUrl(const char* url, bool isMain)
 	{
+		g_Browser->showInspector();
+
 		std::cout << "onNavigateUrl: " << url << std::endl;
 		SetWindowText(m_MainWinHwnd, url);
 		return true;

@@ -30,30 +30,25 @@ $/LicenseInfo$
 #endif
 
 #include "ChromiumBrowserI.h"
-//#include "include/cef.h"
-#include "include/cef_v8.h"
-#include "include/internal/cef_ptr.h"
+#include "JavaScriptFactory.h"
 
 class JavaScriptContext : public ChromiumDLL::JavaScriptContextI
 {
 public:
 	JavaScriptContext();
-	JavaScriptContext(CefRefPtr<CefV8Context> context);
 
-	virtual void destroy();
-	virtual ChromiumDLL::JavaScriptContextI* clone();
+	void destroy() OVERRIDE;
+	ChromiumDLL::JavaScriptContextI* clone() OVERRIDE;
 
-	virtual void enter();
-	virtual void exit();
+	void enter() OVERRIDE;
+	void exit() OVERRIDE;
 
-	virtual ChromiumDLL::JavaScriptFactoryI* getFactory();
-	virtual ChromiumDLL::JSObjHandle getGlobalObject();
-
-	CefRefPtr<CefV8Context> getCefV8();
+	ChromiumDLL::JavaScriptFactoryI* getFactory() OVERRIDE;
+	ChromiumDLL::JSObjHandle getGlobalObject() OVERRIDE;
 
 private:
-	uint32 m_uiCount;
-	CefRefPtr<CefV8Context> m_pContext;
+	JavaScriptFactory m_JSFactory;
+	unsigned int m_uiCount;
 };
 
 

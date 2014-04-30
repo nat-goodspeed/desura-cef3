@@ -45,16 +45,16 @@ int mystrncpy_s(char* dest, size_t destSize, const char* src, size_t srcSize)
 }
 
 JavaScriptObject::JavaScriptObject()
+	: m_iRefCount(0)
+	, m_bIsException(false)
 {
-	m_iRefCount = 0;
-	m_bIsException = false;
 }
 
-JavaScriptObject::JavaScriptObject(CefRefPtr<CefV8Value> obj)
+JavaScriptObject::JavaScriptObject(JSONNode node, bool bIsException)
+	: m_JsonNode(node)
+	, m_iRefCount(0)
+	, m_bIsException(bIsException)
 {
-	m_pObject = obj;
-	m_iRefCount = 0;
-	m_bIsException = false;
 }
 
 JavaScriptObject::~JavaScriptObject()
@@ -81,55 +81,53 @@ void JavaScriptObject::destory()
 
 ChromiumDLL::JavaScriptObjectI* JavaScriptObject::clone()
 {
-	return new JavaScriptObject(m_pObject);
+	return new JavaScriptObject(m_JsonNode, m_bIsException);
 }
 
 bool JavaScriptObject::isUndefined()
 {
-	return m_pObject->IsUndefined();
+	return m_JsonNode.type() == JSON_NULL;
 }
 
 bool JavaScriptObject::isNull()
 {
-	if (!m_pObject)
-		return true;
-
-	return m_pObject->IsNull();
+	return m_JsonNode.type() == JSON_NULL;
 }
 
 bool JavaScriptObject::isBool()
 {
-	return m_pObject->IsBool();
+	return m_JsonNode.type() == JSON_BOOL;
 }
 
 bool JavaScriptObject::isInt()
 {
-	return m_pObject->IsInt();
+	return m_JsonNode.type() == JSON_NUMBER;
 }
 
 bool JavaScriptObject::isDouble()
 {
-	return m_pObject->IsDouble();
+	return m_JsonNode.type() == JSON_NUMBER;
 }
 
 bool JavaScriptObject::isString()
 {
-	return m_pObject->IsString();
+	return m_JsonNode.type() == JSON_STRING;
 }
 
 bool JavaScriptObject::isObject()
 {
-	return m_pObject->IsObject();
+	return m_JsonNode.type() == JSON_NODE;
 }
 
 bool JavaScriptObject::isArray()
 {
-	return m_pObject->IsArray();
+	return m_JsonNode.type() == JSON_ARRAY;
 }
 
 bool JavaScriptObject::isFunction()
 {
-	return m_pObject->IsFunction();
+	//Todo: Implement
+	return false;
 }
 
 bool JavaScriptObject::isException()
@@ -139,22 +137,22 @@ bool JavaScriptObject::isException()
 
 bool JavaScriptObject::getBoolValue()
 {
-	return m_pObject->GetBoolValue();
+	return m_JsonNode.as_bool();
 }
 
 int JavaScriptObject::getIntValue()
 {
-	return m_pObject->GetIntValue();
+	return m_JsonNode.as_int();
 }
 
 double JavaScriptObject::getDoubleValue()
 {
-	return m_pObject->GetDoubleValue();
+	return m_JsonNode.as_float();
 }
 
 int JavaScriptObject::getStringValue(char* buff, size_t buffsize)
 {
-	std::string str = m_pObject->GetStringValue();
+	std::string str = m_JsonNode.as_string();
 
 	if (buff)
 		mystrncpy_s(buff, buffsize, str.c_str(), str.size());
@@ -164,42 +162,48 @@ int JavaScriptObject::getStringValue(char* buff, size_t buffsize)
 
 bool JavaScriptObject::hasValue(const char* key)
 {
-	return m_pObject->HasValue(key);
+	return m_JsonNode.find(key) != m_JsonNode.end();
 }
 
 bool JavaScriptObject::hasValue(int index)
 {
-	return m_pObject->HasValue(index);
+	return (index < getNumberOfKeys());
 }
 
 bool JavaScriptObject::deleteValue(const char* key)
 {
-	return m_pObject->DeleteValue(key);
+	JSONNode::iterator it = m_JsonNode.find(key);
+
+	if (it == m_JsonNode.end())
+		return false;
+
+	m_JsonNode.erase(it);
+	return true;
 }
 
 bool JavaScriptObject::deleteValue(int index)
 {
-	return m_pObject->DeleteValue(index);
+	if (index >= getNumberOfKeys())
+		return false;
+
+	m_JsonNode.erase(m_JsonNode.begin() + index);
+	return true;
 }
 
 ChromiumDLL::JSObjHandle JavaScriptObject::getValue(const char* key)
 {
-	CefRefPtr<CefV8Value> val = m_pObject->GetValue(key);
-
-	if (!val)
+	if (!hasValue(key))
 		return NULL;
 
-	return ChromiumDLL::JSObjHandle(new JavaScriptObject(val));
+	return new JavaScriptObject(m_JsonNode[key]);
 }
 
 ChromiumDLL::JSObjHandle JavaScriptObject::getValue(int index)
 {
-	CefRefPtr<CefV8Value> val = m_pObject->GetValue(index);
-
-	if (!val)
+	if (index >= getNumberOfKeys())
 		return NULL;
 
-	return ChromiumDLL::JSObjHandle(new JavaScriptObject(val));
+	return new JavaScriptObject(m_JsonNode[index]);
 }
 
 bool JavaScriptObject::setValue(const char* key, ChromiumDLL::JSObjHandle value)
@@ -209,9 +213,15 @@ bool JavaScriptObject::setValue(const char* key, ChromiumDLL::JSObjHandle value)
 	if (!jso)
 		return false;
 
-	// nat: V8_PROPERTY_ATTRIBUTE_NONE is a guess; CefV8Value::SetValue()
-	// didn't used to require a PropertyAttribute.
-	return m_pObject->SetValue(key, jso->getCefV8(), V8_PROPERTY_ATTRIBUTE_NONE);
+	JSONNode n = jso->getNode().duplicate();
+	n.set_name(key);
+
+	if (hasValue(key))
+		m_JsonNode[key] = n;
+	else
+		m_JsonNode.push_back(n);
+
+	return true;
 }
 
 bool JavaScriptObject::setValue(int index, ChromiumDLL::JSObjHandle value)
@@ -221,112 +231,58 @@ bool JavaScriptObject::setValue(int index, ChromiumDLL::JSObjHandle value)
 	if (!jso)
 		return false;
 
-	return m_pObject->SetValue(index, jso->getCefV8());
+	while (m_JsonNode.size() < (size_t)index)
+		m_JsonNode.push_back(JSONNode(JSON_NULL));
+
+	JSONNode n = jso->getNode().duplicate();
+	n.set_name("");
+
+	m_JsonNode[index] = n;
+	return true;
 }
 
 int JavaScriptObject::getNumberOfKeys()
 {
-	std::vector<CefString> keys;
-	m_pObject->GetKeys(keys);
-
-	return keys.size();
+	return m_JsonNode.size();
 }
 
 void JavaScriptObject::getKey(int index, char* buff, size_t buffsize)
 {
-	std::vector<CefString> keys;
-	m_pObject->GetKeys(keys);
+	if (index >= getNumberOfKeys())
+		return;
 
-	if (index >= 0 && index < (int)keys.size())
-	{
-		cef_string_utf8_t tmp;
-		cef_string_to_utf8(keys[index].c_str(), keys[index].size(), &tmp);
-		CefStringUTF8 t(&tmp);
-
-		mystrncpy_s(buff, buffsize, t.c_str(), t.size());
-	}
+	std::string strKey = m_JsonNode[index].name();
+	mystrncpy_s(buff, buffsize, strKey.c_str(), strKey.size());
 }
 
 int JavaScriptObject::getArrayLength()
 {
-	return m_pObject->GetArrayLength();
+	return getNumberOfKeys();
 }
 
 void JavaScriptObject::getFunctionName(char* buff, size_t buffsize)
 {
-	std::string name = m_pObject->GetFunctionName();
-	mystrncpy_s(buff, buffsize, name.c_str(), name.size());
+	//TODO Implement
 }
 
 ChromiumDLL::JavaScriptExtenderI* JavaScriptObject::getFunctionHandler()
 {
-	return new JavaScriptWrapper(m_pObject->GetFunctionHandler());
+	//TODO Implement
+	return NULL;
 }
 
 ChromiumDLL::JSObjHandle JavaScriptObject::executeFunction(ChromiumDLL::JavaScriptFunctionArgs *args)
 {
-	if (!isFunction())
-		return GetJSFactory()->CreateException("Not a function!");
-
-	if (!args)
-		return GetJSFactory()->CreateException("Args are null for function call");
-
-	JavaScriptContext* context = (JavaScriptContext*)args->context;
-	JavaScriptObject* jso = (JavaScriptObject*)args->object.get();
-
-	CefV8ValueList argList;
-
-	for (int x=0; x<args->argc; x++)
-	{
-		JavaScriptObject* jsoa = (JavaScriptObject*)args->argv[x].get();
-
-		if (jsoa)
-			argList.push_back(jsoa->getCefV8());
-		else
-			argList.push_back(NULL);
-	}
-
-	CefRefPtr<CefV8Value> retval = m_pObject->ExecuteFunctionWithContext(context->getCefV8(), jso?jso->getCefV8():NULL, argList);
-
-	if (!retval)
-	{
-		CefRefPtr<CefV8Exception> exception = m_pObject->GetException();
-		if (exception)
-		{
-			cef_string_utf8_t tmp;
-			cef_string_to_utf8(exception->GetMessage().c_str(), exception->GetMessage().size(), &tmp);
-			CefStringUTF8 t(&tmp);
-
-			return GetJSFactory()->CreateException(t.c_str());
-		}
-			
-		return GetJSFactory()->CreateException("failed to run function");
-	}
-
-	return new JavaScriptObject(retval);
+	//TODO Implement
+	return NULL;
 }
 
 void* JavaScriptObject::getUserObject()
 {
-	CefRefPtr<CefBase> data = m_pObject->GetUserData();
+	if (!hasValue("__user_data__"))
+		return NULL;
 
-	ObjectWrapper* ow = (ObjectWrapper*)data.get();
-	
-	if (ow)
-		return ow->getData();
-
-	return NULL;
-}
-
-CefRefPtr<CefV8Value> JavaScriptObject::getCefV8()
-{
-	return m_pObject;
-}
-
-CefRefPtr<CefBase> JavaScriptObject::getCefBase()
-{
-	CefRefPtr<CefBase> base(new V8ValueBaseWrapper(m_pObject));
-	return base;
+	return (void*)m_JsonNode["__user_data__"].as_int();
 }
 
 void JavaScriptObject::setException()
@@ -334,4 +290,7 @@ void JavaScriptObject::setException()
 	m_bIsException = true;
 }
 
-
+std::string JavaScriptObject::getJsonString()
+{
+	return m_JsonNode.write();
+}

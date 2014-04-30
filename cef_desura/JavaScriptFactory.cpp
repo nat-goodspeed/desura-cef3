@@ -24,37 +24,8 @@ $/LicenseInfo$
 */
 
 #include "JavaScriptFactory.h"
-//#include "include/cef.h"
-
 #include "JavaScriptExtender.h"
 #include "JavaScriptObject.h"
-
-JavaScriptFactory* g_pJavaScriptFactory = NULL;
-
-ChromiumDLL::JavaScriptFactoryI* GetJSFactory()
-{
-	if (!g_pJavaScriptFactory)
-		g_pJavaScriptFactory = new JavaScriptFactory();
-
-	return g_pJavaScriptFactory;
-}
-
-class AutoDelete
-{
-public:
-	~AutoDelete()
-	{
-		if (g_pJavaScriptFactory)
-		{
-			delete g_pJavaScriptFactory;
-			g_pJavaScriptFactory = NULL;
-		}
-	}
-};
-
-AutoDelete ad;
-
-
 
 JavaScriptFactory::JavaScriptFactory()
 {
@@ -66,64 +37,60 @@ JavaScriptFactory::~JavaScriptFactory()
 
 ChromiumDLL::JSObjHandle JavaScriptFactory::CreateUndefined()
 {
-	return new JavaScriptObject(CefV8Value::CreateUndefined());
+	return new JavaScriptObject();
 }
 
 ChromiumDLL::JSObjHandle JavaScriptFactory::CreateNull()
 {
-	return new JavaScriptObject(CefV8Value::CreateNull());
+	return new JavaScriptObject(JSONNode(JSON_NULL));
 }
 
 ChromiumDLL::JSObjHandle JavaScriptFactory::CreateBool(bool value)
 {
-	return new JavaScriptObject(CefV8Value::CreateBool(value));
+	return new JavaScriptObject(JSONNode("", value));
 }
 
 ChromiumDLL::JSObjHandle JavaScriptFactory::CreateInt(int value)
 {
-	return new JavaScriptObject(CefV8Value::CreateInt(value));
+	return new JavaScriptObject(JSONNode("", value));
 }
 
 ChromiumDLL::JSObjHandle JavaScriptFactory::CreateDouble(double value)
 {
-	return new JavaScriptObject(CefV8Value::CreateDouble(value));
+	return new JavaScriptObject(JSONNode("", value));
 }
 
 ChromiumDLL::JSObjHandle JavaScriptFactory::CreateString(const char* value)
 {
-	return new JavaScriptObject(CefV8Value::CreateString(value));
+	return new JavaScriptObject(JSONNode("", value));
 }
 
 ChromiumDLL::JSObjHandle JavaScriptFactory::CreateArray()
 {
-	return new JavaScriptObject(CefV8Value::CreateArray(0));
+	return new JavaScriptObject(JSONNode(JSON_ARRAY));
 }
 
 ChromiumDLL::JSObjHandle JavaScriptFactory::CreateObject()
 {
-	return new JavaScriptObject(CefV8Value::CreateObject(NULL));
+	return new JavaScriptObject(JSONNode(JSON_NODE));
 }
 
 ChromiumDLL::JSObjHandle JavaScriptFactory::CreateObject(void* userData)
 {
-	CefBase* base = new ObjectWrapper(userData);
-	// per Mark 2014-03-10: first create an object with no accessor
-	CefRefPtr<CefV8Value> object = CefV8Value::CreateObject(NULL);
-	// then set its UserData
-	object->SetUserData(CefRefPtr<CefBase>(base));
-	return new JavaScriptObject(object);
+	JSONNode j(JSON_NODE);
+	j.push_back(JSONNode("__user_data__", (long long)userData));
+	return new JavaScriptObject(j);
 }
 
 ChromiumDLL::JSObjHandle JavaScriptFactory::CreateFunction(const char* name, ChromiumDLL::JavaScriptExtenderI* handler)
 {
-	CefRefPtr<CefV8Handler> e = new JavaScriptExtender(handler);
-	return new JavaScriptObject(CefV8Value::CreateFunction(name, e));
+	//TODO: Implement	
+	return NULL;
 }
 
 ChromiumDLL::JSObjHandle JavaScriptFactory::CreateException(const char* value)
 {
-	JavaScriptObject *ret = new JavaScriptObject(CefV8Value::CreateString(value));
+	JavaScriptObject *ret = new JavaScriptObject(JSONNode("", value));
 	ret->setException();
-
 	return ret;
 }

@@ -45,6 +45,12 @@ $/LicenseInfo$
 #define DLLINTERFACE __attribute__ ((visibility("default")))
 #endif
 
+#ifdef WIN32
+#define OVERRIDE override
+#else
+#define OVERRIDE
+#endif
+
 #ifdef CHROMIUM_API_SUPPORTS_V2
 #define USE_CHROMIUM_API_V2
 #endif

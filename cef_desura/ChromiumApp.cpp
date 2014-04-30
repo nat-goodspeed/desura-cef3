@@ -26,6 +26,11 @@ $/LicenseInfo$
 #include "ChromiumApp.h"
 #include "SchemeExtender.h"
 
+#include "JavaScriptObject.h"
+#include "JavaScriptFactory.h"
+
+#include "libjson.h"
+
 std::vector<std::string> ChromiumApp::getSchemeList()
 {
 	std::map<std::string, int> mSchemes;
@@ -80,19 +85,6 @@ void ChromiumApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> command_l
 		command_line->AppendSwitchWithValue("desura-jse-name", m_SharedMemInfo.getName());
 		command_line->AppendSwitchWithValue("desura-jse-size", szBuff);
 	}
-}
-
-union IntToBuff
-{
-	int i;
-	char b[4];
-};
-
-void writeInt(char* szBuff, int nVal)
-{
-	IntToBuff t;
-	t.i = nVal;
-	memcpy(szBuff, t.b, 4);
 }
 
 bool ChromiumApp::initJSExtenderSharedMem()
@@ -189,4 +181,184 @@ bool ChromiumApp::RegisterSchemeExtender(ChromiumDLL::SchemeExtenderI* extender)
 
 	m_vSchemeExtenders.push_back(extender);
 	return true;
+}
+
+bool ChromiumApp::processMessageReceived(CefRefPtr<CefBrowser> &browser, CefRefPtr<CefProcessMessage> &message)
+{
+	if (message->GetName() == "JSE-Response")
+	{
+
+
+	}
+	else if (message->GetName() == "JSE-Request")
+	{
+		initThread();
+
+		{
+			tthread::lock_guard<tthread::mutex> guard(m_QueueLock);
+			m_WorkQueue.push_back(std::make_pair(browser, message->GetArgumentList()));
+		}
+		
+		m_WaitCond.notify_one();
+	}
+	else
+	{
+		return false;
+	}
+
+	return true;
+}
+
+void ChromiumApp::run()
+{
+	while (!m_bIsStopped)
+	{
+		CefRefPtr<CefListValue> request;
+		CefRefPtr<CefBrowser> browser;
+
+		{
+			tthread::lock_guard<tthread::mutex> guard(m_QueueLock);
+
+			if (!m_WorkQueue.empty())
+			{
+				request = m_WorkQueue.front().second;
+				browser = m_WorkQueue.front().first;
+				m_WorkQueue.pop_front();
+			}
+		}
+
+		if (request && browser)
+		{
+			processRequest(browser, request);
+		}
+		else if (!m_bIsStopped)
+		{
+			m_WaitCond.wait(m_WaitLock);
+		}
+	}
+}
+
+CefStringUTF8 ConvertToUtf8(const CefString& str);
+
+void ChromiumApp::runThread(void* pObj)
+{
+	static_cast<ChromiumApp*>(pObj)->run();
+}
+
+void ChromiumApp::initThread()
+{
+	if (m_bIsStopped || m_pWorkerThread)
+		return;
+
+	m_pWorkerThread = new tthread::thread(&ChromiumApp::runThread, this);
+}
+
+void ChromiumApp::processRequest(CefRefPtr<CefBrowser> &browser, CefRefPtr<CefListValue> &request)
+{
+	CefRefPtr<CefProcessMessage> res = CefProcessMessage::Create("JSE-Response");
+	CefRefPtr<CefListValue> args = res->GetArgumentList();
+
+	if (request->GetSize() < 4)
+	{
+		//TODO: handle this better
+		return;
+	}
+
+	ChromiumDLL::JavaScriptExtenderI* pExtender = NULL;
+	CefStringUTF8 strJsName = ConvertToUtf8(request->GetString(0));
+
+	for (size_t x = 0; x < m_vJSExtenders.size(); ++x)
+	{
+		if (strJsName != m_vJSExtenders[x]->getName())
+			continue;
+
+		pExtender = m_vJSExtenders[x];
+		break;
+	}
+
+	if (!pExtender)
+	{
+		//TODO: handle this better
+		return;
+	}
+
+	args->SetString(0, request->GetString(0));
+
+	CefStringUTF8 strCommand = ConvertToUtf8(request->GetString(1));
+
+	if (strCommand == "FunctionCall")
+	{
+		CefStringUTF8 strFunction = ConvertToUtf8(request->GetString(2));
+		CefStringUTF8 strArgs = ConvertToUtf8(request->GetString(3));
+
+		JavaScriptFactory factory;
+
+		ChromiumDLL::JavaScriptFunctionArgs jsFunctArgs;
+		jsFunctArgs.function = strFunction.c_str();
+		jsFunctArgs.factory = &factory;
+		jsFunctArgs.argc = 0;
+		jsFunctArgs.argv = NULL;
+		jsFunctArgs.context = NULL;
+
+		ChromiumDLL::JSObjHandle* jsArgv = NULL;
+		
+		try
+		{
+			JSONNode node = JSONWorker::parse(strArgs);
+
+			if (node.find("object") != node.end())
+				jsFunctArgs.object = new JavaScriptObject(node["object"]);
+			
+			if (node.find("args") != node.end())
+			{
+				JSONNode a = node["args"];
+
+				jsArgv = new ChromiumDLL::JSObjHandle[a.size()];
+
+				for (size_t x = 0; x < a.size(); ++x)
+					jsArgv[x] = new JavaScriptObject(a[x]);
+
+				jsFunctArgs.argc = a.size();
+				jsFunctArgs.argv = jsArgv;
+			}
+
+			ChromiumDLL::JSObjHandle pRet = pExtender->execute(&jsFunctArgs);
+			delete[] jsArgv;
+
+			JavaScriptObject* pObj = dynamic_cast<JavaScriptObject*>(pRet.get());
+
+			if (pObj && !pObj->isException())
+			{
+				args->SetString(1, "FunctionReturn");
+				args->SetString(2, pObj->getJsonString());
+			}
+			else if (pObj)
+			{
+				char szException[255] = { 0 };
+				pObj->getStringValue(szException, 255);
+
+				args->SetString(1, "FunctionException");
+				args->SetString(2, szException);
+			}
+			else
+			{
+				args->SetString(1, "FunctionReturn");
+				args->SetString(2, "");
+			}
+		}
+		catch (std::exception &e)
+		{
+			args->SetString(1, "FunctionException");
+			args->SetString(2, e.what());
+
+			delete [] jsArgv;
+		}
+
+		browser->SendProcessMessage(PID_RENDERER, res);
+	}
+	else
+	{
+		//TODO: handle this better
+		return;
+	}
 }

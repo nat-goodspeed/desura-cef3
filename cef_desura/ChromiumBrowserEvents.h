@@ -45,13 +45,6 @@ $/LicenseInfo$
 
 class ChromiumBrowser;
 
-#ifdef WIN32
-#define OVERRIDE override
-#else
-#define OVERRIDE
-#endif
-
-
 class ChromiumEventInfoI
 {
 public:
@@ -257,6 +250,8 @@ public:
 	virtual CefRefPtr<CefDownloadHandler>	GetDownloadHandler()	{ return this; }
 	virtual CefRefPtr<CefContextMenuHandler>	GetContextMenuHandler()	{ return this; }
 	virtual CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() { return this; }
+
+	bool OnProcessMessageReceived(CefRefPtr<CefBrowser> browser, CefProcessId source_process, CefRefPtr<CefProcessMessage> message) OVERRIDE;
 
 private:
 	CefRefPtr<CefBrowser> m_Browser;

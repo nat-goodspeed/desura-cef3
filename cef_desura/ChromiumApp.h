@@ -28,14 +28,36 @@ $/LicenseInfo$
 #include "include/cef_app.h"
 
 #include "SharedMem.h"
+#include "tinythread.h"
 
+#include <list>
 
 class ChromiumApp : public CefApp, protected CefBrowserProcessHandler
 {
 public:
 	ChromiumApp()
 		: m_bInit(false)
+		, m_bIsStopped(false)
+		, m_pWorkerThread(NULL)
 	{
+	}
+
+	~ChromiumApp()
+	{
+		m_bIsStopped = true;
+
+		m_WaitCond.notify_all();
+
+		if (m_pWorkerThread && m_pWorkerThread->joinable())
+			m_pWorkerThread->join();
+
+		delete m_pWorkerThread;
+
+		for (size_t x = 0; x < m_vJSExtenders.size(); ++x)
+			m_vJSExtenders[x]->destroy();
+
+		for (size_t x = 0; x < m_vSchemeExtenders.size(); ++x)
+			m_vSchemeExtenders[x]->destroy();
 	}
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////
@@ -63,10 +85,18 @@ public:
 	bool RegisterJSExtender(ChromiumDLL::JavaScriptExtenderI* extender);
 	bool RegisterSchemeExtender(ChromiumDLL::SchemeExtenderI* extender);
 
+
+	bool processMessageReceived(CefRefPtr<CefBrowser> &browser, CefRefPtr<CefProcessMessage> &message);
+
 protected:
 	std::vector<std::string> getSchemeList();
 
 	bool initJSExtenderSharedMem();
+
+	void initThread();
+	void run();
+	static void runThread(void* pObj);
+	void processRequest(CefRefPtr<CefBrowser> &browser, CefRefPtr<CefListValue> &request);
 
 private:
 	std::vector<ChromiumDLL::JavaScriptExtenderI*> m_vJSExtenders;
@@ -75,6 +105,14 @@ private:
 	SharedMem m_SharedMemInfo;
 
 	bool m_bInit;
+
+	volatile bool m_bIsStopped;
+
+	tthread::thread* m_pWorkerThread;
+	tthread::mutex m_WaitLock;
+	tthread::condition_variable m_WaitCond;
+	tthread::mutex m_QueueLock;
+	std::list<std::pair<CefRefPtr<CefBrowser>, CefRefPtr<CefListValue>>> m_WorkQueue;
 
 	IMPLEMENT_REFCOUNTING(ChromiumApp);
 };

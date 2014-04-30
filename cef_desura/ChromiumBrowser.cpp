@@ -628,8 +628,10 @@ int* ChromiumBrowser::getBrowserHandle()
 
 ChromiumDLL::JavaScriptContextI* ChromiumBrowser::getJSContext()
 {
+	//TODO: Implement
+
 	if (m_pBrowser)
-		return new JavaScriptContext(m_rContext);
+		return new JavaScriptContext(); //m_rContext
 
 	return NULL;
 }

@@ -30,27 +30,13 @@ $/LicenseInfo$
 #endif
 
 #include "ChromiumBrowserI.h"
-//#include "include/cef.h"
-#include "include/cef_v8.h"
-
-class V8ValueBaseWrapper : public CefBase
-{
-public:
-	V8ValueBaseWrapper(CefRefPtr<CefV8Value> object)
-	{
-		m_pObject = object;
-	}
-
-	CefRefPtr<CefV8Value> m_pObject;
-	IMPLEMENT_REFCOUNTING(V8ValueBaseWrapper);
-};
-
+#include "libjson.h"
 
 class JavaScriptObject : public ChromiumDLL::JavaScriptObjectI
 {
 public:
 	JavaScriptObject();
-	JavaScriptObject(CefRefPtr<CefV8Value> obj);
+	JavaScriptObject(JSONNode node, bool bIsException = false);
 	~JavaScriptObject();
 
 	virtual void destory();
@@ -99,15 +85,21 @@ public:
 	virtual void addRef();
 	virtual void delRef();
 
-	CefRefPtr<CefV8Value> getCefV8();
-	CefRefPtr<CefBase> getCefBase();
-
 	void setException();
+
+
+	std::string getJsonString();
+
+	JSONNode getNode()
+	{
+		return m_JsonNode;
+	}
 
 private:
 	int m_iRefCount;
 	bool m_bIsException;
-	CefRefPtr<CefV8Value> m_pObject;
+
+	JSONNode m_JsonNode;
 };
 
 

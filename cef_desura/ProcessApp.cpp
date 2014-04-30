@@ -39,19 +39,6 @@ $/LicenseInfo$
 
 CefRefPtr<CefCommandLine> g_command_line;
 
-union IntToBuff
-{
-	int i;
-	char b[4];
-};
-
-int readInt(char* szBuff)
-{
-	IntToBuff t;
-	memcpy(t.b, szBuff, 4);
-
-	return t.i;
-}
 
 class ProcessApp;
 
@@ -91,7 +78,12 @@ CefRefPtr<CefV8Value> ConvertJsonToV8(const JSONNode &node)
 	}
 	else if (node.type() == JSON_NODE)
 	{
+		CefRefPtr<CefV8Value> ret = CefV8Value::CreateArray(node.size());
 
+		for (size_t x = 0; x < node.size(); ++x)
+			ret->SetValue(node[x].name(), ConvertJsonToV8(node[x]), V8_PROPERTY_ATTRIBUTE_NONE);
+
+		return ret;
 	}
 
 	return CefV8Value::CreateUndefined();
@@ -110,10 +102,13 @@ JSONNode ConvertV8ToJson(const CefRefPtr<CefV8Value>& val)
 	else if (val->IsUInt())
 		return JSONNode("", val->GetUIntValue());
 	else if (val->IsString())
-		return JSONNode("", val->GetStringValue().c_str());
+	{
+		CefStringUTF8 strVal = ConvertToUtf8(val->GetStringValue());
+		return JSONNode("", strVal.c_str());
+	}
 	else if (val->IsArray())
 	{
-		JSONNode ret;
+		JSONNode ret(JSON_ARRAY);
 
 		for (int x = 0; x < val->GetArrayLength(); ++x)
 			ret[x] = ConvertV8ToJson(val->GetValue(x));
@@ -122,11 +117,26 @@ JSONNode ConvertV8ToJson(const CefRefPtr<CefV8Value>& val)
 	}
 	else if (val->IsObject())
 	{
+		JSONNode ret;
 
+		std::vector<CefString> vKeys;
+		val->GetKeys(vKeys);
+
+		for (size_t x = 0; x < vKeys.size(); ++x)
+		{
+			CefStringUTF8 strKey = ConvertToUtf8(vKeys[x]);
+
+			JSONNode k = ConvertV8ToJson(val->GetValue(vKeys[x]));
+			k.set_name(strKey.c_str());
+
+			ret.push_back(k);
+		}
+
+		return ret;
 	}
 	else if (val->IsFunction())
 	{
-
+		return JSONNode("", "__function__");
 	}
 
 	return JSONNode();
@@ -187,6 +197,10 @@ public:
 			m_strFunctionReturn = args->GetString(2);
 			m_WaitCond.notify();
 		}
+		else if (strAction == "FunctionException")
+		{
+
+		}
 	}
 
 protected:
@@ -202,14 +216,17 @@ protected:
 	CefString convertV8ToJson(CefRefPtr<CefV8Value> &object, const CefV8ValueList& arguments)
 	{
 		JSONNode o = ConvertV8ToJson(object);
-		JSONNode a;
+		o.set_name("object");
+		
+		JSONNode a(JSON_ARRAY);
+		a.set_name("args");
 
-		for (int x = 0; x < arguments.size(); ++x)
-			a[x] = ConvertV8ToJson(arguments[x]);
+		for (size_t x = 0; x < arguments.size(); ++x)
+			a.push_back(ConvertV8ToJson(arguments[x]));
 
 		JSONNode r;
-		r["object"] = o;
-		r["args"] = a;
+		r.push_back(o);
+		r.push_back(a);
 
 		return r.write();
 	}

@@ -30,27 +30,7 @@ $/LicenseInfo$
 #endif
 
 #include "ChromiumBrowserI.h"
-//#include "include/cef.h"
-#include "include/cef_base.h"
-
-class ObjectWrapper : public CefBase
-{
-public:
-	ObjectWrapper(void* data)
-	{
-		m_pData = data;
-	}
-
-	void* getData()
-	{
-		return m_pData;
-	}
-
-	IMPLEMENT_REFCOUNTING(ObjectWrapper);
-
-private:
-	void* m_pData;
-};
+#include "libjson.h"
 
 class JavaScriptFactory : public ChromiumDLL::JavaScriptFactoryI
 {
@@ -58,19 +38,17 @@ public:
 	JavaScriptFactory();
 	~JavaScriptFactory();
 
-	virtual ChromiumDLL::JSObjHandle CreateUndefined();
-	virtual ChromiumDLL::JSObjHandle CreateNull();
-	virtual ChromiumDLL::JSObjHandle CreateBool(bool value);
-	virtual ChromiumDLL::JSObjHandle CreateInt(int value);
-	virtual ChromiumDLL::JSObjHandle CreateDouble(double value);
-	virtual ChromiumDLL::JSObjHandle CreateString(const char* value);
-	virtual ChromiumDLL::JSObjHandle CreateArray();
-	virtual ChromiumDLL::JSObjHandle CreateObject();
-	virtual ChromiumDLL::JSObjHandle CreateObject(void* userData);
-	virtual ChromiumDLL::JSObjHandle CreateException(const char* value);
-	virtual ChromiumDLL::JSObjHandle CreateFunction(const char* name, ChromiumDLL::JavaScriptExtenderI* handler);
+	ChromiumDLL::JSObjHandle CreateUndefined() OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateNull() OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateBool(bool value) OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateInt(int value) OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateDouble(double value) OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateString(const char* value) OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateArray() OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateObject() OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateObject(void* userData) OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateException(const char* value) OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateFunction(const char* name, ChromiumDLL::JavaScriptExtenderI* handler) OVERRIDE;
 };
-
-ChromiumDLL::JavaScriptFactoryI* GetJSFactory();
 
 #endif //DESURA_JAVASCRIPTFACTORY_H
