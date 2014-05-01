@@ -23,354 +23,293 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
+#include "ProcessApp.h"
+#include "JavaScriptExtenderProxy.h"
+
 #include "ChromiumBrowserI.h"
-#include "include/cef_app.h"
-#include "include/cef_scheme.h"
-#include "ChromiumBrowser.h"
-#include "Controller.h"
-
-#include "SharedMem.h"
-
-#include "JSONOptions.h"
-#include "libjson.h"
 
 #include <string>
 #include <sstream>
+#include <memory>
 
+extern CefStringUTF8 ConvertToUtf8(const CefString& str);
 CefRefPtr<CefCommandLine> g_command_line;
 
 
-class ProcessApp;
 
-class WaitCondition
+ProcessApp::ProcessApp()
+	: m_ZmqContext(1)
+	, m_ZmqClient(m_ZmqContext, ZMQ_DEALER)
+	, m_pWorkerThread(NULL)
+	, m_bIsStopped(false)
+	, m_strZmqIdentity(generateZmqName())
+	, m_nZmqPort(0)
 {
-public:
+}
 
-	void notify()
+ProcessApp::~ProcessApp()
+{
+	m_bIsStopped = true;
+
+	if (m_pWorkerThread && m_pWorkerThread->joinable())
+		m_pWorkerThread->join();
+
+	delete m_pWorkerThread;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+// CefApp
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+void ProcessApp::OnRegisterCustomSchemes(CefRefPtr<CefSchemeRegistrar> registrar)
+{
+	CefStringUTF8 strSchemes = ConvertToUtf8(g_command_line->GetSwitchValue("desura-schemes"));
+		
+	if (!strSchemes.empty())
+	{
+		std::stringstream ss(strSchemes.c_str());
+		std::string s;
+
+		while (std::getline(ss, s, '&'))
+			registrar->AddCustomScheme(s, true, false, false);
+	}
+}
+
+CefRefPtr<CefRenderProcessHandler> ProcessApp::GetRenderProcessHandler()
+{
+	return (CefRenderProcessHandler*)this;
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+// CefRenderProcessHandler
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+void ProcessApp::OnBrowserCreated(CefRefPtr<CefBrowser> browser)
+{
+	JSONNode msg(JSON_NODE);
+	msg.push_back(JSONNode("name", "Browser-Created"));
+	msg.push_back(JSONNode("id", browser->GetIdentifier()));
+
+	sendMessage(msg.write());
+}
+
+void ProcessApp::OnBrowserDestroyed(CefRefPtr<CefBrowser> browser)
+{
+	JSONNode msg(JSON_NODE);
+	msg.push_back(JSONNode("name", "Browser-Destroyed"));
+	msg.push_back(JSONNode("id", browser->GetIdentifier()));
+
+	sendMessage(msg.write());
+}
+
+void ProcessApp::OnRenderThreadCreated(CefRefPtr<CefListValue> extra_info)
+{
+#ifdef DEBUG
+	while (!IsDebuggerPresent())
+		Sleep(1000);
+#endif
+}
+
+void ProcessApp::OnWebKitInitialized()
+{
+	if (m_bIsStopped || m_pWorkerThread)
+		return;
+
+	
+
+	CefStringUTF8 strJSEName = ConvertToUtf8(g_command_line->GetSwitchValue("desura-jse-name"));
+	CefStringUTF8 strJSESize = ConvertToUtf8(g_command_line->GetSwitchValue("desura-jse-size"));
+	
+	if (!strJSEName.empty() && !strJSESize.empty())
+	{
+		int nSize = atoi(strJSESize.c_str());
+
+		if (m_SharedMemInfo.init(strJSEName.c_str(), nSize))
+		{
+			char* pBuff = static_cast<char*>(m_SharedMemInfo.getMem());
+
+			m_nZmqPort = readInt(pBuff);
+			pBuff += 4;
+
+			int nCount = readInt(pBuff);
+			pBuff += 4;
+
+			for (int x = 0; x < nCount; ++x)
+			{
+				int nNameSize = readInt(pBuff);
+				pBuff += 4;
+
+				std::string strName(pBuff, nNameSize);
+				pBuff += nNameSize;
+
+				int nBindingSize = readInt(pBuff);
+				pBuff += 4;
+
+				std::string strBinding(pBuff, nBindingSize);
+				pBuff += nBindingSize;
+
+				CefRefPtr<JavaScriptExtenderProxy> pJSExtender = new JavaScriptExtenderProxy(CefRefPtr<ProcessApp>(this), strName);
+				CefRegisterExtension(strName, strBinding, CefRefPtr<CefV8Handler>(pJSExtender));
+				m_vJSExtenders.push_back(pJSExtender);
+			}
+		}
+	}
+
+	m_pWorkerThread = new tthread::thread(&ProcessApp::runThread, this);
+}
+
+
+void ProcessApp::runThread(void* pObj)
+{
+	try
+	{
+		static_cast<ProcessApp*>(pObj)->run();
+	}
+	catch (std::exception &e)
+	{
+		int a = 1;
+	}
+}
+
+void ProcessApp::run()
+{
+	char szHost[255] = { 0 };
+
+#ifdef WIN32
+	_snprintf(szHost, 255, "tcp://localhost:%d", m_nZmqPort);
+#else
+	assert(false);
+#endif
+
+	m_ZmqClient.setsockopt(ZMQ_IDENTITY, m_strZmqIdentity.c_str(), m_strZmqIdentity.size());
+	m_ZmqClient.connect(szHost);
+
+	while (!m_bIsStopped)
+	{
+		std::vector<std::shared_ptr<zmq::message_t>> vMsgList;
+
+		int64_t more = 0;
+		size_t more_size = sizeof(more);
+
+		do
+		{
+			std::shared_ptr<zmq::message_t> message(new zmq::message_t);
+			m_ZmqClient.recv(message.get(), 0);
+			vMsgList.push_back(message);
+
+			m_ZmqClient.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+		} while (more);
+
+		if (vMsgList.size() > 0)
+		{
+			std::string strData(static_cast<char*>(vMsgList[0]->data()), vMsgList[0]->size());
+			processMessageReceived(strData);
+		}
+	}
+}
+
+void ProcessApp::processMessageReceived(const std::string &strJson)
+{
+	JSONNode msg;
+
+	try
+	{
+		msg = JSONWorker::parse(strJson);
+	}
+	catch (std::exception &e)
+	{
+		return;
+	}
+
+	if (msg.find("name") == msg.end())
+		return;
+
+	bool handled = false;
+
+	if (msg["name"].as_string() == "JSE-Request")
 	{
 
 	}
+	else if (msg["name"].as_string() == "JSE-Response")
+	{
+		if (msg.find("response") != msg.end())
+			handled = processResponse(msg["response"]);
+	}
 
-	bool wait()
+	if (!handled)
+	{
+		//TODO
+	}
+}
+
+bool ProcessApp::processResponse(JSONNode json)
+{
+	if (json.find("extender") == json.end() || json.find("command") == json.end())
+	{
+		//Handle better
+		return false;
+	}
+
+	std::string strName = json["extender"].as_string();
+
+	CefRefPtr<JavaScriptExtenderProxy> pExtender;
+
+	for (size_t x = 0; x < m_vJSExtenders.size(); ++x)
+	{
+		if (strName != m_vJSExtenders[x]->getName())
+			continue;
+
+		pExtender = m_vJSExtenders[x];
+		break;
+	}
+
+	if (!pExtender)
+		return false;
+
+	std::string strAction = json["command"].as_string();
+
+	if (strAction == "FunctionReturn")
+	{
+		if (json.find("result") != json.end())
+			pExtender->onMessageReceived(strAction, json["result"]);
+		else
+			pExtender->onMessageReceived(strAction, JSONNode(JSON_NULL));
+	}
+	else if (strAction == "FunctionException")
+	{
+		if (json.find("exception") != json.end())
+			pExtender->onMessageReceived(strAction, json["exception"]);
+		else
+			pExtender->onMessageReceived(strAction, JSONNode(JSON_NULL));
+	}
+	else
 	{
 		return false;
 	}
-};
 
-CefRefPtr<CefV8Value> ConvertJsonToV8(const JSONNode &node)
-{
-	if (node.type() == JSON_NULL)
-		return CefV8Value::CreateNull();
-	else if (node.type() == JSON_STRING)
-		return CefV8Value::CreateString(node.as_string());
-	else if (node.type() == JSON_NUMBER)
-		return CefV8Value::CreateDouble(node.as_float());
-	else if (node.type() == JSON_BOOL)
-		return CefV8Value::CreateBool(node.as_bool());
-	else if (node.type() == JSON_ARRAY)
-	{
-		CefRefPtr<CefV8Value> ret = CefV8Value::CreateArray(node.size());
-
-		for (size_t x = 0; x < node.size(); ++x)
-			ret->SetValue(x, ConvertJsonToV8(node[x]));
-
-		return ret;
-	}
-	else if (node.type() == JSON_NODE)
-	{
-		CefRefPtr<CefV8Value> ret = CefV8Value::CreateArray(node.size());
-
-		for (size_t x = 0; x < node.size(); ++x)
-			ret->SetValue(node[x].name(), ConvertJsonToV8(node[x]), V8_PROPERTY_ATTRIBUTE_NONE);
-
-		return ret;
-	}
-
-	return CefV8Value::CreateUndefined();
+	return true;
 }
 
-JSONNode ConvertV8ToJson(const CefRefPtr<CefV8Value>& val)
+void ProcessApp::sendMessage(const std::string& strMsg)
 {
-	if (val->IsBool())
-		return JSONNode("", val->GetBoolValue());
-	else if (val->IsDouble())
-		return JSONNode("", val->GetDoubleValue());
-	else if (val->IsInt())
-		return JSONNode("", val->GetIntValue());
-	else if (val->IsUndefined() || val->IsNull())
-		return JSONNode();
-	else if (val->IsUInt())
-		return JSONNode("", val->GetUIntValue());
-	else if (val->IsString())
-	{
-		CefStringUTF8 strVal = ConvertToUtf8(val->GetStringValue());
-		return JSONNode("", strVal.c_str());
-	}
-	else if (val->IsArray())
-	{
-		JSONNode ret(JSON_ARRAY);
-
-		for (int x = 0; x < val->GetArrayLength(); ++x)
-			ret[x] = ConvertV8ToJson(val->GetValue(x));
-
-		return ret;
-	}
-	else if (val->IsObject())
-	{
-		JSONNode ret;
-
-		std::vector<CefString> vKeys;
-		val->GetKeys(vKeys);
-
-		for (size_t x = 0; x < vKeys.size(); ++x)
-		{
-			CefStringUTF8 strKey = ConvertToUtf8(vKeys[x]);
-
-			JSONNode k = ConvertV8ToJson(val->GetValue(vKeys[x]));
-			k.set_name(strKey.c_str());
-
-			ret.push_back(k);
-		}
-
-		return ret;
-	}
-	else if (val->IsFunction())
-	{
-		return JSONNode("", "__function__");
-	}
-
-	return JSONNode();
+	m_ZmqClient.send(strMsg.c_str(), strMsg.size(), 0);
 }
 
-
-class V8ProxyHandler : public CefV8Handler
+std::string ProcessApp::generateZmqName()
 {
-public:
-	V8ProxyHandler(CefRefPtr<ProcessApp> &app, const std::string &strName)
-		: m_App(app)
-		, m_strName(strName)
-	{
-	}
+	char szBuff[255] = { 0 };
 
-	bool Execute(const CefString& name, CefRefPtr<CefV8Value> object, const CefV8ValueList& arguments, CefRefPtr<CefV8Value>& retval, CefString& exception) OVERRIDE
-	{
-		CefRefPtr<CefBrowser> pBrowser = CefV8Context::GetCurrentContext()->GetBrowser();
-
-		CefRefPtr<CefProcessMessage> msg = CefProcessMessage::Create("JSE-Request");
-		CefRefPtr<CefListValue> args = msg->GetArgumentList();
-
-		args->SetString(0, m_strName);
-		args->SetString(1, "FunctionCall");
-		args->SetString(2, name);
-		args->SetString(3, convertV8ToJson(object, arguments));
-
-		pBrowser->SendProcessMessage(PID_BROWSER, msg);
-
-		if (!m_WaitCond.wait())
-			exception = "Timed out waiting for response from browser";
-		else
-		{
-			try
-			{
-				retval = convertResponseToV8();
-			}
-			catch (std::exception &e)
-			{
-				exception = e.what();
-			}
-		}
-
-		return true;
-	}
-
-	const char* getName()
-	{
-		return m_strName.c_str();
-	}
-
-	void onMessageReceived(CefRefPtr<CefListValue> &args)
-	{
-		CefString strAction = args->GetString(1);
-
-		if (strAction == "FunctionReturn")
-		{
-			m_strFunctionReturn = args->GetString(2);
-			m_WaitCond.notify();
-		}
-		else if (strAction == "FunctionException")
-		{
-
-		}
-	}
-
-protected:
-	CefRefPtr<CefV8Value> convertResponseToV8()
-	{
-		if (m_strFunctionReturn.empty())
-			return CefV8Value::CreateUndefined();
-
-		JSONNode node = JSONWorker::parse(m_strFunctionReturn);
-		return ConvertJsonToV8(node);
-	}
-
-	CefString convertV8ToJson(CefRefPtr<CefV8Value> &object, const CefV8ValueList& arguments)
-	{
-		JSONNode o = ConvertV8ToJson(object);
-		o.set_name("object");
-		
-		JSONNode a(JSON_ARRAY);
-		a.set_name("args");
-
-		for (size_t x = 0; x < arguments.size(); ++x)
-			a.push_back(ConvertV8ToJson(arguments[x]));
-
-		JSONNode r;
-		r.push_back(o);
-		r.push_back(a);
-
-		return r.write();
-	}
-
-private:
-	CefRefPtr<ProcessApp> m_App;
-	const std::string m_strName;
-
-	CefString m_strFunctionReturn;
-	WaitCondition m_WaitCond;
-
-	IMPLEMENT_REFCOUNTING(V8ProxyHandler);
-};
-
-class ProcessApp 
-	: public CefApp
-	, protected CefRenderProcessHandler
-{
-public:
-	/////////////////////////////////////////////////////////////////////////////////////////////////
-	// CefApp
-	/////////////////////////////////////////////////////////////////////////////////////////////////
-
-	virtual void OnRegisterCustomSchemes(CefRefPtr<CefSchemeRegistrar> registrar) OVERRIDE
-	{
-		CefStringUTF8 strSchemes = ConvertToUtf8(g_command_line->GetSwitchValue("desura-schemes"));
-		
-		if (!strSchemes.empty())
-		{
-			std::stringstream ss(strSchemes.c_str());
-			std::string s;
-
-			while (std::getline(ss, s, '&'))
-				registrar->AddCustomScheme(s, true, false, false);
-		}
-	}
-
-	virtual CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() OVERRIDE
-	{
-		return (CefRenderProcessHandler*)this;
-	}
-
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////
-	// CefRenderProcessHandler
-	/////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-	virtual void OnRenderThreadCreated(CefRefPtr<CefListValue> extra_info) OVERRIDE
-	{
-#ifdef DEBUG
-		while (!IsDebuggerPresent())
-			Sleep(1000);
+#ifdef WIN32
+	_snprintf(szBuff, 255, "Cef3Renderer-%d", GetCurrentProcessId());
+#else
+	assert(false);
 #endif
-	}
 
-	virtual void OnWebKitInitialized()
-	{
-		CefStringUTF8 strJSEName = ConvertToUtf8(g_command_line->GetSwitchValue("desura-jse-name"));
-		CefStringUTF8 strJSESize = ConvertToUtf8(g_command_line->GetSwitchValue("desura-jse-size"));
+	return szBuff;
+}
 
-		if (!strJSEName.empty() && !strJSESize.empty())
-		{
-			int nSize = atoi(strJSESize.c_str());
-
-			if (m_SharedMemInfo.init(strJSEName.c_str(), nSize))
-			{
-				char* pBuff = static_cast<char*>(m_SharedMemInfo.getMem());
-
-				int nCount = readInt(pBuff);
-				pBuff += 4;
-
-				for (int x = 0; x < nCount; ++x)
-				{
-					int nNameSize = readInt(pBuff);
-					pBuff += 4;
-
-					std::string strName(pBuff, nNameSize);
-					pBuff += nNameSize;
-
-					int nBindingSize = readInt(pBuff);
-					pBuff += 4;
-
-					std::string strBinding(pBuff, nBindingSize);
-					pBuff += nBindingSize;
-
-					CefRefPtr<V8ProxyHandler> pJSExtender = new V8ProxyHandler(CefRefPtr<ProcessApp>(this), strName);
-					CefRegisterExtension(strName, strBinding, CefRefPtr<CefV8Handler>(pJSExtender));
-					m_vJSExtenders.push_back(pJSExtender);
-				}
-			}
-		}
-	}
-
-	virtual void OnContextCreated(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefV8Context> context) OVERRIDE
-	{
-
-	}
-
-	virtual void OnContextReleased(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefV8Context> context) OVERRIDE
-	{
-
-	}
-
-	virtual void OnUncaughtException(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefV8Context> context, CefRefPtr<CefV8Exception> exception, CefRefPtr<CefV8StackTrace> stackTrace)
-	{
-
-	}
-
-	virtual bool OnProcessMessageReceived(CefRefPtr<CefBrowser> browser, CefProcessId source_process, CefRefPtr<CefProcessMessage> message) OVERRIDE
-	{
-		if (message->GetName() == "JSE-Request")
-		{
-
-
-			return true;
-		}
-		else if (message->GetName() == "JSE-Response")
-		{
-			CefRefPtr<CefListValue> args = message->GetArgumentList();
-			CefString strName = args->GetString(0);
-
-			for (size_t x = 0; x < m_vJSExtenders.size(); ++x)
-			{
-				if (strName != m_vJSExtenders[x]->getName())
-					continue;
-
-				m_vJSExtenders[x]->onMessageReceived(args);
-				break;
-			}
-
-			return true;
-		}
-
-		return CefRenderProcessHandler::OnProcessMessageReceived(browser, source_process, message);
-	}
-
-	IMPLEMENT_REFCOUNTING(ProcessApp);
-	SharedMem m_SharedMemInfo;
-	std::vector<CefRefPtr<V8ProxyHandler>> m_vJSExtenders;
-};
-
-
-
+#include "Controller.h"
 
 #ifdef WIN32
 int ChromiumController::ExecuteProcess(HINSTANCE instance)

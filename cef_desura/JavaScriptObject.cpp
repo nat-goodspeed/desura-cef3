@@ -289,8 +289,3 @@ void JavaScriptObject::setException()
 {
 	m_bIsException = true;
 }
-
-std::string JavaScriptObject::getJsonString()
-{
-	return m_JsonNode.write();
-}

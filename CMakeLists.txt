@@ -240,6 +240,7 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libjson/include
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libjson/code
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libtinythread
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zeromq-4.0.4/include
   ${CEF_DL_DIR}
   ${CEF_DL_DIR}/libcef_dll
 )
@@ -257,6 +258,7 @@ add_definitions(
   -DUSING_CEF_SHARED
   -DNOMINMAX
   -DCHROMIUM_API_SUPPORTS_V2
+  -DZMQ_STATIC
 )
 
 if(DEBUG)
@@ -285,6 +287,28 @@ file(GLOB libtinythread_sources
 	third_party/libtinythread/*.h
 )
 
+file(GLOB zeromq_sources
+	third_party/zeromq-4.0.4/src/*.h
+	third_party/zeromq-4.0.4/src/*.cpp
+)
+
+if(WIN32)
+include_directories(
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zeromq-4.0.4/builds/msvc
+)
+
+file(GLOB zeromq_sources_platform
+	third_party/zeromq-4.0.4/builds/msvc/*.cpp
+	third_party/zeromq-4.0.4/builds/msvc/*.hpp
+)
+
+add_definitions(
+  -D__WINDOWS__
+  -D_WINSOCKAPI_
+)
+
+endif()
+
 file(GLOB libcef_dll_wrapper_sources 
 	${CEF_INCLUDE_PATH}/*.h 
 	${CEF_INCLUDE_PATH}/internal/*.h
@@ -305,6 +329,7 @@ add_library(libcef_dll_wrapper STATIC ${libcef_dll_wrapper_sources})
 
 add_library(libjson STATIC ${libjson_sources})
 add_library(libtinythread STATIC ${libtinythread_sources})
+add_library(libzeromq STATIC ${zeromq_sources} ${zeromq_sources_platform})
 
 if(WIN32)
 	add_executable(cef_desura_host WIN32 ${cef_desura_host_sources})
@@ -318,6 +343,7 @@ target_link_libraries(cef_desura
   libcef_dll_wrapper
   libjson
   libtinythread
+  libzeromq
 )
 
 target_link_libraries(cef_desura_host
@@ -337,6 +363,7 @@ if(WIN32)
 
 	target_link_libraries(cef_desura
 		${CEF_BIN_PATH}/libcef.lib
+		ws2_32.lib
 	)
 
 	#build bot builds with visual studio 2010 and so should we
@@ -354,6 +381,7 @@ if(WIN32)
 	SetStaticRunTime(cef_desura_test_ogl)
 	SetStaticRuntime(libjson)
 	SetStaticRuntime(libtinythread)
+	SetStaticRuntime(libzeromq)
 	
 	add_dependencies(cef_desura_test_msw cef_desura)
 elseif(UNIX)

@@ -30,6 +30,9 @@ $/LicenseInfo$
 #include "SharedMem.h"
 #include "tinythread.h"
 
+#include "zmq.hpp"
+#include "libjson.h"
+
 #include <list>
 
 class ChromiumApp : public CefApp, protected CefBrowserProcessHandler
@@ -38,15 +41,16 @@ public:
 	ChromiumApp()
 		: m_bInit(false)
 		, m_bIsStopped(false)
+		, m_bIpcInit(false)
 		, m_pWorkerThread(NULL)
+		, m_ZmqContext(1)
+		, m_ZmqServer(m_ZmqContext, ZMQ_ROUTER)
 	{
 	}
 
 	~ChromiumApp()
 	{
 		m_bIsStopped = true;
-
-		m_WaitCond.notify_all();
 
 		if (m_pWorkerThread && m_pWorkerThread->joinable())
 			m_pWorkerThread->join();
@@ -85,9 +89,6 @@ public:
 	bool RegisterJSExtender(ChromiumDLL::JavaScriptExtenderI* extender);
 	bool RegisterSchemeExtender(ChromiumDLL::SchemeExtenderI* extender);
 
-
-	bool processMessageReceived(CefRefPtr<CefBrowser> &browser, CefRefPtr<CefProcessMessage> &message);
-
 protected:
 	std::vector<std::string> getSchemeList();
 
@@ -96,23 +97,31 @@ protected:
 	void initThread();
 	void run();
 	static void runThread(void* pObj);
-	void processRequest(CefRefPtr<CefBrowser> &browser, CefRefPtr<CefListValue> &request);
+	bool processRequest(const std::string &strFrom, JSONNode jsonReq);
+
+	void initIpc();
+
+	void processMessageReceived(const std::string &strFrom, const std::string &strJson);
 
 private:
+	zmq::context_t m_ZmqContext;
+	zmq::socket_t m_ZmqServer;
+
 	std::vector<ChromiumDLL::JavaScriptExtenderI*> m_vJSExtenders;
 	std::vector<ChromiumDLL::SchemeExtenderI*> m_vSchemeExtenders;
 
 	SharedMem m_SharedMemInfo;
 
 	bool m_bInit;
+	bool m_bIpcInit;
 
 	volatile bool m_bIsStopped;
-
 	tthread::thread* m_pWorkerThread;
-	tthread::mutex m_WaitLock;
-	tthread::condition_variable m_WaitCond;
-	tthread::mutex m_QueueLock;
-	std::list<std::pair<CefRefPtr<CefBrowser>, CefRefPtr<CefListValue>>> m_WorkQueue;
+
+	tthread::mutex m_BrowserLock;
+	std::map<int, std::string> m_mBrowserIdentity;
+
+	int m_nZmqPort;
 
 	IMPLEMENT_REFCOUNTING(ChromiumApp);
 };

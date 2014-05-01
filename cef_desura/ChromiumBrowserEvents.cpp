@@ -474,15 +474,6 @@ ChromiumBrowserEvents::ChromiumBrowserEvents(ChromiumBrowser* pParent)
 
 bool ChromiumBrowserEvents::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser, CefProcessId source_process, CefRefPtr<CefProcessMessage> message)
 {
-	if (g_Controller->processMessageReceived(browser, message))
-		return true;
-
-	if (message->GetName() == "Statistics")
-	{
-		//todo 
-		return true;
-	}
-
 	return false;
 }
 

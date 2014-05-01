@@ -91,11 +91,6 @@ bool ChromiumController::RegisterSchemeExtender(ChromiumDLL::SchemeExtenderI* ex
 	return m_App->RegisterSchemeExtender(extender);
 }
 
-bool ChromiumController::processMessageReceived(CefRefPtr<CefBrowser> &browser, CefRefPtr<CefProcessMessage> &message)
-{
-	return m_App->processMessageReceived(browser, message);
-}
-
 ChromiumDLL::ChromiumBrowserI* ChromiumController::NewChromiumBrowser(int* formHandle, const char* name, const char* defaultUrl)
 {
 	if (m_bInit && m_bPendingInit)

@@ -87,9 +87,6 @@ public:
 
 	void setException();
 
-
-	std::string getJsonString();
-
 	JSONNode getNode()
 	{
 		return m_JsonNode;
