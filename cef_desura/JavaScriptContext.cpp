@@ -27,8 +27,13 @@ $/LicenseInfo$
 #include "JavaScriptFactory.h"
 #include "JavaScriptObject.h"
 
-JavaScriptContext::JavaScriptContext()
+
+
+
+
+JavaScriptContext::JavaScriptContext(int nBrowserId)
 	: m_uiCount(0)
+	, m_nBrowserId(nBrowserId)
 {
 }
 
@@ -39,25 +44,19 @@ void JavaScriptContext::destroy()
 
 ChromiumDLL::JavaScriptContextI* JavaScriptContext::clone()
 {
-	return new JavaScriptContext();
+	return new JavaScriptContext(m_nBrowserId);
 }
 
 void JavaScriptContext::enter()
 {
-	//if (m_pContext.get())
-	//{
-	//	m_pContext->Enter();
-		m_uiCount++;
-	//}
+	//TODO: Implement
+	m_uiCount++;
 }
 
 void JavaScriptContext::exit()
 {
-	//if (m_pContext.get())
-	//{
-	//	m_pContext->Exit();
-		m_uiCount--;
-	//}
+	//TODO: Implement
+	m_uiCount--;
 }
 
 ChromiumDLL::JavaScriptFactoryI* JavaScriptContext::getFactory()

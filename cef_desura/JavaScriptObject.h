@@ -30,13 +30,17 @@ $/LicenseInfo$
 #endif
 
 #include "ChromiumBrowserI.h"
+#include "include/cef_base.h"
 #include "libjson.h"
+
+class JavaScriptExtenderRef;
 
 class JavaScriptObject : public ChromiumDLL::JavaScriptObjectI
 {
 public:
 	JavaScriptObject();
 	JavaScriptObject(JSONNode node, bool bIsException = false);
+	JavaScriptObject(const char* name, ChromiumDLL::JavaScriptExtenderI* handler);
 	~JavaScriptObject();
 
 	virtual void destory();
@@ -86,6 +90,7 @@ public:
 	virtual void delRef();
 
 	void setException();
+	void setFunctionHandler(ChromiumDLL::JavaScriptExtenderI* pExtender);
 
 	JSONNode getNode()
 	{
@@ -96,6 +101,9 @@ private:
 	int m_iRefCount;
 	bool m_bIsException;
 
+	std::string m_strId;
+
+	CefRefPtr<JavaScriptExtenderRef> m_pJavaScriptExtender;
 	JSONNode m_JsonNode;
 };
 

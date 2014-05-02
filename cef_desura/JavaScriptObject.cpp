@@ -28,6 +28,9 @@ $/LicenseInfo$
 #include "JavaScriptFactory.h"
 #include "JavaScriptContext.h"
 
+#include "ChromiumApp.h"
+#include "FunctionHolder.h"
+
 int mystrncpy_s(char* dest, size_t destSize, const char* src, size_t srcSize)
 {
 	size_t size = srcSize;
@@ -44,6 +47,79 @@ int mystrncpy_s(char* dest, size_t destSize, const char* src, size_t srcSize)
 	return size;
 }
 
+static FunctionHolder<CefRefPtr<JavaScriptExtenderRef>, 'B'> g_V8FunctionHolder;
+
+CefRefPtr<JavaScriptExtenderRef> LookupExtenderFromFunctionHolder_Browser(const std::string &strId)
+{
+	return g_V8FunctionHolder.find(strId);
+}
+
+class JsonJavaScriptExtender : public ChromiumDLL::JavaScriptExtenderI
+{
+public:
+	JsonJavaScriptExtender(const std::string &strId)
+		: m_strId(strId)
+	{
+	}
+
+	void destroy() OVERRIDE
+	{
+		delete this;
+	}
+
+	ChromiumDLL::JavaScriptExtenderI* clone() OVERRIDE
+	{
+		return NULL;
+	}
+
+	ChromiumDLL::JSObjHandle execute(ChromiumDLL::JavaScriptFunctionArgs* args) OVERRIDE
+	{
+		if (args->context)
+			args->context->enter();
+
+		JavaScriptObject* pObj = dynamic_cast<JavaScriptObject*>(args->object.get());
+
+		JSONNode object(JSON_NULL);
+		if (pObj)
+			object = pObj->getNode();
+
+		std::vector<JSONNode> vArgs;
+
+		for (int x = 0; x < args->argc; ++x)
+		{
+			JavaScriptObject* pA = dynamic_cast<JavaScriptObject*>(args->argv[x].get());
+
+			JSONNode a(JSON_NULL);
+			if (pA)
+				a = pA->getNode();
+
+			vArgs.push_back(a);
+		}
+
+		JSONNode ret = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.invokeFunction(m_strId, args->function, object, vArgs);
+
+		if (args->context)
+			args->context->exit();
+
+		return new JavaScriptObject(ret);
+	}
+
+	const char* getName()
+	{
+		return m_strId.c_str();
+	}
+
+	const char* getRegistrationCode()
+	{
+		return "";
+	}
+
+private:
+	std::string m_strId;
+};
+
+
+
 JavaScriptObject::JavaScriptObject()
 	: m_iRefCount(0)
 	, m_bIsException(false)
@@ -55,10 +131,31 @@ JavaScriptObject::JavaScriptObject(JSONNode node, bool bIsException)
 	, m_iRefCount(0)
 	, m_bIsException(bIsException)
 {
+	if (isFunction() && m_JsonNode.find("__renderer_function_id__") != node.end())
+	{
+		m_strId = node["__renderer_function_id__"].as_string();
+		m_pJavaScriptExtender = new JavaScriptExtenderRef(new JsonJavaScriptExtender(m_strId));
+		g_V8FunctionHolder.add(m_strId, m_pJavaScriptExtender);
+	}
+}
+
+JavaScriptObject::JavaScriptObject(const char* name, ChromiumDLL::JavaScriptExtenderI* handler)
+	: m_iRefCount(0)
+	, m_bIsException(false)
+{
+	m_pJavaScriptExtender = new JavaScriptExtenderRef(handler);
+
+	m_strId = g_V8FunctionHolder.newKey();
+	g_V8FunctionHolder.add(m_strId, m_pJavaScriptExtender);
+
+	m_JsonNode = JSONNode(JSON_NODE);
+	m_JsonNode.push_back(JSONNode("__function__", name));
+	m_JsonNode.push_back(JSONNode("__browser_function_id__", m_strId));
 }
 
 JavaScriptObject::~JavaScriptObject()
 {
+	g_V8FunctionHolder.del(m_strId);
 }
 
 void JavaScriptObject::addRef()
@@ -116,7 +213,7 @@ bool JavaScriptObject::isString()
 
 bool JavaScriptObject::isObject()
 {
-	return m_JsonNode.type() == JSON_NODE;
+	return m_JsonNode.type() == JSON_NODE && m_JsonNode.find("__function__") == m_JsonNode.end();
 }
 
 bool JavaScriptObject::isArray()
@@ -126,8 +223,7 @@ bool JavaScriptObject::isArray()
 
 bool JavaScriptObject::isFunction()
 {
-	//Todo: Implement
-	return false;
+	return m_JsonNode.type() == JSON_NODE && m_JsonNode.find("__function__") != m_JsonNode.end();
 }
 
 bool JavaScriptObject::isException()
@@ -252,7 +348,9 @@ void JavaScriptObject::getKey(int index, char* buff, size_t buffsize)
 		return;
 
 	std::string strKey = m_JsonNode[index].name();
-	mystrncpy_s(buff, buffsize, strKey.c_str(), strKey.size());
+
+	if (buff)
+		mystrncpy_s(buff, buffsize, strKey.c_str(), strKey.size());
 }
 
 int JavaScriptObject::getArrayLength()
@@ -262,19 +360,29 @@ int JavaScriptObject::getArrayLength()
 
 void JavaScriptObject::getFunctionName(char* buff, size_t buffsize)
 {
-	//TODO Implement
+	if (!isFunction())
+		return;
+
+	std::string strFunctionName = m_JsonNode["__function__"].as_string();
+
+	if (buff)
+		mystrncpy_s(buff, buffsize, strFunctionName.c_str(), strFunctionName.size());
 }
 
 ChromiumDLL::JavaScriptExtenderI* JavaScriptObject::getFunctionHandler()
 {
-	//TODO Implement
-	return NULL;
+	if (!isFunction())
+		return NULL;
+
+	return *m_pJavaScriptExtender;
 }
 
 ChromiumDLL::JSObjHandle JavaScriptObject::executeFunction(ChromiumDLL::JavaScriptFunctionArgs *args)
 {
-	//TODO Implement
-	return NULL;
+	if (!isFunction() || !getFunctionHandler())
+		return NULL;
+
+	return getFunctionHandler()->execute(args);
 }
 
 void* JavaScriptObject::getUserObject()
@@ -288,4 +396,9 @@ void* JavaScriptObject::getUserObject()
 void JavaScriptObject::setException()
 {
 	m_bIsException = true;
+}
+
+void JavaScriptObject::setFunctionHandler(ChromiumDLL::JavaScriptExtenderI* pExtender)
+{
+	m_pJavaScriptExtender = new JavaScriptExtenderRef(pExtender);
 }

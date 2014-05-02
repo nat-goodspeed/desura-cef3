@@ -27,6 +27,8 @@ $/LicenseInfo$
 #include "ChromiumBrowserI.h"
 #include "include/cef_app.h"
 
+#include "JavaScriptContext.h"
+
 #include "SharedMem.h"
 #include "tinythread.h"
 
@@ -35,34 +37,44 @@ $/LicenseInfo$
 
 #include <list>
 
-class ChromiumApp : public CefApp, protected CefBrowserProcessHandler
+class JavaScriptExtenderRef : public CefBase
 {
 public:
-	ChromiumApp()
-		: m_bInit(false)
-		, m_bIsStopped(false)
-		, m_bIpcInit(false)
-		, m_pWorkerThread(NULL)
-		, m_ZmqContext(1)
-		, m_ZmqServer(m_ZmqContext, ZMQ_ROUTER)
+	static const cef_thread_id_t TaskThread = TID_UI;
+
+	JavaScriptExtenderRef(ChromiumDLL::JavaScriptExtenderI* pExtender)
+		: m_pExtender(pExtender)
 	{
 	}
 
-	~ChromiumApp()
+	ChromiumDLL::JavaScriptExtenderI* operator->()
 	{
-		m_bIsStopped = true;
-
-		if (m_pWorkerThread && m_pWorkerThread->joinable())
-			m_pWorkerThread->join();
-
-		delete m_pWorkerThread;
-
-		for (size_t x = 0; x < m_vJSExtenders.size(); ++x)
-			m_vJSExtenders[x]->destroy();
-
-		for (size_t x = 0; x < m_vSchemeExtenders.size(); ++x)
-			m_vSchemeExtenders[x]->destroy();
+		return m_pExtender;
 	}
+
+	operator ChromiumDLL::JavaScriptExtenderI*()
+	{
+		return m_pExtender;
+	}
+
+	JSONNode execute(const std::string &strFunction, JSONNode object, JSONNode argumets);
+
+	const char* getName()
+	{
+		return m_pExtender->getName();
+	}
+
+private:
+	ChromiumDLL::JavaScriptExtenderI* m_pExtender;
+
+	IMPLEMENT_REFCOUNTING(JavaScriptExtenderRef);
+};
+
+class ChromiumApp : public CefApp, protected CefBrowserProcessHandler, protected JsonSendTargetI
+{
+public:
+	ChromiumApp();
+	~ChromiumApp();
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////
 	// CefBrowserProcessHandler
@@ -89,6 +101,8 @@ public:
 	bool RegisterJSExtender(ChromiumDLL::JavaScriptExtenderI* extender);
 	bool RegisterSchemeExtender(ChromiumDLL::SchemeExtenderI* extender);
 
+	bool send(int nBrowser, JSONNode msg) OVERRIDE;
+
 protected:
 	std::vector<std::string> getSchemeList();
 
@@ -97,9 +111,11 @@ protected:
 	void initThread();
 	void run();
 	static void runThread(void* pObj);
-	bool processRequest(const std::string &strFrom, JSONNode jsonReq);
 
 	void initIpc();
+
+	CefRefPtr<JavaScriptExtenderRef> findExtender(JSONNode msg);
+	int getBrowserId(JSONNode msg);
 
 	void processMessageReceived(const std::string &strFrom, const std::string &strJson);
 
@@ -107,7 +123,7 @@ private:
 	zmq::context_t m_ZmqContext;
 	zmq::socket_t m_ZmqServer;
 
-	std::vector<ChromiumDLL::JavaScriptExtenderI*> m_vJSExtenders;
+	std::vector<CefRefPtr<JavaScriptExtenderRef>> m_vJSExtenders;
 	std::vector<ChromiumDLL::SchemeExtenderI*> m_vSchemeExtenders;
 
 	SharedMem m_SharedMemInfo;

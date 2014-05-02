@@ -118,7 +118,6 @@ public:
 protected:
 	CefBrowserSettings getBrowserDefaults();
 
-	CefRefPtr<CefV8Context> m_rContext;
 	CefRefPtr<CefClient> m_rEventHandler;
 	CefBrowser* m_pBrowser;
 

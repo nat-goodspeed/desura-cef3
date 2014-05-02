@@ -29,6 +29,8 @@ $/LicenseInfo$
 #include "include/cef_app.h"
 #include "include/cef_render_process_handler.h"
 
+#include "JavaScriptContext.h"
+
 #include "SharedMem.h"
 #include "libjson.h"
 #include "tinythread.h"
@@ -39,6 +41,7 @@ class JavaScriptExtenderProxy;
 class ProcessApp
 	: public CefApp
 	, protected CefRenderProcessHandler
+	, protected JsonSendTargetI
 {
 public:
 	ProcessApp();
@@ -64,14 +67,18 @@ public:
 	// ProcessApp
 	/////////////////////////////////////////////////////////////////////////////////////////////////
 
-	void sendMessage(const std::string& strMsg);
+	bool send(int nBrowser, JSONNode msg) OVERRIDE;
 
 protected:
 	static void runThread(void* pObj);
 	void run();
 	void processMessageReceived(const std::string &strJson);
 	bool processResponse(JSONNode json);
+	bool processRequest(JSONNode json);
 	
+	CefRefPtr<JavaScriptExtenderProxy> findExtender(JSONNode msg);
+	int getBrowserId(JSONNode msg);
+
 	static std::string generateZmqName();
 
 private:
@@ -88,6 +95,12 @@ private:
 
 	const std::string m_strZmqIdentity;
 	int m_nZmqPort;
+
+	tthread::mutex m_CurLock;
+	CefRefPtr<JavaScriptExtenderProxy> m_pCurrentExtender;
+
+	tthread::mutex m_BrowserLock;
+	std::map<int, CefRefPtr<CefBrowser>> m_mBrowsers;
 };
 
 

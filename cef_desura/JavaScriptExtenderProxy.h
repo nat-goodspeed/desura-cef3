@@ -27,6 +27,8 @@ $/LicenseInfo$
 #define DESURA_JAVASCRIPTEXTENDERPROXY_H
 
 #include "include/cef_v8.h"
+#include "include/internal/cef_types.h"
+
 #include "libjson.h"
 #include "tinythread.h"
 
@@ -35,29 +37,35 @@ class ProcessApp;
 class JavaScriptExtenderProxy : public CefV8Handler
 {
 public:
-	JavaScriptExtenderProxy(CefRefPtr<ProcessApp> &app, const std::string &strName);
+	static const cef_thread_id_t TaskThread = TID_RENDERER;
+
+
+	JavaScriptExtenderProxy(const std::string &strId, const CefRefPtr<CefV8Value> &funct, const CefRefPtr<CefV8Context> &context);
+	JavaScriptExtenderProxy(const std::string &strName);
 
 	bool Execute(const CefString& name, CefRefPtr<CefV8Value> object, const CefV8ValueList& arguments, CefRefPtr<CefV8Value>& retval, CefString& exception) OVERRIDE;
 
 	const char* getName();
-	void onMessageReceived(const std::string &strAction, JSONNode ret);
+
+
+	JSONNode execute(const std::string &strFunction, JSONNode object, JSONNode argumets);
+
+	CefRefPtr<CefV8Value> getV8Value()
+	{
+		return m_Function;
+	}
 
 protected:
 	JSONNode convertV8ToJson(CefRefPtr<CefV8Value> &object, const CefV8ValueList& arguments);
 
 private:
-	CefRefPtr<ProcessApp> m_App;
 	const std::string m_strName;
-
-	tthread::mutex m_ReturnLock;
-	JSONNode m_jsonFunctionReturn;
-	bool m_bReturnIsException;
-
-	tthread::mutex m_WaitLock;
-	tthread::condition_variable m_WaitCond;
+	CefRefPtr<CefV8Value> m_Function;
+	CefRefPtr<CefV8Context> m_Context;
 
 	IMPLEMENT_REFCOUNTING(V8ProxyHandler);
 };
+
 
 
 #endif

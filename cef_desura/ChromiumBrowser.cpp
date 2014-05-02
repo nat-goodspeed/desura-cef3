@@ -637,17 +637,14 @@ int* ChromiumBrowser::getBrowserHandle()
 
 ChromiumDLL::JavaScriptContextI* ChromiumBrowser::getJSContext()
 {
-	//TODO: Implement
-
 	if (m_pBrowser)
-		return new JavaScriptContext(); //m_rContext
+		return new JavaScriptContext(m_pBrowser->GetIdentifier());
 
 	return NULL;
 }
 
 void ChromiumBrowser::setContext(CefRefPtr<CefV8Context> context)
 {
-	m_rContext = context;
 }
 
 

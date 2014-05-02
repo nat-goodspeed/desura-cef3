@@ -28,6 +28,7 @@ $/LicenseInfo$
 
 #include "JavaScriptObject.h"
 #include "JavaScriptFactory.h"
+#include "JavaScriptContext.h"
 
 #include "libjson.h"
 #include <memory>
@@ -46,6 +47,35 @@ std::vector<std::string> ChromiumApp::getSchemeList()
 		ret.push_back(it->first);
 
 	return ret;
+}
+
+JavaScriptContextHelper<JavaScriptExtenderRef> JavaScriptContextHelper<JavaScriptExtenderRef>::Self;
+
+
+ChromiumApp::ChromiumApp()
+	: m_bInit(false)
+	, m_bIsStopped(false)
+	, m_bIpcInit(false)
+	, m_pWorkerThread(NULL)
+	, m_ZmqContext(1)
+	, m_ZmqServer(m_ZmqContext, ZMQ_ROUTER)
+{
+	JavaScriptContextHelper<JavaScriptExtenderRef>::Self.setTarget(this);
+}
+
+ChromiumApp::~ChromiumApp()
+{
+	JavaScriptContextHelper<JavaScriptExtenderRef>::Self.setTarget(nullptr);
+
+	m_bIsStopped = true;
+
+	if (m_pWorkerThread && m_pWorkerThread->joinable())
+		m_pWorkerThread->join();
+
+	delete m_pWorkerThread;
+
+	for (size_t x = 0; x < m_vSchemeExtenders.size(); ++x)
+		m_vSchemeExtenders[x]->destroy();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -111,8 +141,8 @@ bool ChromiumApp::initJSExtenderSharedMem()
 	for (size_t x = 0; x < m_vJSExtenders.size(); ++x)
 	{
 		JSInfo i;
-		i.strBinding = m_vJSExtenders[x]->getRegistrationCode();
-		i.strName = m_vJSExtenders[x]->getName();
+		i.strBinding = (*m_vJSExtenders[x])->getRegistrationCode();
+		i.strName = (*m_vJSExtenders[x])->getName();
 
 		vInfo.push_back(i);
 	}
@@ -241,7 +271,7 @@ bool ChromiumApp::RegisterJSExtender(ChromiumDLL::JavaScriptExtenderI* extender)
 	if (m_bInit)
 		return false;
 
-	m_vJSExtenders.push_back(extender);
+	m_vJSExtenders.push_back(new JavaScriptExtenderRef(extender));
 	return true;
 }
 
@@ -296,15 +326,21 @@ void ChromiumApp::processMessageReceived(const std::string &strFrom, const std::
 				m_mBrowserIdentity.erase(it);
 		}
 	}
-	else if (msg["name"].as_string() == "JSE-Response")
+	else
 	{
+		CefRefPtr<JavaScriptExtenderRef> pExtender = findExtender(msg);
+		int nBrowser = getBrowserId(msg);
 
-
-	}
-	else if (msg["name"].as_string() == "JSE-Request")
-	{
-		if (msg.find("request") != msg.end())
-			handled = processRequest(strFrom, msg["request"]);
+		if (msg["name"].as_string() == "JSE-Response")
+		{
+			if (msg.find("response") != msg.end())
+				handled = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.processResponse(pExtender, nBrowser, msg["response"]);
+		}
+		else if (msg["name"].as_string() == "JSE-Request")
+		{
+			if (msg.find("request") != msg.end())
+				handled = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.processRequest(pExtender, nBrowser, msg["request"]);
+		}
 	}
 
 	if (!handled)
@@ -313,130 +349,103 @@ void ChromiumApp::processMessageReceived(const std::string &strFrom, const std::
 	}
 }
 
-bool ChromiumApp::processRequest(const std::string &strFrom, JSONNode jsonReq)
+extern CefRefPtr<JavaScriptExtenderRef> LookupExtenderFromFunctionHolder_Browser(const std::string &strId);
+
+CefRefPtr<JavaScriptExtenderRef> ChromiumApp::findExtender(JSONNode msg)
 {
-	if (jsonReq.find("extender") == jsonReq.end() || jsonReq.find("command") == jsonReq.end())
-	{
-		//Handle better
-		return false;
-	}
+	if (msg.find("extender") == msg.end())
+		return NULL;
 
-	std::string strJsName = jsonReq["extender"].as_string();
-	std::string strCommand = jsonReq["command"].as_string();
-
-	ChromiumDLL::JavaScriptExtenderI* pExtender = NULL;
+	std::string strNameOrId = msg["extender"].as_string();
 
 	for (size_t x = 0; x < m_vJSExtenders.size(); ++x)
 	{
-		if (strJsName != m_vJSExtenders[x]->getName())
-			continue;
-
-		pExtender = m_vJSExtenders[x];
-		break;
+		if (strNameOrId == m_vJSExtenders[x]->getName())
+			return m_vJSExtenders[x];
 	}
 
-	if (!pExtender)
+	return LookupExtenderFromFunctionHolder_Browser(strNameOrId);
+}
+
+int ChromiumApp::getBrowserId(JSONNode msg)
+{
+	if (msg.find("browser") == msg.end())
+		return -1;
+
+	return msg["browser"].as_int();
+}
+
+bool ChromiumApp::send(int nBrowser, JSONNode msg)
+{
+	std::string strTo;
+
 	{
-		//TODO: handle this better
+		tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
+		strTo = m_mBrowserIdentity[nBrowser];
+	}
+
+	if (strTo.empty())
+	{
+		//TODO Handle
 		return false;
 	}
 
-	if (strCommand == "FunctionCall")
+	std::string strOut = msg.write();
+
+	m_ZmqServer.send(strTo.c_str(), strTo.size(), ZMQ_SNDMORE);
+	m_ZmqServer.send(strOut.c_str(), strOut.size(), 0);
+
+	return true;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+JSONNode JavaScriptExtenderRef::execute(const std::string &strFunction, JSONNode object, JSONNode argumets)
+{
+	JavaScriptFactory factory;
+
+	ChromiumDLL::JavaScriptFunctionArgs jsFunctArgs;
+	jsFunctArgs.function = strFunction.c_str();
+	jsFunctArgs.factory = &factory;
+	jsFunctArgs.argc = argumets.size();
+	jsFunctArgs.argv = new ChromiumDLL::JSObjHandle[argumets.size()];
+	jsFunctArgs.context = NULL;
+	jsFunctArgs.object = new JavaScriptObject(object);
+
+	for (size_t x = 0; x < jsFunctArgs.argc; ++x)
+		jsFunctArgs.argv[x] = new JavaScriptObject(argumets[x]);
+
+	ChromiumDLL::JSObjHandle pRet;
+
+	try
 	{
-		if (jsonReq.find("function") == jsonReq.end() || jsonReq.find("arguments") == jsonReq.end())
-		{
-			//Handle better
-			return false;
-		}
-
-		std::string strFunction = jsonReq["function"].as_string();
-		JavaScriptFactory factory;
-
-		ChromiumDLL::JavaScriptFunctionArgs jsFunctArgs;
-		jsFunctArgs.function = strFunction.c_str();
-		jsFunctArgs.factory = &factory;
-		jsFunctArgs.argc = 0;
-		jsFunctArgs.argv = NULL;
-		jsFunctArgs.context = NULL;
-
-		ChromiumDLL::JSObjHandle* jsArgv = NULL;
-		
-		JSONNode ret(JSON_NODE);
-		ret.set_name("response");
-
-		try
-		{
-			JSONNode node = jsonReq["arguments"];
-
-			if (node.find("object") != node.end())
-				jsFunctArgs.object = new JavaScriptObject(node["object"]);
-			
-			if (node.find("args") != node.end())
-			{
-				JSONNode a = node["args"];
-
-				jsArgv = new ChromiumDLL::JSObjHandle[a.size()];
-
-				for (size_t x = 0; x < a.size(); ++x)
-					jsArgv[x] = new JavaScriptObject(a[x]);
-
-				jsFunctArgs.argc = a.size();
-				jsFunctArgs.argv = jsArgv;
-			}
-
-			ret.push_back(JSONNode("extender", pExtender->getName()));
-
-			ChromiumDLL::JSObjHandle pRet = pExtender->execute(&jsFunctArgs);
-			delete[] jsArgv;
-
-			JavaScriptObject* pObj = dynamic_cast<JavaScriptObject*>(pRet.get());
-
-			if (pObj && !pObj->isException())
-			{
-				JSONNode t = pObj->getNode().duplicate();
-				t.set_name("result");
-
-				ret.push_back(JSONNode("command", "FunctionReturn"));
-				ret.push_back(t);
-			}
-			else if (pObj)
-			{
-				char szException[255] = { 0 };
-				pObj->getStringValue(szException, 255);
-
-				ret.push_back(JSONNode("command", "FunctionException"));
-				ret.push_back(JSONNode("exception", szException));
-			}
-			else
-			{
-				JSONNode n(JSON_NULL);
-				n.set_name("result");
-
-				ret.push_back(JSONNode("command", "FunctionReturn"));
-				ret.push_back(n);
-			}
-		}
-		catch (std::exception &e)
-		{
-			ret.push_back(JSONNode("command", "FunctionException"));
-			ret.push_back(JSONNode("exception", e.what()));
-
-			delete [] jsArgv;
-		}
-
-		JSONNode msg(JSON_NODE);
-		msg.push_back(JSONNode("name", "JSE-Response"));
-		msg.push_back(ret);
-
-		std::string strOut = msg.write();
-
-		m_ZmqServer.send(strFrom.c_str(), strFrom.size(), ZMQ_SNDMORE);
-		m_ZmqServer.send(strOut.c_str(), strOut.size(), 0);
-		return true;
+		pRet = m_pExtender->execute(&jsFunctArgs);
+		delete[] jsFunctArgs.argv;
 	}
-	else
+	catch (...)
 	{
-		//TODO: handle this better
-		return false;
+		delete[] jsFunctArgs.argv;
+		throw;
 	}
+
+	JavaScriptObject* pObj = dynamic_cast<JavaScriptObject*>(pRet.get());
+
+	if (!pObj)
+		return JSONNode(JSON_NULL);
+
+	if (!pObj->isException())
+		return pObj->getNode().duplicate();
+	
+	char szException[255] = { 0 };
+	pObj->getStringValue(szException, 255);
 }

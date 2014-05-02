@@ -27,14 +27,47 @@ $/LicenseInfo$
 #include "JavaScriptExtenderProxy.h"
 
 #include "ChromiumBrowserI.h"
+#include "JavaScriptContext.h"
 
 #include <string>
 #include <sstream>
 #include <memory>
 
+
 extern CefStringUTF8 ConvertToUtf8(const CefString& str);
 CefRefPtr<CefCommandLine> g_command_line;
 
+class JsonRequestTask : public CefTask
+{
+public:
+	JsonRequestTask(CefRefPtr<JavaScriptExtenderProxy> &proxy, CefRefPtr<CefBrowser> &browser, JSONNode json)
+		: m_Proxy(proxy)
+		, m_Browser(browser)
+		, m_Json(json)
+	{
+	}
+
+	void Execute() OVERRIDE
+	{
+		CefRefPtr<CefV8Context> context = m_Browser->GetMainFrame()->GetV8Context();
+
+		context->Enter();
+
+		//TODO
+		int a = 1;
+
+		context->Exit();
+	}
+
+	IMPLEMENT_REFCOUNTING(JsonRequestTask);
+
+	JSONNode m_Json;
+	CefRefPtr<JavaScriptExtenderProxy> m_Proxy;
+	CefRefPtr<CefBrowser> m_Browser;
+};
+
+
+JavaScriptContextHelper<JavaScriptExtenderProxy> JavaScriptContextHelper<JavaScriptExtenderProxy>::Self;
 
 
 ProcessApp::ProcessApp()
@@ -45,10 +78,12 @@ ProcessApp::ProcessApp()
 	, m_strZmqIdentity(generateZmqName())
 	, m_nZmqPort(0)
 {
+	JavaScriptContextHelper<JavaScriptExtenderProxy>::Self.setTarget(this);
 }
 
 ProcessApp::~ProcessApp()
 {
+	JavaScriptContextHelper<JavaScriptExtenderProxy>::Self.setTarget(nullptr);
 	m_bIsStopped = true;
 
 	if (m_pWorkerThread && m_pWorkerThread->joinable())
@@ -91,7 +126,10 @@ void ProcessApp::OnBrowserCreated(CefRefPtr<CefBrowser> browser)
 	msg.push_back(JSONNode("name", "Browser-Created"));
 	msg.push_back(JSONNode("id", browser->GetIdentifier()));
 
-	sendMessage(msg.write());
+	send(-1, msg);
+
+	tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
+	m_mBrowsers[browser->GetIdentifier()] = browser;
 }
 
 void ProcessApp::OnBrowserDestroyed(CefRefPtr<CefBrowser> browser)
@@ -100,7 +138,14 @@ void ProcessApp::OnBrowserDestroyed(CefRefPtr<CefBrowser> browser)
 	msg.push_back(JSONNode("name", "Browser-Destroyed"));
 	msg.push_back(JSONNode("id", browser->GetIdentifier()));
 
-	sendMessage(msg.write());
+	send(-1, msg);
+
+
+	tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
+	std::map<int, CefRefPtr<CefBrowser>>::iterator it = m_mBrowsers.find(browser->GetIdentifier());
+
+	if (it != m_mBrowsers.end())
+		m_mBrowsers.erase(it);
 }
 
 void ProcessApp::OnRenderThreadCreated(CefRefPtr<CefListValue> extra_info)
@@ -149,7 +194,7 @@ void ProcessApp::OnWebKitInitialized()
 				std::string strBinding(pBuff, nBindingSize);
 				pBuff += nBindingSize;
 
-				CefRefPtr<JavaScriptExtenderProxy> pJSExtender = new JavaScriptExtenderProxy(CefRefPtr<ProcessApp>(this), strName);
+				CefRefPtr<JavaScriptExtenderProxy> pJSExtender = new JavaScriptExtenderProxy(strName);
 				CefRegisterExtension(strName, strBinding, CefRefPtr<CefV8Handler>(pJSExtender));
 				m_vJSExtenders.push_back(pJSExtender);
 			}
@@ -227,14 +272,18 @@ void ProcessApp::processMessageReceived(const std::string &strJson)
 
 	bool handled = false;
 
-	if (msg["name"].as_string() == "JSE-Request")
-	{
+	CefRefPtr<JavaScriptExtenderProxy> pExtender = findExtender(msg);
+	int nBrowser = getBrowserId(msg);
 
-	}
-	else if (msg["name"].as_string() == "JSE-Response")
+	if (msg["name"].as_string() == "JSE-Response")
 	{
 		if (msg.find("response") != msg.end())
-			handled = processResponse(msg["response"]);
+			handled = JavaScriptContextHelper<JavaScriptExtenderProxy>::Self.processResponse(pExtender, nBrowser, msg["response"]);
+	}
+	else if (msg["name"].as_string() == "JSE-Request")
+	{
+		if (msg.find("request") != msg.end())
+			handled = JavaScriptContextHelper<JavaScriptExtenderProxy>::Self.processRequest(pExtender, nBrowser, msg["request"]);
 	}
 
 	if (!handled)
@@ -243,57 +292,11 @@ void ProcessApp::processMessageReceived(const std::string &strJson)
 	}
 }
 
-bool ProcessApp::processResponse(JSONNode json)
+bool ProcessApp::send(int nBrowser, JSONNode msg)
 {
-	if (json.find("extender") == json.end() || json.find("command") == json.end())
-	{
-		//Handle better
-		return false;
-	}
-
-	std::string strName = json["extender"].as_string();
-
-	CefRefPtr<JavaScriptExtenderProxy> pExtender;
-
-	for (size_t x = 0; x < m_vJSExtenders.size(); ++x)
-	{
-		if (strName != m_vJSExtenders[x]->getName())
-			continue;
-
-		pExtender = m_vJSExtenders[x];
-		break;
-	}
-
-	if (!pExtender)
-		return false;
-
-	std::string strAction = json["command"].as_string();
-
-	if (strAction == "FunctionReturn")
-	{
-		if (json.find("result") != json.end())
-			pExtender->onMessageReceived(strAction, json["result"]);
-		else
-			pExtender->onMessageReceived(strAction, JSONNode(JSON_NULL));
-	}
-	else if (strAction == "FunctionException")
-	{
-		if (json.find("exception") != json.end())
-			pExtender->onMessageReceived(strAction, json["exception"]);
-		else
-			pExtender->onMessageReceived(strAction, JSONNode(JSON_NULL));
-	}
-	else
-	{
-		return false;
-	}
-
-	return true;
-}
-
-void ProcessApp::sendMessage(const std::string& strMsg)
-{
+	std::string strMsg = msg.write();
 	m_ZmqClient.send(strMsg.c_str(), strMsg.size(), 0);
+	return true;
 }
 
 std::string ProcessApp::generateZmqName()
@@ -308,6 +311,37 @@ std::string ProcessApp::generateZmqName()
 
 	return szBuff;
 }
+
+extern CefRefPtr<JavaScriptExtenderProxy> LookupExtenderFromFunctionHolder_Renderer(const std::string &strId);
+
+CefRefPtr<JavaScriptExtenderProxy> ProcessApp::findExtender(JSONNode msg)
+{
+	if (msg.find("extender") == msg.end())
+		return NULL;
+
+	std::string strNameOrId = msg["extender"].as_string();
+
+	for (size_t x = 0; x < m_vJSExtenders.size(); ++x)
+	{
+		if (strNameOrId == m_vJSExtenders[x]->getName())
+			return m_vJSExtenders[x];
+	}
+
+	return LookupExtenderFromFunctionHolder_Renderer(strNameOrId);
+}
+
+int ProcessApp::getBrowserId(JSONNode msg)
+{
+	if (msg.find("browser") == msg.end())
+		return -1;
+
+	return msg["browser"].as_int();
+}
+
+
+
+
+
 
 #include "Controller.h"
 

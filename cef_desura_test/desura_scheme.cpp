@@ -109,7 +109,7 @@ private:
 
 ExternalLoaderScheme::ExternalLoaderScheme() 
 	: DesuraSchemeBase<ExternalLoaderScheme>("desura", "")
-	, m_Js("<html><body><h1>Say hi cef3!</h1><script>alert(desura.getString());</script></body></html>")
+	, m_Js("<html><body><h1>Say hi cef3!</h1><script>alert(desura.getString(function(a){return \"js to native and back (\" + a + \")\";}));</script></body></html>")
 {
 }
 

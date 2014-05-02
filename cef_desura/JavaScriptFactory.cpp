@@ -84,8 +84,7 @@ ChromiumDLL::JSObjHandle JavaScriptFactory::CreateObject(void* userData)
 
 ChromiumDLL::JSObjHandle JavaScriptFactory::CreateFunction(const char* name, ChromiumDLL::JavaScriptExtenderI* handler)
 {
-	//TODO: Implement	
-	return NULL;
+	return new JavaScriptObject(name, handler);
 }
 
 ChromiumDLL::JSObjHandle JavaScriptFactory::CreateException(const char* value)

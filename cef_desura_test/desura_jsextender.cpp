@@ -42,7 +42,22 @@ public:
 
 	ChromiumDLL::JSObjHandle execute(ChromiumDLL::JavaScriptFunctionArgs* args)
 	{
-		return args->factory->CreateString("Cef3 C++ says hello!");
+		ChromiumDLL::JSObjHandle ret = args->factory->CreateString("Cef3 C++ says hello!");
+
+		if (args->argc > 0)
+		{
+			ChromiumDLL::JavaScriptFunctionArgs a;
+			a.argc = 1;
+			a.argv = &ret;
+			a.context = args->context;
+			a.factory = args->factory;
+			a.object = args->object;
+			a.function = "";
+
+			return args->argv[0]->executeFunction(&a);
+		}
+
+		return ret;
 	}
 
 	const char* getName() override
@@ -52,7 +67,7 @@ public:
 
 	const char* getRegistrationCode() override
 	{
-		return "var desura; if (!desura){ desura = {}; } (function(){ desura.getString = function(){ native function GetStringFromNative(); return GetStringFromNative(); }; })();";
+		return "var desura; if (!desura){ desura = {}; } (function(){ desura.getString = function(callback){ native function GetStringFromNative(); return GetStringFromNative(callback); }; })();";
 	}
 };
 
