@@ -31,27 +31,141 @@ $/LicenseInfo$
 
 #include <string>
 
-union IntToBuff
+/*****************************************************************************
+*   [De]serialize to/from shared memory
+*   TODO: Monty notes that the closest C++ equivalent to "passing a function
+*   name" is passing pointer-to-member-function. We could wrap type-specific
+*   functionality in classes, passing ptr-to-method to indicate read, write,
+*   size.
+*****************************************************************************/
+/*--------------------------------- size_t ---------------------------------*/
+union SizeToBuff
 {
-	int i;
-	char b[4];
+	volatile std::size_t sz;
+	char b[sizeof(std::size_t)];
 };
 
-inline void writeInt(char* szBuff, int nVal)
+inline char* shm_size(char* szBuff, size_t)
 {
-	IntToBuff t;
-	t.i = nVal;
-	memcpy(szBuff, t.b, 4);
+	return szBuff + sizeof(SizeToBuff::b);
 }
 
-inline int readInt(char* szBuff)
+inline char* shm_write(char* szBuff, size_t sz)
 {
-	IntToBuff t;
-	memcpy(t.b, szBuff, 4);
-
-	return t.i;
+	SizeToBuff u;
+	u.sz = sz;
+	memcpy(szBuff, u.b, sizeof(u.b));
+	return szBuff + sizeof(u.b);
 }
 
+inline char* shm_read(char* szBuff, size_t& sz)
+{
+	SizeToBuff u;
+	memcpy(u.b, szBuff, sizeof(u.b));
+	sz = u.sz;
+	return szBuff + sizeof(u.b);
+}
+
+/*------------------------------ std::string -------------------------------*/
+inline char* shm_size(char* szBuff, const std::string& str)
+{
+	szBuff = shm_size(szBuff, str.size());
+	return szBuff + str.size();
+}
+
+inline char* shm_write(char* szBuff, const std::string& str)
+{
+	szBuff = shm_write(szBuff, str.size());
+	memcpy(szBuff, str.c_str(), str.size());
+	return szBuff + str.size();
+}
+
+inline char* shm_read(char* szBuff, std::string& str)
+{
+	std::size_t sz = 0;
+	szBuff = shm_read(szBuff, sz);
+	str = std::string(szBuff, sz);
+	return szBuff + sz;
+}
+
+/*------------------------------- CefString --------------------------------*/
+inline char* shm_size(char* szBuff, const CefString& str)
+{
+}
+
+/*--------------------------------- JSInfo ---------------------------------*/
+struct JSInfo
+{
+	JSInfo() {}
+	JSInfo(const std::string& name, const std::string& binding):
+		strName(name),
+		strBinding(binding)
+	{}
+	std::string strName;
+	std::string strBinding;
+};
+
+inline char* shm_size(char* szBuff, const JSInfo& jsi)
+{
+	szBuff = shm_size(szBuff, jsi.strName);
+	return	 shm_size(szBuff, jsi.strBinding);
+}
+
+inline char* shm_write(char* szBuff, const JSInfo& jsi)
+{
+	szBuff = shm_write(szBuff, jsi.strName);
+	return	 shm_write(szBuff, jsi.strBinding);
+}
+
+inline char* shm_read(char* szBuff, JSInfo& jsi)
+{
+	JSInfo tmp;
+	szBuff = shm_read(szBuff, tmp.strName);
+	szBuff = shm_read(szBuff, tmp.strBinding);
+	jsi = tmp;
+	return szBuff;
+}
+
+/*----------------------------- std::vector<T> -----------------------------*/
+template <typename T>
+inline char* shm_size(char* szBuff, const std::vector<T>& vec)
+{
+	szBuff = shm_size(szBuff, vec.size());
+	for (auto item : vec)
+	{
+		szBuff = shmem_size(szBuff, item);
+	}
+	return szBuff;
+}
+
+template <typename T>
+inline char* shm_write(char* szBuff, const std::vector<T>& vec)
+{
+	szBuff = shm_write(szBuff, vec.size());
+	for (auto item& : vec)
+	{
+		szBuff = shmem_write(szBuff, item);
+	}
+	return szBuff;
+}
+
+template <typename T>
+inline char* shm_read(char* szBuff, std::vector<T>& vec)
+{
+	vec.clear();
+	size_t count;
+	szBuff = shm_read(szBuff, count);
+	vec.resize(count);
+	for (size_t i = 0; i < count; ++i)
+	{
+		szBuff = shm_read(szBuff, &vec[i]);
+	}
+	return szBuff;
+}
+
+/*****************************************************************************
+*   SharedMem
+*****************************************************************************/
 class SharedMem
 {
 public:

@@ -128,29 +128,22 @@ bool ChromiumApp::initJSExtenderSharedMem()
 
 	initIpc();
 
-
-	class JSInfo
-	{
-	public:
-		std::string strName;
-		std::string strBinding;
-	};
-
 	std::vector<JSInfo> vInfo;
 
-	for (size_t x = 0; x < m_vJSExtenders.size(); ++x)
+	for (auto const& ext : m_vJSExtenders)
 	{
-		JSInfo i;
-		i.strBinding = (*m_vJSExtenders[x])->getRegistrationCode();
-		i.strName = (*m_vJSExtenders[x])->getName();
-
-		vInfo.push_back(i);
+		vInfo.push_back(JSInfo(ext->getName(), ext->getRegistrationCode()));
 	}
 
-	size_t nSize = 8; //4 bytes for ipc port, 4 bytes for number of entries
+	// This is for size computation. Once we've made a first pass through the
+	// data, the incremented pointer will tell us how much shared memory to
+	// allocate.
+	char *dummyStart = 0, *dummyBuff = 0;
 
-	for (size_t x = 0; x < vInfo.size(); ++x)
-		nSize += 8 + vInfo[x].strBinding.size() + vInfo[x].strName.size();
+	dummyBuff = shm_size(dummyBuff, m_nZmqPort);
+	dummyBuff = shm_size(dummyBuff, vInfo);
+
+	std::size_t nSize = dummyBuff - dummyStart;
 
 #ifdef WIN32
 	char strShared[255] = { 0 };
@@ -163,28 +156,11 @@ bool ChromiumApp::initJSExtenderSharedMem()
 	return false;
 #endif
 
+	// Now get real buffer pointer and actually write into it.
 	char* pBuff = (char*)m_SharedMemInfo.getMem();
 
-	writeInt(pBuff, m_nZmqPort);
-	pBuff += 4;
-
-	writeInt(pBuff, vInfo.size());
-	pBuff += 4;
-
-	for (size_t x = 0; x < vInfo.size(); ++x)
-	{
-		writeInt(pBuff, vInfo[x].strName.size());
-		pBuff += 4;
-
-		memcpy(pBuff, vInfo[x].strName.c_str(), vInfo[x].strName.size());
-		pBuff += vInfo[x].strName.size();
-
-		writeInt(pBuff, vInfo[x].strBinding.size());
-		pBuff += 4;
-
-		memcpy(pBuff, vInfo[x].strBinding.c_str(), vInfo[x].strBinding.size());
-		pBuff += vInfo[x].strBinding.size();
-	}
+	pBuff = shm_write(pBuff, m_nZmqPort);
+	pBuff = shm_write(pBuff, vInfo);
 
 	return true;
 }
