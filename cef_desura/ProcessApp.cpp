@@ -161,7 +161,6 @@ void ProcessApp::OnWebKitInitialized()
 	if (m_bIsStopped || m_pWorkerThread)
 		return;
 
-	
 
 	CefStringUTF8 strJSEName = ConvertToUtf8(g_command_line->GetSwitchValue("desura-jse-name"));
 	CefStringUTF8 strJSESize = ConvertToUtf8(g_command_line->GetSwitchValue("desura-jse-size"));
@@ -174,28 +173,23 @@ void ProcessApp::OnWebKitInitialized()
 		{
 			char* pBuff = static_cast<char*>(m_SharedMemInfo.getMem());
 
-			m_nZmqPort = readInt(pBuff);
-			pBuff += 4;
+			// *** MUST SYNC WITH:
+			// - ChromiumApp::initJSExtenderSharedMem() in ChromiumApp.cpp
+			// Use a temporary because our shm_etc() functions deal
+			// specifically with size_t rather than int.
+			size_t zmqPort;
+			pBuff = shm_read(pBuff, zmqPort);
+			m_nZmqPort = zmqPort;	// size_t -> int
 
-			int nCount = readInt(pBuff);
-			pBuff += 4;
+			std::vector<JSInfo> vInfo;
+			pBuff = shm_read(pBuff, vInfo);
 
-			for (int x = 0; x < nCount; ++x)
+			for (const JSInfo& jsi : vInfo)
 			{
-				int nNameSize = readInt(pBuff);
-				pBuff += 4;
-
-				std::string strName(pBuff, nNameSize);
-				pBuff += nNameSize;
-
-				int nBindingSize = readInt(pBuff);
-				pBuff += 4;
-
-				std::string strBinding(pBuff, nBindingSize);
-				pBuff += nBindingSize;
-
-				CefRefPtr<JavaScriptExtenderProxy> pJSExtender = new JavaScriptExtenderProxy(strName);
-				CefRegisterExtension(strName, strBinding, CefRefPtr<CefV8Handler>(pJSExtender));
+				CefRefPtr<JavaScriptExtenderProxy> pJSExtender =
+					new JavaScriptExtenderProxy(jsi.strName);
+				CefRegisterExtension(jsi.strName, jsi.strBinding,
+									 CefRefPtr<CefV8Handler>(pJSExtender));
 				m_vJSExtenders.push_back(pJSExtender);
 			}
 		}

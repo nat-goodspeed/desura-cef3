@@ -140,6 +140,9 @@ bool ChromiumApp::initJSExtenderSharedMem()
 	// allocate.
 	char *dummyStart = 0, *dummyBuff = 0;
 
+	// *** MUST SYNC WITH:
+	// - actual write code below in same function
+	// - ProcessApp::OnWebKitInitialized() in ProcessApp.cpp
 	dummyBuff = shm_size(dummyBuff, m_nZmqPort);
 	dummyBuff = shm_size(dummyBuff, vInfo);
 
@@ -159,6 +162,9 @@ bool ChromiumApp::initJSExtenderSharedMem()
 	// Now get real buffer pointer and actually write into it.
 	char* pBuff = (char*)m_SharedMemInfo.getMem();
 
+	// *** MUST SYNC WITH:
+	// - size computation code above in same function
+	// - ProcessApp::OnWebKitInitialized() in ProcessApp.cpp
 	pBuff = shm_write(pBuff, m_nZmqPort);
 	pBuff = shm_write(pBuff, vInfo);
 
