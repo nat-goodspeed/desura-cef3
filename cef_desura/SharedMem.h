@@ -29,7 +29,9 @@ $/LicenseInfo$
 #pragma once
 #endif
 
+#include <vector>
 #include <string>
+#include "include/internal/cef_string.h"
 
 /*****************************************************************************
 *   [De]serialize to/from shared memory
@@ -47,7 +49,7 @@ union SizeToBuff
 
 inline char* shm_size(char* szBuff, size_t)
 {
-	return szBuff + sizeof(SizeToBuff::b);
+	return szBuff + sizeof(std::size_t);
 }
 
 inline char* shm_write(char* szBuff, size_t sz)
@@ -133,7 +135,7 @@ inline char* shm_size(char* szBuff, const std::vector<T>& vec)
 	szBuff = shm_size(szBuff, vec.size());
 	for (auto item : vec)
 	{
-		szBuff = shmem_size(szBuff, item);
+		szBuff = shm_size(szBuff, item);
 	}
 	return szBuff;
 }
@@ -142,9 +144,9 @@ template <typename T>
 inline char* shm_write(char* szBuff, const std::vector<T>& vec)
 {
 	szBuff = shm_write(szBuff, vec.size());
-	for (auto item& : vec)
+	for (auto& item : vec)
 	{
-		szBuff = shmem_write(szBuff, item);
+		szBuff = shm_write(szBuff, item);
 	}
 	return szBuff;
 }
@@ -156,9 +158,9 @@ inline char* shm_read(char* szBuff, std::vector<T>& vec)
 	size_t count;
 	szBuff = shm_read(szBuff, count);
 	vec.resize(count);
-	for (size_t i = 0; i < count; ++i)
+	for (auto& item : vec)
 	{
-		szBuff = shm_read(szBuff, &vec[i]);
+		szBuff = shm_read(szBuff, item);
 	}
 	return szBuff;
 }

@@ -132,7 +132,7 @@ bool ChromiumApp::initJSExtenderSharedMem()
 
 	for (auto const& ext : m_vJSExtenders)
 	{
-		vInfo.push_back(JSInfo(ext->getName(), ext->getRegistrationCode()));
+		vInfo.push_back(JSInfo(ext->getName(), (*ext)->getRegistrationCode()));
 	}
 
 	// This is for size computation. Once we've made a first pass through the
