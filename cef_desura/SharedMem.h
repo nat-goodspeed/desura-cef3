@@ -35,15 +35,11 @@ $/LicenseInfo$
 
 /*****************************************************************************
 *   [De]serialize to/from shared memory
-*   TODO: Monty notes that the closest C++ equivalent to "passing a function
-*   name" is passing pointer-to-member-function. We could wrap type-specific
-*   functionality in classes, passing ptr-to-method to indicate read, write,
-*   size.
 *****************************************************************************/
 /*--------------------------------- size_t ---------------------------------*/
 union SizeToBuff
 {
-	volatile std::size_t sz;
+	std::size_t sz;
 	char b[sizeof(std::size_t)];
 };
 

@@ -130,9 +130,10 @@ bool ChromiumApp::initJSExtenderSharedMem()
 
 	std::vector<JSInfo> vInfo;
 
-	for (auto const& ext : m_vJSExtenders)
+	for (size_t x = 0; x < m_vJSExtenders.size(); ++x)
 	{
-		vInfo.push_back(JSInfo(ext->getName(), (*ext)->getRegistrationCode()));
+		vInfo.push_back(JSInfo((*m_vJSExtenders[x])->getName(),
+							   (*m_vJSExtenders[x])->getRegistrationCode()));
 	}
 
 	// This is for size computation. Once we've made a first pass through the

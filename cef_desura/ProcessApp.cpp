@@ -184,11 +184,11 @@ void ProcessApp::OnWebKitInitialized()
 			std::vector<JSInfo> vInfo;
 			pBuff = shm_read(pBuff, vInfo);
 
-			for (const JSInfo& jsi : vInfo)
+			for (size_t x = 0; x < vInfo.size(); ++x)
 			{
 				CefRefPtr<JavaScriptExtenderProxy> pJSExtender =
-					new JavaScriptExtenderProxy(jsi.strName);
-				CefRegisterExtension(jsi.strName, jsi.strBinding,
+					new JavaScriptExtenderProxy(vInfo[x].strName);
+				CefRegisterExtension(vInfo[x].strName, vInfo[x].strBinding,
 									 CefRefPtr<CefV8Handler>(pJSExtender));
 				m_vJSExtenders.push_back(pJSExtender);
 			}
