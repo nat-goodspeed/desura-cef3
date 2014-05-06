@@ -68,43 +68,92 @@ inline char* shm_read(char* szBuff, size_t& sz)
 	return szBuff + sizeof(u.b);
 }
 
-/*------------------------------ std::string -------------------------------*/
-inline char* shm_size(char* szBuff, const std::string& str)
+/*------------------------------- CefString --------------------------------*/
+// We optimize for the CefString case: both shm_write(std::string) and
+// shm_write(CefString) store CefString data in shared memory, specifically so
+// shm_read(CefString&) can construct a CefString which points directly into
+// the shared-memory buffer instead of having to copy string data. (Naturally
+// shm_read(std::string&) always copies the string data since std::string
+// doesn't define any other behavior. It's up to the caller to read the type
+// required by consuming code.)
+inline char* shm_size(char* szBuff, const CefString& str)
 {
 	szBuff = shm_size(szBuff, str.size());
-	return szBuff + str.size();
+	// don't forget to account for the size of each character!
+	return szBuff + (str.size() * sizeof(CefString::char_type));
+}
+
+inline char* shm_write(char* szBuff, const CefString& str)
+{
+	// Write the length as the number of CefString::char_type, not the total
+	// byte length.
+	szBuff = shm_write(szBuff, str.size());
+	// But for copying data and skipping it, we need the byte length. Again,
+	// account for the size of each character.
+	size_t bytelen = str.size() * sizeof(CefString::char_type);
+	memcpy(szBuff, str.c_str(), bytelen);
+	return szBuff + bytelen;
+}
+
+inline char* shm_read(char* szBuff, CefString& str)
+{
+	std::size_t sz = 0;
+	szBuff = shm_read(szBuff, sz);
+	// DO NOT COPY the string data! (3rd param 'false')
+	// Recall that sz is the number of CefString::char_type, not the total
+	// number of bytes.
+	str.FromString(static_cast<const CefString::char_type*>(szBuff), sz, false);
+	// advance by the correct number of bytes
+	return szBuff + (sz * sizeof(CefString::char_type));
+}
+
+/*------------------------------ std::string -------------------------------*/
+// As noted above, std::string is converted to CefString for purposes of
+// storing into shared memory. Specifically, if CefString::char_type !=
+// std::string::value_type, the character data will be converted using
+// CefString facilities before being copied to shared memory.
+inline char* shm_size(char* szBuff, const std::string& str)
+{
+	// Formally, the correct thing to do would be to convert the incoming
+	// std::string to CefString, which would certainly involve copying and
+	// possibly character-width translation. Pragmatically, since we have to
+	// do that work for real in shm_write() anyway, and since the only
+	// CefString field used by shm_size(CefString) is its size(), we do
+	// something a little bit evil here: we hand CefString's constructor a
+	// bogus non-NULL pointer while forbidding it to copy the data.
+	return shm_size(szBuff,
+					CefString(static_cast<const CefString::char_type*>(str.c_str()),
+							  str.size(),
+							  false)); // no copy
 }
 
 inline char* shm_write(char* szBuff, const std::string& str)
 {
-	szBuff = shm_write(szBuff, str.size());
-	memcpy(szBuff, str.c_str(), str.size());
-	return szBuff + str.size();
+	// Convert to CefString and write that. As noted in shm_size(), this means
+	// copying and possibly character expansion.
+	return shm_write(szBuff, CefString(str));
 }
 
 inline char* shm_read(char* szBuff, std::string& str)
 {
-	std::size_t sz = 0;
-	szBuff = shm_read(szBuff, sz);
-	str = std::string(szBuff, sz);
-	return szBuff + sz;
-}
-
-/*------------------------------- CefString --------------------------------*/
-inline char* shm_size(char* szBuff, const CefString& str)
-{
+	// Read into CefString...
+	CefString temp;
+	szBuff = shm_read(szBuff, temp);
+	// then convert to string.
+	str = temp.ToString();
+	return szBuff;
 }
 
 /*--------------------------------- JSInfo ---------------------------------*/
 struct JSInfo
 {
 	JSInfo() {}
-	JSInfo(const std::string& name, const std::string& binding):
+	JSInfo(const CefString& name, const CefString& binding):
 		strName(name),
 		strBinding(binding)
 	{}
-	std::string strName;
-	std::string strBinding;
+	CefString strName;
+	CefString strBinding;
 };
 
 inline char* shm_size(char* szBuff, const JSInfo& jsi)
