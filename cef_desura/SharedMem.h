@@ -99,10 +99,12 @@ inline char* shm_read(char* szBuff, CefString& str)
 {
 	std::size_t sz = 0;
 	szBuff = shm_read(szBuff, sz);
+	// Have to use reinterpret_cast<> because, although szBuff is a char*, we
+	// happen to know it's pointing to a block of CefString::char_type.
 	// DO NOT COPY the string data! (3rd param 'false')
 	// Recall that sz is the number of CefString::char_type, not the total
 	// number of bytes.
-	str.FromString(static_cast<const CefString::char_type*>(szBuff), sz, false);
+	str.FromString(reinterpret_cast<const CefString::char_type*>(szBuff), sz, false);
 	// advance by the correct number of bytes
 	return szBuff + (sz * sizeof(CefString::char_type));
 }
@@ -122,7 +124,7 @@ inline char* shm_size(char* szBuff, const std::string& str)
 	// something a little bit evil here: we hand CefString's constructor a
 	// bogus non-NULL pointer while forbidding it to copy the data.
 	return shm_size(szBuff,
-					CefString(static_cast<const CefString::char_type*>(str.c_str()),
+					CefString(reinterpret_cast<const CefString::char_type*>(str.c_str()),
 							  str.size(),
 							  false)); // no copy
 }
