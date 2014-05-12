@@ -438,7 +438,7 @@ class cefGL :
 
 			if (keyIn == 'z' && isDown)
 			{
-				pRenderer->getBrowser()->loadUrl("http://desura.com");
+				pRenderer->getBrowser()->loadUrl("http://desura.com/DesuraInstaller.exe");
 			}
 
 			std::cout << "Key press was " << keyIn << " is down: " << isDown << std::endl;

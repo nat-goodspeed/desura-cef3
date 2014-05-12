@@ -250,6 +250,15 @@ void DownloadHandler::OnBeforeDownload(CefRefPtr<CefBrowser> browser, CefRefPtr<
 }
 
 
+void DownloadHandler::OnDownloadUpdated(CefRefPtr<CefBrowser> browser,CefRefPtr<CefDownloadItem> download_item, CefRefPtr<CefDownloadItemCallback> callback)
+{
+	std::string strUrl = download_item->GetURL();
+
+	if (strUrl.find_last_of(".swf") != strUrl.size() - 1)
+		callback->Cancel();
+}
+
+
 /////////////////////////////////////////////////////////////////////////////////////////////
 /// DisplayHandler
 /////////////////////////////////////////////////////////////////////////////////////////////
