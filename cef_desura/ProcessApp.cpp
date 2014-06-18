@@ -150,10 +150,10 @@ void ProcessApp::OnBrowserDestroyed(CefRefPtr<CefBrowser> browser)
 
 void ProcessApp::OnRenderThreadCreated(CefRefPtr<CefListValue> extra_info)
 {
-#ifdef DEBUG
-	while (!IsDebuggerPresent())
-		Sleep(1000);
-#endif
+//#ifdef DEBUG
+//	while (!IsDebuggerPresent())
+//		Sleep(1000);
+//#endif
 }
 
 void ProcessApp::OnWebKitInitialized()
