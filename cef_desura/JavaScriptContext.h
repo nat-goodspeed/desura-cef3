@@ -100,6 +100,8 @@ public:
 	{
 	}
 
+	//! Used to keep track of what browser we are current representing while processing received messages
+	//!
 	void push(int nBrowser)
 	{
 		m_vBrowserContext.push_back(nBrowser);

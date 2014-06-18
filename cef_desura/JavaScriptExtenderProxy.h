@@ -39,15 +39,17 @@ class JavaScriptExtenderProxy : public CefV8Handler
 public:
 	static const cef_thread_id_t TaskThread = TID_RENDERER;
 
-
 	JavaScriptExtenderProxy(const std::string &strId, const CefRefPtr<CefV8Value> &funct, const CefRefPtr<CefV8Context> &context);
 	JavaScriptExtenderProxy(const std::string &strName);
 
-	bool Execute(const CefString& name, CefRefPtr<CefV8Value> object, const CefV8ValueList& arguments, CefRefPtr<CefV8Value>& retval, CefString& exception) OVERRIDE;
-
 	const char* getName();
 
+	//! V8 is trying to call c++
+	//!
+	bool Execute(const CefString& name, CefRefPtr<CefV8Value> object, const CefV8ValueList& arguments, CefRefPtr<CefV8Value>& retval, CefString& exception) OVERRIDE;
 
+	//! c++ calling into v8
+	//! 
 	JSONNode execute(const std::string &strFunction, JSONNode object, JSONNode argumets);
 
 	CefRefPtr<CefV8Value> getV8Value()
