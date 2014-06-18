@@ -162,6 +162,9 @@ void LoadHandler::OnLoadEnd(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> f
 
 void LoadHandler::OnLoadError(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, ErrorCode errorCode, const CefString& errorText, const CefString& failedUrl)
 {
+	if (errorCode == ERR_ABORTED)
+		return;
+
 	std::string errorMsg;
 
 	std::map<int, std::string>::iterator it = g_mErrorMsgMap.find(errorCode);
@@ -188,9 +191,14 @@ void LoadHandler::OnLoadError(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame>
 
 		CefStringUTF8 t(ConvertToUtf8(failedUrl));
 
-		if (GetCallback()->onLoadError(errorMsg.c_str(), t.c_str(), buff, size))
+		if (GetCallback()->onLoadError(errorMsg.c_str(), t.c_str(), buff, size) && buff[0])
 		{
-			std::string e(buff, size);
+			size_t nSize = strlen(buff);
+
+			if (nSize > size)
+				nSize = size;
+
+			std::string e(buff, nSize);
 			frame->LoadString(e, failedUrl);
 			return;
 		}
