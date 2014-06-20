@@ -23,8 +23,8 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef 3P_CEF3_HEADER
-#define 3P_CEF3_HEADER
+#ifndef THIRDPARTY_CEF3_HEADER
+#define THIRDPARTY_CEF3_HEADER
 #ifdef _WIN32
 #pragma once
 #endif
@@ -1235,4 +1235,4 @@ extern "C"
 #endif // TODO LINUX
 #endif
 
-#endif //3P_CEF3_HEADER
+#endif //THIRDPARTY_CEF3_HEADER

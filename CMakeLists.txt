@@ -3,7 +3,7 @@
 #
 #
 
-project(3p-cef3)
+project(3p_cef3)
 
 if(APPLE) 
   # see #418
@@ -281,61 +281,61 @@ file(GLOB libcef_dll_wrapper_sources
 	${CEF_DLLSOURCE_PATH}/wrapper/*.cc
 )
 
-add_library(3p-cef3 SHARED ${cef_ll_sources})
+add_library(3p_cef3 SHARED ${cef_ll_sources})
 add_library(libcef_dll_wrapper STATIC ${libcef_dll_wrapper_sources})
 
 if(WIN32)
-	add_executable(3p-cef3_host WIN32 ${3p-cef3_host_sources})
+	add_executable(3p_cef3_host WIN32 ${cef_ll_host_sources})
 else()
-	add_executable(3p-cef3_host ${3p-cef3_host_sources})
+	add_executable(3p_cef3_host ${cef_ll_host_sources})
 endif()
 
-set_property(TARGET 3p-cef3 PROPERTY COMPILE_DEFINITIONS BUILDING_3p-cef3_SHARED)
+set_property(TARGET 3p_cef3 PROPERTY COMPILE_DEFINITIONS BUILDING_3P_CEF3_SHARED)
 
-target_link_libraries(3p-cef3
+target_link_libraries(3p_cef3
   libcef_dll_wrapper
 )
 
-target_link_libraries(3p-cef3_host
+target_link_libraries(3p_cef3_host
 )
 
-add_executable(3p-cef3_test_ogl 3p-cef3_test/main_opengl.cpp)
+add_executable(3p_cef3_test_ogl cef_ll_test/main_opengl.cpp)
 
-add_dependencies(3p-cef3 3p-cef3_host)
-add_dependencies(3p-cef3_test_ogl 3p-cef3)
+add_dependencies(3p_cef3 3p_cef3_host)
+add_dependencies(3p_cef3_test_ogl 3p_cef3)
 
 if(WIN32)
-	add_executable(3p-cef3_test_msw WIN32 3p-cef3_test/main_msw.cpp 3p-cef3_test/ll_scheme.cpp)
+	add_executable(3p_cef3_test_msw WIN32 cef_ll_test/main_msw.cpp cef_ll_test/ll_scheme.cpp)
 
-	target_link_libraries(3p-cef3_test_ogl
-		${CMAKE_CURRENT_SOURCE_DIR}/3p-cef3_test/freeglut/freeglut.lib
+	target_link_libraries(3p_cef3_test_ogl
+		${CMAKE_CURRENT_SOURCE_DIR}/cef_ll_test/freeglut/freeglut.lib
 	)
 
-	target_link_libraries(3p-cef3
+	target_link_libraries(3p_cef3
 		${CEF_BIN_PATH}/libcef.lib
 	)
 
 	#build bot builds with visual studio 2010 and so should we
 	if(MSVC_VERSION EQUAL 1600)
 		add_definitions(-DWIN32_SANDBOX_ENABLED)
-		target_link_libraries(3p-cef3 ${CEF_BIN_PATH}/cef_sandbox.lib)
+		target_link_libraries(3p_cef3 ${CEF_BIN_PATH}/cef_sandbox.lib)
 	endif()
 
-	add_copy_target_file_step(3p-cef3_test_ogl 3p-cef3_test/freeglut.dll)
+	add_copy_target_file_step(3p_cef3_test_ogl cef_ll_test/freeglut.dll)
 
-	SetStaticRuntime(3p-cef3_host)
-	SetStaticRuntime(3p-cef3)
+	SetStaticRuntime(3p_cef3_host)
+	SetStaticRuntime(3p_cef3)
 	SetStaticRuntime(libcef_dll_wrapper)
-	SetStaticRuntime(3p-cef3_test_msw)
-	SetStaticRunTime(3p-cef3_test_ogl)
+	SetStaticRuntime(3p_cef3_test_msw)
+	SetStaticRunTime(3p_cef3_test_ogl)
 
-	add_dependencies(3p-cef3_test_msw 3p-cef3)
+	add_dependencies(3p_cef3_test_msw 3p_cef3)
 elseif(UNIX)
 	add_definitions(-DNIX)
 
-	add_executable(3p-cef3_test_gtk 3p-cef3_test/main_gtk.cpp)
+	add_executable(3p_cef3_test_gtk cef_ll_test/main_gtk.cpp)
 
-	target_link_libraries(3p-cef3_test_ogl
+	target_link_libraries(3p_cef3_test_ogl
 		${OPENGL_LIBRARIES}
 		${GLUT_glut_LIBRARY}
 		${CMAKE_DL_LIBS}
@@ -345,16 +345,16 @@ elseif(UNIX)
 		${GTK2_LIBRARIES}
 	)
 
-	target_link_libraries(3p-cef3_test_gtk
+	target_link_libraries(3p_cef3_test_gtk
 		${GTK2_LIBRARIES}
 		${CMAKE_DL_LIBS}
 	)
 
-	target_link_libraries(3p-cef3
+	target_link_libraries(3p_cef3
 		${CEF_BIN_PATH}/libcef.so
 	)
 
-	target_link_libraries(3p-cef3_host
+	target_link_libraries(3p_cef3_host
 		${GTK2_LIBRARIES}
 		${CMAKE_DL_LIBS}
 	)
