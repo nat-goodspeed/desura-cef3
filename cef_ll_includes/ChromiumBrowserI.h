@@ -23,8 +23,8 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_WXCHROMIUMI_H
-#define DESURA_WXCHROMIUMI_H
+#ifndef 3P_CEF3_HEADER
+#define 3P_CEF3_HEADER
 #ifdef _WIN32
 #pragma once
 #endif
@@ -36,7 +36,14 @@ $/LicenseInfo$
 #include <stdlib.h>
 
 #if defined(_WIN32)
+
 #ifdef BUILDING_CEF_DESURA_SHARED 
+#ifndef BUILDING_3P_CEF3_SHARED
+#define BUILDING_3P_CEF3_SHARED
+#endif
+#endif
+
+#ifdef BUILDING_3P_CEF3_SHARED
 #define DLLINTERFACE __declspec(dllexport)
 #else
 #define DLLINTERFACE __declspec(dllimport)
@@ -1228,4 +1235,4 @@ extern "C"
 #endif // TODO LINUX
 #endif
 
-#endif //DESURA_WXCHROMIUMI_H
+#endif //3P_CEF3_HEADER

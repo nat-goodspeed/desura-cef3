@@ -3,7 +3,7 @@
 #
 #
 
-project(cef_desura)
+project(3p-cef3)
 
 if(APPLE) 
   # see #418
@@ -235,8 +235,8 @@ endif()
 set(CEF_DL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cef3)
 
 include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}/cef_desura_includes
-  ${CMAKE_CURRENT_SOURCE_DIR}/cef_desura
+  ${CMAKE_CURRENT_SOURCE_DIR}/cef_ll_includes
+  ${CMAKE_CURRENT_SOURCE_DIR}/cef_ll
   ${CEF_DL_DIR}
   ${CEF_DL_DIR}/libcef_dll
 )
@@ -256,14 +256,14 @@ add_definitions(
   -DCHROMIUM_API_SUPPORTS_V2
 )
 
-file(GLOB cef_desura_sources 
-	cef_desura/*.cpp 
-	cef_desura/*.h 
+file(GLOB cef_ll_sources 
+	cef_ll/*.cpp 
+	cef_ll/*.h 
 )
 
-file(GLOB cef_desura_host_sources 
-	cef_desura_host/*.cpp 
-	cef_desura_host/*.h 
+file(GLOB cef_ll_host_sources 
+	cef_ll_host/*.cpp 
+	cef_ll_host/*.h 
 )
 
 file(GLOB libcef_dll_wrapper_sources 
@@ -281,61 +281,61 @@ file(GLOB libcef_dll_wrapper_sources
 	${CEF_DLLSOURCE_PATH}/wrapper/*.cc
 )
 
-add_library(cef_desura SHARED ${cef_desura_sources})
+add_library(3p-cef3 SHARED ${cef_ll_sources})
 add_library(libcef_dll_wrapper STATIC ${libcef_dll_wrapper_sources})
 
 if(WIN32)
-	add_executable(cef_desura_host WIN32 ${cef_desura_host_sources})
+	add_executable(3p-cef3_host WIN32 ${3p-cef3_host_sources})
 else()
-	add_executable(cef_desura_host ${cef_desura_host_sources})
+	add_executable(3p-cef3_host ${3p-cef3_host_sources})
 endif()
 
-set_property(TARGET cef_desura PROPERTY COMPILE_DEFINITIONS BUILDING_CEF_DESURA_SHARED)
+set_property(TARGET 3p-cef3 PROPERTY COMPILE_DEFINITIONS BUILDING_3p-cef3_SHARED)
 
-target_link_libraries(cef_desura
+target_link_libraries(3p-cef3
   libcef_dll_wrapper
 )
 
-target_link_libraries(cef_desura_host
+target_link_libraries(3p-cef3_host
 )
 
-add_executable(cef_desura_test_ogl cef_desura_test/main_opengl.cpp)
+add_executable(3p-cef3_test_ogl 3p-cef3_test/main_opengl.cpp)
 
-add_dependencies(cef_desura cef_desura_host)
-add_dependencies(cef_desura_test_ogl cef_desura)
+add_dependencies(3p-cef3 3p-cef3_host)
+add_dependencies(3p-cef3_test_ogl 3p-cef3)
 
 if(WIN32)
-	add_executable(cef_desura_test_msw WIN32 cef_desura_test/main_msw.cpp cef_desura_test/desura_scheme.cpp)
+	add_executable(3p-cef3_test_msw WIN32 3p-cef3_test/main_msw.cpp 3p-cef3_test/ll_scheme.cpp)
 
-	target_link_libraries(cef_desura_test_ogl
-		${CMAKE_CURRENT_SOURCE_DIR}/cef_desura_test/freeglut/freeglut.lib
+	target_link_libraries(3p-cef3_test_ogl
+		${CMAKE_CURRENT_SOURCE_DIR}/3p-cef3_test/freeglut/freeglut.lib
 	)
 
-	target_link_libraries(cef_desura
+	target_link_libraries(3p-cef3
 		${CEF_BIN_PATH}/libcef.lib
 	)
 
 	#build bot builds with visual studio 2010 and so should we
 	if(MSVC_VERSION EQUAL 1600)
 		add_definitions(-DWIN32_SANDBOX_ENABLED)
-		target_link_libraries(cef_desura ${CEF_BIN_PATH}/cef_sandbox.lib)
+		target_link_libraries(3p-cef3 ${CEF_BIN_PATH}/cef_sandbox.lib)
 	endif()
 
-	add_copy_target_file_step(cef_desura_test_ogl cef_desura_test/freeglut.dll)
+	add_copy_target_file_step(3p-cef3_test_ogl 3p-cef3_test/freeglut.dll)
 
-	SetStaticRuntime(cef_desura_host)
-	SetStaticRuntime(cef_desura)
+	SetStaticRuntime(3p-cef3_host)
+	SetStaticRuntime(3p-cef3)
 	SetStaticRuntime(libcef_dll_wrapper)
-	SetStaticRuntime(cef_desura_test_msw)
-	SetStaticRunTime(cef_desura_test_ogl)
+	SetStaticRuntime(3p-cef3_test_msw)
+	SetStaticRunTime(3p-cef3_test_ogl)
 
-	add_dependencies(cef_desura_test_msw cef_desura)
+	add_dependencies(3p-cef3_test_msw 3p-cef3)
 elseif(UNIX)
 	add_definitions(-DNIX)
 
-	add_executable(cef_desura_test_gtk cef_desura_test/main_gtk.cpp)
+	add_executable(3p-cef3_test_gtk 3p-cef3_test/main_gtk.cpp)
 
-	target_link_libraries(cef_desura_test_ogl
+	target_link_libraries(3p-cef3_test_ogl
 		${OPENGL_LIBRARIES}
 		${GLUT_glut_LIBRARY}
 		${CMAKE_DL_LIBS}
@@ -345,16 +345,16 @@ elseif(UNIX)
 		${GTK2_LIBRARIES}
 	)
 
-	target_link_libraries(cef_desura_test_gtk
+	target_link_libraries(3p-cef3_test_gtk
 		${GTK2_LIBRARIES}
 		${CMAKE_DL_LIBS}
 	)
 
-	target_link_libraries(cef_desura
+	target_link_libraries(3p-cef3
 		${CEF_BIN_PATH}/libcef.so
 	)
 
-	target_link_libraries(cef_desura_host
+	target_link_libraries(3p-cef3_host
 		${GTK2_LIBRARIES}
 		${CMAKE_DL_LIBS}
 	)
