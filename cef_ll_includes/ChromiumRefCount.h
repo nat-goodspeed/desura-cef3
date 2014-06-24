@@ -23,43 +23,79 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef THIRDPARTY_CEF3_JAVASCRIPTCONTEXT_H
-#define THIRDPARTY_CEF3_JAVASCRIPTCONTEXT_H
+
+#ifndef THIRDPARTY_CEF3_REFCOUNT_HEADER
+#define THIRDPARTY_CEF3_REFCOUNT_HEADER
 #ifdef _WIN32
 #pragma once
 #endif
 
-#include "ChromiumBrowserI.h"
-#include "RefCount.h"
-//#include "include/cef.h"
-#include "include/cef_v8.h"
-#include "include/internal/cef_ptr.h"
+#include <assert.h>
 
-class JavaScriptContext : public ChromiumDLL::JavaScriptContextI
+namespace ChromiumDLL
 {
-public:
-	JavaScriptContext();
-	JavaScriptContext(CefRefPtr<CefV8Context> context);
 
-	virtual void destroy();
-	virtual ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptContextI> clone();
+#ifdef WIN32
+	template <typename T>
+	class ChromiumRefCount : public T
+	{
+	public:
+		ChromiumRefCount()
+			: m_RefCount(0)
+		{
+		}
 
-	virtual void enter();
-	virtual void exit();
+		~ChromiumRefCount()
+		{
+			assert(m_RefCount == 0);
+		}
 
-	virtual ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI> getFactory();
-	virtual ChromiumDLL::JSObjHandle getGlobalObject();
+		void addRef()
+		{
+			InterlockedIncrement(&m_RefCount);
+		}
 
-	CefRefPtr<CefV8Context> getCefV8();
+		void delRef()
+		{
+			if (InterlockedDecrement(&m_RefCount) == 0)
+				destroy();
+		}
 
-private:
-	uint32 m_uiCount;
-	CefRefPtr<CefV8Context> m_pContext;
+	private:
+		LONG m_RefCount;
+	};
+#else
+	template <typename T>
+	class ChromiumRefCount : public T
+	{
+	public:
+		ChromiumRefCount()
+		{
+			//TODO
+			assert(false);
+		}
 
-	CEF3_IMPLEMENTREF_COUNTING(JavaScriptContext);
+		~ChromiumRefCount()
+		{
+			//TODO
+			assert(false);
+		}
+
+		void addRef()
+		{
+			//TODO
+			assert(false);
+		}
+
+		void delRef()
+		{
+			//TODO
+			assert(false);
+		}
 };
+#endif
+
+}
 
 
-
-
-#endif //THIRDPARTY_CEF3_JAVASCRIPTCONTEXT_H
+#endif

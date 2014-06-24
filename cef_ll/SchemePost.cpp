@@ -102,7 +102,7 @@ size_t PostData::getElementCount()
 	return m_rPostData->GetElementCount();
 }
 
-ChromiumDLL::PostElementI* PostData::getElement(size_t index)
+ChromiumDLL::RefPtr<ChromiumDLL::PostElementI> PostData::getElement(size_t index)
 {
 	CefPostData::ElementVector eles;
 	m_rPostData->GetElements(eles);
@@ -113,30 +113,26 @@ ChromiumDLL::PostElementI* PostData::getElement(size_t index)
 	return new PostElement(eles[index]);
 }
 
-bool PostData::removeElement(ChromiumDLL::PostElementI* element)
+bool PostData::removeElement(const ChromiumDLL::RefPtr<ChromiumDLL::PostElementI>& element)
 {
-	PostElement *pe = (PostElement*)element;
+	PostElement *pe = (PostElement*)element.get();
 
 	bool res = false;
 
 	if (pe)
 		res = m_rPostData->RemoveElement(pe->getHandle());
 
-	element->destroy();
-
 	return res;
 }
 
-bool PostData::addElement(ChromiumDLL::PostElementI* element)
+bool PostData::addElement(const ChromiumDLL::RefPtr<ChromiumDLL::PostElementI>& element)
 {
-	PostElement *pe = (PostElement*)element;
+	PostElement *pe = (PostElement*)element.get();
 
 	bool res = false;
 
 	if (pe)
 		res = m_rPostData->AddElement(pe->getHandle());
-
-	element->destroy();
 
 	return res;
 }

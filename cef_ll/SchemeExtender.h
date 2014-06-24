@@ -23,8 +23,8 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_SCHEMEEXTENDER_H
-#define DESURA_SCHEMEEXTENDER_H
+#ifndef THIRDPARTY_CEF3_SCHEMEEXTENDER_H
+#define THIRDPARTY_CEF3_SCHEMEEXTENDER_H
 #ifdef _WIN32
 #pragma once
 #endif
@@ -38,9 +38,9 @@ $/LicenseInfo$
 class SchemeExtender : public CefResourceHandler
 {
 public:
-	static bool Register(ChromiumDLL::SchemeExtenderI* se);
+	static bool Register(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>& se);
 
-	SchemeExtender(ChromiumDLL::SchemeExtenderI* se);
+	SchemeExtender(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>& se);
 	~SchemeExtender();
 
 	virtual bool ProcessRequest(CefRefPtr<CefRequest> request, CefRefPtr<CefCallback> callback);
@@ -54,10 +54,10 @@ public:
 	IMPLEMENT_REFCOUNTING(SchemeExtender);
 
 private:
-	ChromiumDLL::SchemeExtenderI* m_pSchemeExtender;
+	ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI> m_pSchemeExtender;
 	CefRefPtr<CefCallback> m_Callback;
 	bool m_redirect;
 };
 
 
-#endif //DESURA_SCHEMEEXTENDER_H
+#endif //THIRDPARTY_CEF3_SCHEMEEXTENDER_H

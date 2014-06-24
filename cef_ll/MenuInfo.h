@@ -23,13 +23,14 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_MENUINFO_H
-#define DESURA_MENUINFO_H
+#ifndef THIRDPARTY_CEF3_MENUINFO_H
+#define THIRDPARTY_CEF3_MENUINFO_H
 #ifdef _WIN32
 #pragma once
 #endif
 
 #include "ChromiumBrowserI.h"
+#include "RefCount.h"
 #include "include/cef_context_menu_handler.h"
 
 #ifdef OS_WIN
@@ -63,7 +64,7 @@ public:
 	virtual const char* getSecurityInfo();
 
 	virtual int getCustomCount();
-	virtual ChromiumDLL::ChromiumMenuItemI* getCustomItem(size_t index);
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::ChromiumMenuItemI> getCustomItem(size_t index);
 
 	virtual int* getHWND();
 
@@ -79,7 +80,9 @@ private:
 	CefStringUTF8 m_SelText;
 	CefStringUTF8 m_PageUrl;
 	CefStringUTF8 m_FrameUrl;
+
+	CEF3_IMPLEMENTREF_COUNTING(ChromiumMenuInfo);
 };
 
 
-#endif //DESURA_MENUINFO_H
+#endif //THIRDPARTY_CEF3_MENUINFO_H

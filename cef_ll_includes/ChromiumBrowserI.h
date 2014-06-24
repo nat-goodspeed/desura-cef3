@@ -23,6 +23,7 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
+
 #ifndef THIRDPARTY_CEF3_HEADER
 #define THIRDPARTY_CEF3_HEADER
 #ifdef _WIN32
@@ -58,6 +59,97 @@ $/LicenseInfo$
 
 namespace ChromiumDLL
 {
+	template <typename T>
+	class RefPtr
+	{
+	public:
+		RefPtr()
+			: m_pT(NULL)
+		{
+		}
+
+		RefPtr(T *pT)
+			: m_pT(pT)
+		{
+			if (m_pT)
+				m_pT->addRef();
+		}
+
+		RefPtr(const RefPtr<T>& r)
+			: m_pT(r.m_pT)
+		{
+			if (m_pT)
+				m_pT->addRef();
+		}
+
+		~RefPtr()
+		{
+			if (m_pT)
+				m_pT->delRef();
+		}
+
+		T* operator ->() const
+		{
+			return m_pT;
+		}
+
+		operator bool() const
+		{
+			return !!m_pT;
+		}
+
+		template <typename U>
+		operator RefPtr<U>() const
+		{
+			return m_pT;
+		}
+
+		RefPtr<T>& operator=(const RefPtr<T>& r)
+		{
+			if (m_pT)
+				m_pT->delRef();
+
+			m_pT = r.m_pT;
+
+			if (m_pT)
+				m_pT->addRef();
+
+			return *this;
+		}
+
+		T* get() const
+		{
+			return m_pT;
+		}
+
+		void reset()
+		{
+			if (m_pT)
+				m_pT->delRef();
+
+			m_pT = NULL;
+		}
+
+	private:
+		T *m_pT;
+	};
+
+	class IntrusiveRefPtrI
+	{
+	public:
+		virtual void addRef() = 0;
+		virtual void delRef() = 0;
+
+	protected:
+		virtual ~IntrusiveRefPtrI(){};
+
+		virtual void destroy()
+		{
+			delete this;
+		}
+	};
+
+
 	enum KeyEventType
 	{
 		KEYEVENT_RAWKEYDOWN = 0,
@@ -66,37 +158,35 @@ namespace ChromiumDLL
 		KEYEVENT_CHAR
 	};
 
-	class JSObjHandle;
+	class JavaScriptObjectI;
 	class ChromiumBrowserI;
 	class JavaScriptExtenderI;
 	class JavaScriptFunctionArgs;
 
-	class JavaScriptFactoryI
+	typedef RefPtr<JavaScriptObjectI> JSObjHandle;
+
+	class JavaScriptFactoryI : public IntrusiveRefPtrI
 	{
 	public:
-		virtual JSObjHandle CreateUndefined() = 0;
-		virtual JSObjHandle CreateNull() = 0;
-		virtual JSObjHandle CreateBool(bool value) = 0;
-		virtual JSObjHandle CreateInt(int value) = 0;
-		virtual JSObjHandle CreateDouble(double value) = 0;
-		virtual JSObjHandle CreateString(const char* value) = 0;
-		virtual JSObjHandle CreateObject() = 0;
-		virtual JSObjHandle CreateObject(void* userData) = 0;
-		virtual JSObjHandle CreateException(const char* value) = 0;
-		virtual JSObjHandle CreateArray() = 0;
-		virtual JSObjHandle CreateFunction(const char* name, ChromiumDLL::JavaScriptExtenderI* handler) = 0;
+		virtual RefPtr<JavaScriptObjectI> CreateUndefined() = 0;
+		virtual RefPtr<JavaScriptObjectI> CreateNull() = 0;
+		virtual RefPtr<JavaScriptObjectI> CreateBool(bool value) = 0;
+		virtual RefPtr<JavaScriptObjectI> CreateInt(int value) = 0;
+		virtual RefPtr<JavaScriptObjectI> CreateDouble(double value) = 0;
+		virtual RefPtr<JavaScriptObjectI> CreateString(const char* value) = 0;
+		virtual RefPtr<JavaScriptObjectI> CreateObject() = 0;
+		virtual RefPtr<JavaScriptObjectI> CreateObject(const RefPtr<IntrusiveRefPtrI>& userData) = 0;
+		virtual RefPtr<JavaScriptObjectI> CreateException(const char* value) = 0;
+		virtual RefPtr<JavaScriptObjectI> CreateArray() = 0;
+		virtual RefPtr<JavaScriptObjectI> CreateFunction(const char* name, const RefPtr<ChromiumDLL::JavaScriptExtenderI>& handler) = 0;
 	};
 
-	class JavaScriptContextI
+	class JavaScriptContextI : public IntrusiveRefPtrI
 	{
 	public:
-		//! Destroy the context
-		//!
-		virtual void destroy() = 0;
-
 		//! Clone the context
 		//!
-		virtual ChromiumDLL::JavaScriptContextI* clone() = 0;
+		virtual RefPtr<ChromiumDLL::JavaScriptContextI> clone() = 0;
 
 		//! Enter context. Must be called on CEF UI thread
 		//!
@@ -108,21 +198,21 @@ namespace ChromiumDLL
 
 		//! only valid after enter has been called
 		//!
-		virtual ChromiumDLL::JavaScriptFactoryI* getFactory() = 0;
+		virtual RefPtr<ChromiumDLL::JavaScriptFactoryI> getFactory() = 0;
 
 		//! Gets the current global object for this context. Only valid after enter has been called
 		//!
-		virtual JSObjHandle getGlobalObject() = 0;
+		virtual RefPtr<JavaScriptObjectI> getGlobalObject() = 0;
 	};
 
-	class JavaScriptObjectI
+	class JavaScriptObjectI : public IntrusiveRefPtrI
 	{
 	public:
 		//! Clones this object. Must call destroy once done.
 		//!
 		//! @return JSObject Clone
 		//!
-		virtual ChromiumDLL::JavaScriptObjectI* clone() = 0;
+		virtual RefPtr<ChromiumDLL::JavaScriptObjectI> clone() = 0;
 
 		//! Undefined JSObject
 		//!
@@ -185,15 +275,12 @@ namespace ChromiumDLL
 		virtual bool deleteValue(int index) = 0;
 
 		//! Returns the value with the specified identifier. 
-		virtual JSObjHandle getValue(const char* key) = 0;
-		virtual JSObjHandle getValue(int index) = 0;
+		virtual RefPtr<JavaScriptObjectI> getValue(const char* key) = 0;
+		virtual RefPtr<JavaScriptObjectI> getValue(int index) = 0;
 
 		//! Associate value with the specified identifier.
-		virtual bool setValue(const char* key, JSObjHandle value) = 0;
-		virtual bool setValue(int index, JSObjHandle value) = 0;
-
-		// Returns the user data, if any, specified when the object was created.
-		//virtual CefRefPtr<CefBase> GetUserData() =0;
+		virtual bool setValue(const char* key, RefPtr<JavaScriptObjectI> value) = 0;
+		virtual bool setValue(int index, RefPtr<JavaScriptObjectI> value) = 0;
 
 		virtual int getNumberOfKeys() = 0;
 		virtual void getKey(int index, char* buff, size_t buffsize) = 0;
@@ -209,112 +296,46 @@ namespace ChromiumDLL
 
 		//! Returns the function handler or NULL if not a CEF-created function. 
 		//! Must call destroy once done!
-		virtual ChromiumDLL::JavaScriptExtenderI* getFunctionHandler() = 0;
+		virtual RefPtr<ChromiumDLL::JavaScriptExtenderI> getFunctionHandler() = 0;
 
 		//! executes a function.
 		//! Must call destroy once done!
 		//! args doesnt use function name, or factory
-		virtual JSObjHandle executeFunction(ChromiumDLL::JavaScriptFunctionArgs* args) = 0;
+		virtual RefPtr<JavaScriptObjectI> executeFunction(const RefPtr<ChromiumDLL::JavaScriptFunctionArgs>& args) = 0;
 
 		virtual void addRef() = 0;
 		virtual void delRef() = 0;
 
-		virtual void* getUserObject() = 0;
+		virtual RefPtr<IntrusiveRefPtrI> getUserObject() = 0;
 
 		template <typename T>
-		T* getUserObject()
+		RefPtr<T> getUserObject()
 		{
-			return (T*)getUserObject();
+			return (T*)getUserObject().get();
 		}
 	};
 
-	class JSObjHandle
-	{
-	public:
-		explicit JSObjHandle()
-		{
-			m_pObj = NULL;
-		}
-
-		JSObjHandle(ChromiumDLL::JavaScriptObjectI* obj)
-		{
-			m_pObj = obj;
-
-			if (m_pObj)
-				m_pObj->addRef();
-		}
-
-		JSObjHandle(const JSObjHandle& obj)
-		{
-			m_pObj = obj.m_pObj;
-
-			if (m_pObj)
-				m_pObj->addRef();
-		}
-
-		~JSObjHandle()
-		{
-			if (m_pObj)
-				m_pObj->delRef();
-		}
-
-		ChromiumDLL::JavaScriptObjectI* operator ->() const
-		{
-			return m_pObj;
-		}
-
-		operator ChromiumDLL::JavaScriptObjectI*() const
-		{
-			return m_pObj;
-		}
-
-		JSObjHandle& operator=(const JSObjHandle& r)
-		{
-			if (m_pObj)
-				m_pObj->delRef();
-
-			m_pObj = r.m_pObj;
-
-			if (m_pObj)
-				m_pObj->addRef();
-
-			return *this;
-		}
-
-		ChromiumDLL::JavaScriptObjectI* get()
-		{
-			return m_pObj;
-		}
-
-	private:
-		ChromiumDLL::JavaScriptObjectI* m_pObj;
-	};
-
-	class JavaScriptFunctionArgs
+	class JavaScriptFunctionArgs : public IntrusiveRefPtrI
 	{
 	public:
 		const char* function;
 		int argc;
 
-		ChromiumDLL::JSObjHandle object;
-		ChromiumDLL::JSObjHandle* argv;	//<< array
-		ChromiumDLL::JavaScriptFactoryI* factory;
-		ChromiumDLL::JavaScriptContextI* context;
+		ChromiumDLL::RefPtr<JavaScriptObjectI> object;
+		ChromiumDLL::RefPtr<JavaScriptObjectI>* argv;	//<< array
+		RefPtr<ChromiumDLL::JavaScriptFactoryI> factory;
+		RefPtr<ChromiumDLL::JavaScriptContextI> context;
 	};
 
 
-	class JavaScriptExtenderI
+	class JavaScriptExtenderI : public IntrusiveRefPtrI
 	{
 	public:
-		//! Deletes the object. Should never be called by user code!
-		//!
-		virtual void destroy() = 0;
-
 		//! Clones this Extender. Must call destroy once done.
 		//!
 		//! @return JSExtender Clone
 		//!
-		virtual ChromiumDLL::JavaScriptExtenderI* clone() = 0;
+		virtual RefPtr<ChromiumDLL::JavaScriptExtenderI> clone() = 0;
 
 
 		//! Called when a javascript function is called
@@ -327,7 +348,7 @@ namespace ChromiumDLL
 		//! @param argv Args
 		//! @return Null if not handled, JavaScriptObjectI Undefined if no return or a JavaScriptObjectI
 		//!
-		virtual JSObjHandle execute(ChromiumDLL::JavaScriptFunctionArgs* args) = 0;
+		virtual RefPtr<JavaScriptObjectI> execute(const RefPtr<ChromiumDLL::JavaScriptFunctionArgs>& args) = 0;
 
 		//! Gets the name to register the extension. i.e. "v8/test"
 		//!
@@ -395,10 +416,9 @@ namespace ChromiumDLL
 		virtual const char* getRegistrationCode() = 0;
 	};
 
-	class CookieI
+	class CookieI : public IntrusiveRefPtrI
 	{
 	public:
-		virtual void destroy() = 0;
 
 		virtual void SetDomain(const char* domain) = 0;
 		virtual void SetName(const char* name) = 0;
@@ -406,13 +426,9 @@ namespace ChromiumDLL
 		virtual void SetPath(const char* path) = 0;
 	};
 
-	class PostElementI
+	class PostElementI : public IntrusiveRefPtrI
 	{
 	public:
-		//! Deletes the object. Should never be called by user code!
-		//!
-		virtual void destroy() = 0;
-
 		virtual bool isFile() = 0;
 		virtual bool isBytes() = 0;
 
@@ -426,51 +442,42 @@ namespace ChromiumDLL
 		virtual size_t getBytes(size_t size, void* bytes) = 0;
 	};
 
-	class PostDataI
+	class PostDataI : public IntrusiveRefPtrI
 	{
 	public:
-		//! Deletes the object. Should never be called by user code!
-		//!
-		virtual void destroy() = 0;
-
 		virtual size_t getElementCount() = 0;
-		virtual PostElementI* getElement(size_t index) = 0;
+		virtual RefPtr<PostElementI> getElement(size_t index) = 0;
 
-		virtual bool removeElement(PostElementI* element) = 0;
-		virtual bool addElement(PostElementI* element) = 0;
+		virtual bool removeElement(const RefPtr<PostElementI>& element) = 0;
+		virtual bool addElement(const RefPtr<PostElementI>& element) = 0;
 
 		virtual void removeElements() = 0;
 	};
 
-	class SchemeRequestI
+	class SchemeRequestI : public IntrusiveRefPtrI
 	{
 	public:
-		//! Deletes the object. Should never be called by user code!
-		//!
-		virtual void destroy() = 0;
-
 		virtual void getURL(char *buff, size_t buffsize) = 0;
 		virtual void setURL(const char* url) = 0;
 
 		virtual void getMethod(char *buff, size_t buffsize) = 0;
 		virtual void setMethod(const char* method) = 0;
 
-		virtual PostDataI* getPostData() = 0;
-		virtual void setPostData(PostDataI* postData) = 0;
+		virtual RefPtr<PostDataI> getPostData() = 0;
+		virtual void setPostData(const RefPtr<PostDataI>& postData) = 0;
 
 		virtual size_t getHeaderCount() = 0;
 
 		virtual void getHeaderItem(size_t index, char *key, size_t keysize, char* data, size_t datasize) = 0;
 		virtual void setHeaderItem(const char* key, const char* data) = 0;
 
-		virtual void set(const char* url, const char* method, PostDataI* postData) = 0;
+		virtual void set(const char* url, const char* method, const RefPtr<PostDataI>& postData) = 0;
 	};
 
-	class SchemeExtenderI
+	class SchemeExtenderI : public IntrusiveRefPtrI
 	{
 	public:
-		virtual void destroy() = 0;
-		virtual SchemeExtenderI* clone(const char* schemeName) = 0;
+		virtual RefPtr<SchemeExtenderI> clone(const char* schemeName) = 0;
 
 		virtual const char* getSchemeName() = 0;
 		virtual const char* getHostName() = 0;
@@ -478,7 +485,7 @@ namespace ChromiumDLL
 		//! Processes the request. Call response ready when ready to reply
 		//! Set redirect to true to redirect to another url (read from getRedirectUrl)
 		//! 
-		virtual bool processRequest(SchemeRequestI* request, bool* redirect) = 0;
+		virtual bool processRequest(const RefPtr<SchemeRequestI>& request, bool* redirect) = 0;
 
 		//! Called when response is ready
 		//!
@@ -501,7 +508,7 @@ namespace ChromiumDLL
 	};
 
 
-	class FunctionArgI
+	class FunctionArgI : public IntrusiveRefPtrI
 	{
 	public:
 		virtual void setBool(bool value) = 0;
@@ -525,63 +532,57 @@ namespace ChromiumDLL
 	};
 
 
-	class FunctionArgsI
+	class FunctionArgsI : public IntrusiveRefPtrI
 	{
 	public:
 		virtual size_t getCount() = 0;
-		virtual FunctionArgI* getArg(size_t index) = 0;
+		virtual RefPtr<FunctionArgI> getArg(size_t index) = 0;
 	};
 
 
 
-	class FunctionDelegateI
+	class FunctionDelegateI : public IntrusiveRefPtrI
 	{
 	public:
-		virtual void destroy() = 0;
-		virtual void operator()(ChromiumDLL::FunctionArgsI* args, ChromiumDLL::FunctionArgI* result) = 0;
+		virtual void operator()(const RefPtr<FunctionArgsI>& args, const RefPtr<FunctionArgI>& result) = 0;
 	};
 
 	template <class T>
 	class FunctionDelegate : public FunctionDelegateI
 	{
 	public:
-		typedef void (T::*JSItemFunction)(ChromiumDLL::FunctionArgsI*, ChromiumDLL::FunctionArgI*);
+		typedef void (T::*JSItemFunction)(const RefPtr<FunctionArgsI>&, const RefPtr<FunctionArgsI>&);
 
-		FunctionDelegate(T *t, JSItemFunction function)
+		FunctionDelegate(const RefPtr<T> &t, JSItemFunction function)
 		{
 			m_pItem = t;
 			m_pFunction = function;
 		}
 
-		void operator()(ChromiumDLL::FunctionArgsI* args, ChromiumDLL::FunctionArgI* result)
+		void operator()(const RefPtr<FunctionArgsI>& args, const RefPtr<FunctionArgI>& result)
 		{
-			return (*m_pItem.*m_pFunction)(args, result);
-		}
-
-		virtual void destroy()
-		{
-			delete this;
+			return (*m_pItem.get().*m_pFunction)(args, result);
 		}
 
 	private:
-		T* m_pItem;
+		RefPtr<T> m_pItem;
 		JSItemFunction m_pFunction;
 	};
 
 	template <class TObj>
-	FunctionDelegateI* newFunctionDelegate(TObj* pObj, void (TObj::*function)(ChromiumDLL::FunctionArgsI*, ChromiumDLL::FunctionArgI*))
+	RefPtr<FunctionDelegateI> newFunctionDelegate(const RefPtr<TObj>& pObj, void (TObj::*function)(const RefPtr<FunctionArgsI>&, const RefPtr<FunctionArgsI>&))
 	{
 		return new FunctionDelegate<TObj>(pObj, function);
 	}
 
 
-	class FunctionRegisterI
+	class FunctionRegisterI : public IntrusiveRefPtrI
 	{
 	public:
-		virtual void registerFunction(const char* name, FunctionDelegateI* delegate) = 0;
+		virtual void registerFunction(const char* name, const RefPtr<FunctionDelegateI>& delegate) = 0;
 	};
 
-	class ChromiumMenuItemI
+	class ChromiumMenuItemI : public IntrusiveRefPtrI
 	{
 	public:
 		enum TypeFlags
@@ -600,7 +601,7 @@ namespace ChromiumDLL
 		virtual bool isChecked() = 0;
 	};
 
-	class ChromiumMenuInfoI
+	class ChromiumMenuInfoI : public IntrusiveRefPtrI
 	{
 	public:
 		enum TypeFlags
@@ -658,12 +659,12 @@ namespace ChromiumDLL
 		virtual const char* getSecurityInfo() = 0;
 
 		virtual int getCustomCount() = 0;
-		virtual ChromiumMenuItemI* getCustomItem(size_t index) = 0;
+		virtual RefPtr<ChromiumMenuItemI> getCustomItem(size_t index) = 0;
 
 		virtual int* getHWND() = 0;
 	};
 
-	class ChromiumBrowserEventI
+	class ChromiumBrowserEventI : public IntrusiveRefPtrI
 	{
 	public:
 		//! Before browser loads a new url. Return false to stop
@@ -734,10 +735,10 @@ namespace ChromiumDLL
 
 
 		virtual void HandleWndProc(int message, int wparam, int lparam) = 0;
-		virtual bool HandlePopupMenu(ChromiumMenuInfoI* menuInfo) = 0;
+		virtual bool HandlePopupMenu(const RefPtr<ChromiumMenuInfoI>& menuInfo) = 0;
 
 
-		virtual void HandleJSBinding(JavaScriptObjectI* jsObject, JavaScriptFactoryI* factory) = 0;
+		virtual void HandleJSBinding(const RefPtr<JavaScriptObjectI>& jsObject, const RefPtr<JavaScriptFactoryI>& factory) = 0;
 
 #ifdef CHROMIUM_API_SUPPORTS_V2
 		virtual int ApiVersion()
@@ -752,6 +753,20 @@ namespace ChromiumDLL
 		STATUSTYPE_TEXT = 0,
 		STATUSTYPE_MOUSEOVER_URL,
 		STATUSTYPE_KEYBOARD_FOCUS_URL,
+	};
+
+	class ChromiumAuthCredentialsI : public IntrusiveRefPtrI
+	{
+	public:
+		virtual void cancel() = 0;
+		virtual void procecced(const char* szUsername, const char* szPassword)=0;
+
+		virtual int getPort() = 0;
+		virtual const char* getRealm() = 0;
+		virtual const char* getScheme() = 0;
+		virtual const char* getHost() = 0;
+
+		virtual bool isProxy() = 0;
 	};
 
 	class ChromiumBrowserEventI_V2 : public ChromiumBrowserEventI
@@ -779,6 +794,12 @@ namespace ChromiumDLL
 
 		//! Called when a url wants to open in new window, return true to open in current browser, false to ignore
 		virtual bool onNewWindowUrl(const char* url) = 0;
+
+		//! Return false to cancel else call procecced/cancel when ready
+		virtual bool getAuthCredentials(const RefPtr<ChromiumAuthCredentialsI>& info) = 0;
+
+		//! return false to cancel, true to pass to os to handle
+		virtual bool onProtocolExecution(const char* url) = 0;
 	};
 
 	enum KeyType
@@ -814,11 +835,9 @@ namespace ChromiumDLL
 		MBT_RIGHT,
 	};
 
-	class ChromiumBrowserI
+	class ChromiumBrowserI : public IntrusiveRefPtrI
 	{
 	public:
-		virtual void destroy() = 0;
-
 		virtual void onFocus() = 0;
 
 #ifdef _WIN32
@@ -852,26 +871,30 @@ namespace ChromiumDLL
 		virtual void del() = 0;
 		virtual void selectall() = 0;
 
-		virtual void setEventCallback(ChromiumBrowserEventI* cbe) = 0;
+		virtual void setEventCallback(const RefPtr<ChromiumBrowserEventI>& cbe) = 0;
 		virtual void executeJScript(const char* code, const char* scripturl = 0, int startline = 0) = 0;
 
 		virtual void showInspector() = 0;
 		virtual void hideInspector() = 0;
 		virtual void inspectElement(int x, int y) = 0;
 
-		virtual void scroll(int x, int y, int delta, unsigned int flags) = 0;
+		virtual void scroll(int x, int y, int deltaX, int deltaY) = 0;
 
 		virtual int* getBrowserHandle() = 0;
-		virtual ChromiumDLL::JavaScriptContextI* getJSContext() = 0;
+		virtual RefPtr<JavaScriptContextI> getJSContext() = 0;
 	};
 
 	enum eCursor
 	{
 		CURSOR_NORMAL,
 		CURSOR_HAND,
+		CURSOR_IBEAM,
+		CURSOR_SIZE_WE,
+		CURSOR_SIZE_NS,
+		CURSOR_SIZE_ALL
 	};
 
-	class ChromiumRendererEventI
+	class ChromiumRendererEventI : public IntrusiveRefPtrI
 	{
 	public:
 		virtual int apiVersion()
@@ -879,26 +902,33 @@ namespace ChromiumDLL
 			return 1;
 		}
 
-		//! Callback when a section of the page needs to be redrawn
-		//!
-		virtual void onInvalidateRect(unsigned int x, unsigned int y, unsigned int w, unsigned int h) = 0;
-
 		virtual void onPaint(unsigned int x, unsigned int y, unsigned int w, unsigned int h, const void* buffer) = 0;
 
 		virtual void onCursorChange(eCursor cursor) = 0;
 
 		virtual bool getViewRect(int &x, int &y, int &w, int &h) = 0;
-
-	protected:
-		virtual ~ChromiumRendererEventI(){}
 	};
 
-
-	class ChromiumKeyPressI
+	class ChromiumRendererPopupEventI : public IntrusiveRefPtrI
 	{
 	public:
-		virtual void destroy() = 0;
+		virtual int apiVersion()
+		{
+			return 1;
+		}
 
+		virtual void onPUPaint(unsigned int x, unsigned int y, unsigned int w, unsigned int h, const void* buffer) = 0;
+
+		virtual void onShow() = 0;
+
+		virtual void onHide() = 0;
+
+		virtual void onResize(int x, int y, int w, int h) = 0;
+	};
+
+	class ChromiumKeyPressI : public IntrusiveRefPtrI
+	{
+	public:
 		virtual KeyType getType() = 0;
 
 		// The actual key code generated by the platform.
@@ -925,189 +955,33 @@ namespace ChromiumDLL
 		// This value will always be false on non-Windows platforms.
 		virtual bool isSystemKey() = 0;
 #endif
-
-	protected:
-		virtual ~ChromiumKeyPressI(){}
 	};
 
-#ifdef WIN32
-	class Win32ChromiumKeyPress : public ChromiumKeyPressI
+	class ChromiumRendererI : public IntrusiveRefPtrI
 	{
 	public:
-		Win32ChromiumKeyPress(int message, WPARAM wParam, LPARAM lParam)
-			: m_Message(message)
-			, m_wParam(wParam)
-			, m_lParam(lParam)
-		{
-		}
-
-		void destroy() override
-		{
-			delete this;
-		}
-
-		KeyType getType() override
-		{
-			if (m_Message == WM_KEYDOWN || m_Message == WM_SYSKEYDOWN)
-				return KT_RAWKEYDOWN;
-			else if (m_Message == WM_KEYUP || m_Message == WM_SYSKEYUP)
-				return KT_KEYUP;
-			else
-				return KT_CHAR;
-		}
-
-		int getNativeCode()
-		{
-			return m_lParam;
-		}
-
-		int getCharacter()
-		{
-			return 0;
-		}
-
-		int getUnModCharacter()
-		{
-			return 0;
-		}
-
-		KeyModifiers getModifiers()
-		{
-			int modifiers = KM_NONE;
-
-			if (isKeyDown(VK_SHIFT))
-				modifiers |= KM_SHIFT_DOWN;
-			if (isKeyDown(VK_CONTROL))
-				modifiers |= KM_CONTROL_DOWN;
-			if (isKeyDown(VK_MENU))
-				modifiers |= KM_ALT_DOWN;
-
-			// Low bit set from GetKeyState indicates "toggled".
-			if (::GetKeyState(VK_NUMLOCK) & 1)
-				modifiers |= KM_NUM_LOCK_ON;
-			if (::GetKeyState(VK_CAPITAL) & 1)
-				modifiers |= KM_CAPS_LOCK_ON;
-
-			switch (m_wParam) 
-			{
-			case VK_RETURN:
-				if ((m_lParam >> 16) & KF_EXTENDED)
-					modifiers |= KM_IS_KEY_PAD;
-				break;
-			case VK_INSERT:
-			case VK_DELETE:
-			case VK_HOME:
-			case VK_END:
-			case VK_PRIOR:
-			case VK_NEXT:
-			case VK_UP:
-			case VK_DOWN:
-			case VK_LEFT:
-			case VK_RIGHT:
-				if (!((m_lParam >> 16) & KF_EXTENDED))
-					modifiers |= KM_IS_KEY_PAD;
-				break;
-			case VK_NUMLOCK:
-			case VK_NUMPAD0:
-			case VK_NUMPAD1:
-			case VK_NUMPAD2:
-			case VK_NUMPAD3:
-			case VK_NUMPAD4:
-			case VK_NUMPAD5:
-			case VK_NUMPAD6:
-			case VK_NUMPAD7:
-			case VK_NUMPAD8:
-			case VK_NUMPAD9:
-			case VK_DIVIDE:
-			case VK_MULTIPLY:
-			case VK_SUBTRACT:
-			case VK_ADD:
-			case VK_DECIMAL:
-			case VK_CLEAR:
-				modifiers |= KM_IS_KEY_PAD;
-				break;
-			case VK_SHIFT:
-				if (isKeyDown(VK_LSHIFT))
-					modifiers |= KM_IS_LEFT;
-				else if (isKeyDown(VK_RSHIFT))
-					modifiers |= KM_IS_RIGHT;
-				break;
-			case VK_CONTROL:
-				if (isKeyDown(VK_LCONTROL))
-					modifiers |= KM_IS_LEFT;
-				else if (isKeyDown(VK_RCONTROL))
-					modifiers |= KM_IS_RIGHT;
-				break;
-			case VK_MENU:
-				if (isKeyDown(VK_LMENU))
-					modifiers |= KM_IS_LEFT;
-				else if (isKeyDown(VK_RMENU))
-					modifiers |= KM_IS_RIGHT;
-				break;
-			case VK_LWIN:
-				modifiers |= KM_IS_LEFT;
-				break;
-			case VK_RWIN:
-				modifiers |= KM_IS_RIGHT;
-				break;
-			}
-
-			return (KeyModifiers)modifiers;
-		}
-
-		int getWinKeyCode()
-		{
-			return m_wParam;
-		}
-
-		bool isSystemKey()
-		{
-			return m_Message == WM_SYSCHAR || m_Message == WM_SYSKEYDOWN || m_Message == WM_SYSKEYUP;
-		}
-
-	protected:
-		bool isKeyDown(WPARAM wparam)
-		{
-			return (GetKeyState(wparam) & 0x8000) != 0;
-		}
-
-	private:
-		int m_Message;
-		WPARAM m_wParam;
-		LPARAM m_lParam;
-	};
-#endif
-
-	class ChromiumRendererI
-	{
-	public:
-		virtual void destroy() = 0;
-
 		//Call when need to resize browser. Will call ChromiumRendererEventI::getViewRect to get new size
 		virtual void invalidateSize() = 0;
 
 		virtual void onMouseClick(int x, int y, MouseButtonType type, bool mouseUp, int clickCount) = 0;
 		virtual void onMouseMove(int x, int y, bool mouseLeave) = 0;
-		virtual void onKeyPress(ChromiumKeyPressI* pKeyPress) = 0;
+		virtual void onKeyPress(const RefPtr<ChromiumKeyPressI>& pKeyPress) = 0;
 
 		virtual void onFocus(bool setFocus) = 0;
 		virtual void onCaptureLost() = 0;
 
-		virtual ChromiumBrowserI* getBrowser() = 0;
+		virtual RefPtr<ChromiumBrowserI> getBrowser() = 0;
 
-		virtual void setEventCallback(ChromiumRendererEventI* cbe) = 0;
-
-	protected:
-		virtual ~ChromiumRendererI(){}
+		virtual void setEventCallback(const RefPtr<ChromiumRendererEventI>& cbe) = 0;
+		virtual void setEventCallback(const RefPtr<ChromiumRendererPopupEventI>& cbe) = 0;
 	};
 
 
 	typedef bool(*LogMessageHandlerFn)(int severity, const char* str);
 
-	class CallbackI
+	class CallbackI : public IntrusiveRefPtrI
 	{
 	public:
-		virtual void destroy() = 0;
 		virtual void run() = 0;
 	};
 
@@ -1168,17 +1042,45 @@ namespace ChromiumDLL
 		{
 		}
 
-		virtual void destroy()
-		{
-			delete this;
-		}
-
 		virtual void run()
 		{
 			m_T();
 		}
 
 		T m_T;
+	};
+
+	class ChromiumBrowserDefaultsI : public IntrusiveRefPtrI
+	{
+	public:
+		virtual bool enablePlugins() = 0;
+		virtual bool enableJavascript() = 0;
+		virtual bool enableJava() = 0;
+		virtual bool enableFlash() = 0;
+	};
+
+
+	class ChormiumCookieVistor : public IntrusiveRefPtrI
+	{
+	public:
+		//return false to stop
+		virtual bool visit(const RefPtr<CookieI>& cookie) = 0;
+	};
+
+	class ChromiumCookieManagerI : public IntrusiveRefPtrI
+	{
+	public:
+		virtual void purgeAll() = 0;
+
+		virtual void setCookie(const char* ulr, const RefPtr<CookieI>& cookie) = 0;
+		virtual void delCookie(const char* url, const char* name) = 0;
+
+		virtual void visitCookies(const RefPtr<ChormiumCookieVistor>& visitor, const char* szUrl = NULL) = 0;
+
+		virtual void enableCookies() = 0;
+		virtual void disableCookies() = 0;
+
+		virtual RefPtr<CookieI> createCookie() = 0;
 	};
 
 
@@ -1195,30 +1097,31 @@ namespace ChromiumDLL
 		virtual void RunMsgLoop() = 0;
 		virtual void Stop() = 0;
 
-		virtual bool RegisterJSExtender(JavaScriptExtenderI* extender) = 0;
-		virtual bool RegisterSchemeExtender(SchemeExtenderI* extender) = 0;
+		virtual bool RegisterJSExtender(const RefPtr<JavaScriptExtenderI>& extender) = 0;
+		virtual bool RegisterSchemeExtender(const RefPtr<SchemeExtenderI>& extender) = 0;
 
-		virtual void DeleteCookie(const char* url, const char* name) = 0;
-		virtual CookieI* CreateCookie() = 0;
-		virtual void SetCookie(const char* ulr, CookieI* cookie) = 0;
+		//! Make sure to call before calling NewChromium*
+		virtual void SetDefaults(const RefPtr<ChromiumBrowserDefaultsI>& defaults) = 0;
 
 		// Form handle as HWND
-		virtual ChromiumBrowserI* NewChromiumBrowser(int* formHandle, const char *name, const char* defaultUrl) = 0;
+		virtual RefPtr<ChromiumBrowserI> NewChromiumBrowser(int* formHandle, const char *name, const char* defaultUrl) = 0;
 
 		//Creates a offscreen browser renderer
-		virtual ChromiumRendererI* NewChromiumRenderer(int* formHandle, const char* defaultUrl, int width, int height) = 0;
+		virtual RefPtr<ChromiumRendererI> NewChromiumRenderer(int* formHandle, const char* defaultUrl, int width, int height) = 0;
 
 		// Return true to handle msg
 		virtual void SetLogHandler(LogMessageHandlerFn logFn) = 0;
-		virtual void PostCallback(CallbackI* callback) = 0;
+		virtual void PostCallback(const RefPtr<CallbackI>& callback) = 0;
 
-		virtual void PostCallbackEx(ChromiumDLL::ThreadID thread, ChromiumDLL::CallbackI* callback) = 0;
+		virtual void PostCallbackEx(ChromiumDLL::ThreadID thread, const RefPtr<CallbackI>& callback) = 0;
 
 		template <typename T>
 		void PostcallbackT(ChromiumDLL::ThreadID thread, T t)
 		{
 			PostCallbackEx(thread, new CallbackT<T>(t));
 		}
+
+		virtual RefPtr<ChromiumCookieManagerI> GetCookieManager() = 0;
 	};
 }
 

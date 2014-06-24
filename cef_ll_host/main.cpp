@@ -53,7 +53,8 @@ typedef int(*CEF_ExecuteProcessFn)(HINSTANCE);
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
 #ifdef DEBUG
-	AllocConsole();
+	//while (!IsDebuggerPresent())
+	//	Sleep(1000);
 #endif
 
 	if (!SetDllDir(".\\bin"))
@@ -61,7 +62,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 	SharedObjectLoader sol;
 
-	if (!sol.load("cef_desura.dll"))
+	if (!sol.load("3p_cef3.dll"))
 		return -2;
 
 	CEF_ExecuteProcessFn CEF_ExecuteProcess = sol.getFunction<CEF_ExecuteProcessFn>("CEF_ExecuteProcessWin");
@@ -80,7 +81,7 @@ int main(int argc, char** argv)
 {
 	SharedObjectLoader sol;
 
-	if (!sol.load("cef_desura.dll"))
+	if (!sol.load("3p_cef3.dll"))
 		return -1;
 
 	CEF_ExecuteProcessFn CEF_ExecuteProcess = sol.getFunction<CEF_ExecuteProcessFn>("CEF_ExecuteProcess");

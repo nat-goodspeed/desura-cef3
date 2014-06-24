@@ -69,21 +69,19 @@ void SchemeRequest::setMethod(const char* method)
 }
 
 
-ChromiumDLL::PostDataI* SchemeRequest::getPostData()
+ChromiumDLL::RefPtr<ChromiumDLL::PostDataI> SchemeRequest::getPostData()
 {
 	return new PostData(m_rRequest->GetPostData());
 }
 
-void SchemeRequest::setPostData(ChromiumDLL::PostDataI* postData)
+void SchemeRequest::setPostData(const ChromiumDLL::RefPtr<ChromiumDLL::PostDataI>& postData)
 {
 	if (postData)
 	{
-		PostData* pd = (PostData*)postData;
+		PostData* pd = (PostData*)postData.get();
 
 		if (pd)
 			m_rRequest->SetPostData(pd->getHandle());
-
-		postData->destroy();
 	}
 }
 
@@ -156,7 +154,7 @@ void SchemeRequest::setHeaderItem(const char* key, const char* data)
 	m_rRequest->SetHeaderMap(map);
 }
 
-void SchemeRequest::set(const char* url, const char* method, ChromiumDLL::PostDataI* postData)
+void SchemeRequest::set(const char* url, const char* method, const ChromiumDLL::RefPtr<ChromiumDLL::PostDataI>& postData)
 {
 	setURL(url);
 	setMethod(method);

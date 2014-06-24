@@ -23,14 +23,15 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_CHROMIUMBROWSER_H
-#define DESURA_CHROMIUMBROWSER_H
+#ifndef THIRDPARTY_CEF3_CHROMIUMBROWSER_H
+#define THIRDPARTY_CEF3_CHROMIUMBROWSER_H
 #ifdef _WIN32
 #pragma once
 #endif
 
 #include "ChromiumBrowserI.h"
 //#include "include/cef.h"
+#include "RefCount.h"
 #include "include/cef_browser.h"
 #include "include/cef_task.h"
 #include <string>
@@ -49,12 +50,12 @@ class ChromiumBrowserEvents;
 class ChromiumBrowser : public ChromiumDLL::ChromiumBrowserI
 {
 public:
-	ChromiumBrowser(WIN_HANDLE handle, const char* defaultUrl);
+	ChromiumBrowser(WIN_HANDLE handle, const char* defaultUrl, const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults);
 	ChromiumBrowser(WIN_HANDLE handle);
 
 	virtual ~ChromiumBrowser();
 
-	void init(const char *defaultUrl, bool offScreen = false, int width = -1, int height = -1);
+	void init(const char *defaultUrl, bool offScreen = false, int width = -1, int height = -1, const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults = NULL);
 	virtual void onFocus();
 
 #ifdef OS_WIN
@@ -90,37 +91,29 @@ public:
 	virtual void del();
 	virtual void selectall();
 
-	virtual void setEventCallback(ChromiumDLL::ChromiumBrowserEventI* cbe);
+	virtual void setEventCallback(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserEventI>& cbe);
 	virtual void executeJScript(const char* code, const char* scripturl = 0, int startline = 0);
 
 	virtual void showInspector();
 	virtual void hideInspector();
 	virtual void inspectElement(int x, int y);
 
-	virtual void scroll(int x, int y, int delta, unsigned int flags);
+	virtual void scroll(int x, int y, int deltaX, int deltaY);
 
 	virtual int* getBrowserHandle();
 
-	virtual void destroy()
-	{
-		delete this;
-	}
-
-	virtual ChromiumDLL::JavaScriptContextI* getJSContext();
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptContextI> getJSContext();
 
 
-
-
-	virtual void setBrowser(CefBrowser* browser);
-	
-	void setContext(CefRefPtr<CefV8Context> context);
+	virtual void setBrowser(const CefRefPtr<CefBrowser>& browser);
+	void setContext(const CefRefPtr<CefV8Context>& context);
 
 protected:
-	CefBrowserSettings getBrowserDefaults();
+	CefBrowserSettings getBrowserDefaults(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults);
 
 	CefRefPtr<CefV8Context> m_rContext;
 	CefRefPtr<CefClient> m_rEventHandler;
-	CefBrowser* m_pBrowser;
+	CefRefPtr<CefBrowser> m_pBrowser;
 
 	CefRefPtr<CefBrowser> m_Inspector;
 
@@ -128,35 +121,48 @@ protected:
 	WIN_HANDLE m_hFormHandle;
 	std::string m_szBuffer;
 	int m_iLastTask;
+
+	CEF3_IMPLEMENTREF_COUNTING(ChromiumBrowser);
 };
 
 
 class ChromiumRenderer : public ChromiumBrowser, public ChromiumDLL::ChromiumRendererI
 {
 public:
-	ChromiumRenderer(WIN_HANDLE handle, const char* defaultUrl, int width, int height);
+	ChromiumRenderer(WIN_HANDLE handle, const char* defaultUrl, int width, int height, const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults);
 
 	virtual void invalidateSize();
 
 	virtual void onMouseClick(int x, int y, ChromiumDLL::MouseButtonType type, bool mouseUp, int clickCount);
 	virtual void onMouseMove(int x, int y, bool mouseLeave);
-	virtual void onKeyPress(ChromiumDLL::ChromiumKeyPressI* pKeyPress);
+	virtual void onKeyPress(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumKeyPressI>& pKeyPress);
 
 	virtual void onFocus(bool setFocus);
 	virtual void onCaptureLost();
 
-	virtual ChromiumBrowserI* getBrowser()
+	virtual ChromiumDLL::RefPtr<ChromiumBrowserI> getBrowser()
 	{
 		return this;
 	}
 
-	virtual void destroy()
+	virtual void setBrowser(const CefRefPtr<CefBrowser>& browser);
+	virtual void setEventCallback(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererEventI>& cbe);
+	virtual void setEventCallback(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererPopupEventI>& cbe);
+
+	void addRef()
 	{
-		delete this;
+		ChromiumBrowser::addRef();
 	}
 
-	virtual void setBrowser(CefBrowser* browser);
-	virtual void setEventCallback(ChromiumDLL::ChromiumRendererEventI* cbe);
+	void delRef()
+	{
+		ChromiumBrowser::delRef();
+	}
+
+	void destroy()
+	{
+		ChromiumBrowser::destroy();
+	}
 
 private:
 	int m_nDefaultWidth;
@@ -167,15 +173,9 @@ private:
 class TaskWrapper : public CefTask
 {
 public:
-	TaskWrapper(ChromiumDLL::CallbackI* callback)
+	TaskWrapper(const ChromiumDLL::RefPtr<ChromiumDLL::CallbackI>& callback)
+		: m_pCallback(callback)
 	{
-		m_pCallback = callback;
-	}
-
-	~TaskWrapper()
-	{
-		if (m_pCallback)
-			m_pCallback->destroy();
 	}
 
 	virtual void Execute()
@@ -187,13 +187,13 @@ public:
 	IMPLEMENT_REFCOUNTING(TaskWrapper)
 
 private:
-	ChromiumDLL::CallbackI* m_pCallback;
+	ChromiumDLL::RefPtr<ChromiumDLL::CallbackI> m_pCallback;
 };
 
 
 
 
-#endif //DESURA_CHROMIUMBROWSER_H
+#endif //THIRDPARTY_CEF3_CHROMIUMBROWSER_H
 
 
 

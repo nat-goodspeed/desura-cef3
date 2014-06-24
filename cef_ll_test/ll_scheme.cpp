@@ -25,11 +25,12 @@ $/LicenseInfo$
 
 
 #include "ChromiumBrowserI.h"
+#include "ChromiumRefCount.h"
 #include <string>
 
 
 template <class T>
-class DesuraSchemeBase : public ChromiumDLL::SchemeExtenderI
+class DesuraSchemeBase : public ChromiumDLL::ChromiumRefCount<ChromiumDLL::SchemeExtenderI>
 {
 public:
 	DesuraSchemeBase(const char* schemename, const char* hostname)
@@ -39,14 +40,9 @@ public:
 		m_uiResponseSize = 0;
 	}
 
-	virtual SchemeExtenderI* clone(const char* scheme)
+	virtual ChromiumDLL::RefPtr<SchemeExtenderI> clone(const char* scheme)
 	{
 		return new T();
-	}
-
-	virtual void destroy()
-	{
-		delete this;
 	}
 
 	virtual const char* getSchemeName()
@@ -98,7 +94,7 @@ class ExternalLoaderScheme : public DesuraSchemeBase<ExternalLoaderScheme>
 public:
 	ExternalLoaderScheme();
 
-	virtual bool processRequest(ChromiumDLL::SchemeRequestI* request, bool* redirect);
+	virtual bool processRequest(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeRequestI>& request, bool* redirect);
 	virtual void cancel();
 	virtual bool read(char* buffer, int size, int* readSize);
 
@@ -113,7 +109,7 @@ ExternalLoaderScheme::ExternalLoaderScheme()
 {
 }
 
-bool ExternalLoaderScheme::processRequest(ChromiumDLL::SchemeRequestI* request, bool* redirect)
+bool ExternalLoaderScheme::processRequest(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeRequestI>& request, bool* redirect)
 {
 	m_uiResponseSize = m_Js.size();
 	m_szMimeType = "application/javascript";
@@ -132,7 +128,7 @@ bool ExternalLoaderScheme::read(char* buffer, int size, int* readSize)
 	return true;
 }
 
-ChromiumDLL::SchemeExtenderI* NewExternalLoaderScheme()
+ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI> NewExternalLoaderScheme()
 {
 	return new ExternalLoaderScheme();
 }

@@ -25,6 +25,7 @@ $/LicenseInfo$
 
 #include <Windows.h>
 #include "ChromiumBrowserI.h"
+#include "ChromiumRefCount.h"
 #include "SharedObjectLoader.h"
 #include <iostream>
 
@@ -32,10 +33,10 @@ TCHAR* szWindowClass = "CefDesuraTestWinClass";  // the main window class name
 
 HINSTANCE hInst;   // current instance
 ChromiumDLL::ChromiumControllerI* g_ChromiumController = NULL;
-ChromiumDLL::ChromiumBrowserI* g_Browser = NULL;
+ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserI> g_Browser;
 HWND m_MainWinHwnd;
 
-class EventCallback : public ChromiumDLL::ChromiumBrowserEventI
+class EventCallback : public ChromiumDLL::ChromiumRefCount<ChromiumDLL::ChromiumBrowserEventI>
 {
 public:
 	virtual bool onNavigateUrl(const char* url, bool isMain)
@@ -92,17 +93,17 @@ public:
 	{
 	}
 
-	virtual bool HandlePopupMenu(ChromiumDLL::ChromiumMenuInfoI* menuInfo)
+	virtual bool HandlePopupMenu(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumMenuInfoI>& menuInfo)
 	{
 		return false;
 	}
 
-	virtual void HandleJSBinding(ChromiumDLL::JavaScriptObjectI* jsObject, ChromiumDLL::JavaScriptFactoryI* factory)
+	virtual void HandleJSBinding(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI>& jsObject, const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI>& factory)
 	{
 	}
 };
 
-EventCallback g_EventCallback;
+ChromiumDLL::RefPtr<EventCallback> g_EventCallback = new EventCallback();
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 {
@@ -111,7 +112,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_CREATE: 
 		std::cout << "WM_CREATE" << std::endl;
 		g_Browser = g_ChromiumController->NewChromiumBrowser((int*)hWnd, "", "http://google.com");
-		g_Browser->setEventCallback(&g_EventCallback);
+		g_Browser->setEventCallback(g_EventCallback);
 		return 0;
 
 	case WM_PAINT:
@@ -135,7 +136,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_CLOSE:
 		std::cout << "WM_CLOSE" << std::endl;
 		if (g_Browser) 
-			g_Browser->destroy();
+			g_Browser.reset();
 
 		// Allow the close.
 		break;
@@ -204,7 +205,7 @@ HWND CreateMessageWindow(HINSTANCE hInstance)
 
 typedef ChromiumDLL::ChromiumControllerI* (*CEF_InitFn)(bool, const char*, const char*, const char*);
 
-extern ChromiumDLL::SchemeExtenderI* NewExternalLoaderScheme();
+extern ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI> NewExternalLoaderScheme();
 
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -216,7 +217,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 	SharedObjectLoader sol;
 
-	if (!sol.load("cef_desura.dll"))
+	if (!sol.load("3p_cef3.dll"))
 		return -1;
 
 	CEF_InitFn CEF_Init = sol.getFunction<CEF_InitFn>("CEF_InitEx");

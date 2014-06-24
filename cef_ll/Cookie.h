@@ -23,43 +23,36 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef THIRDPARTY_CEF3_JAVASCRIPTCONTEXT_H
-#define THIRDPARTY_CEF3_JAVASCRIPTCONTEXT_H
+
+#ifndef THIRDPARTY_CEF3_COOKIE_HEADER
+#define THIRDPARTY_CEF3_COOKIE_HEADER
 #ifdef _WIN32
 #pragma once
 #endif
 
+
 #include "ChromiumBrowserI.h"
 #include "RefCount.h"
-//#include "include/cef.h"
-#include "include/cef_v8.h"
-#include "include/internal/cef_ptr.h"
 
-class JavaScriptContext : public ChromiumDLL::JavaScriptContextI
+class CookieManager : public ChromiumDLL::ChromiumCookieManagerI
 {
 public:
-	JavaScriptContext();
-	JavaScriptContext(CefRefPtr<CefV8Context> context);
+	virtual void purgeAll();
+	virtual void setCookie(const char* ulr, const ChromiumDLL::RefPtr<ChromiumDLL::CookieI>& cookie);
 
-	virtual void destroy();
-	virtual ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptContextI> clone();
+	virtual void delCookie(const char* url, const char* name);
+	virtual void visitCookies(const ChromiumDLL::RefPtr<ChromiumDLL::ChormiumCookieVistor>& visitor, const char* szUrl = NULL);
 
-	virtual void enter();
-	virtual void exit();
+	virtual void enableCookies();
+	virtual void disableCookies();
 
-	virtual ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI> getFactory();
-	virtual ChromiumDLL::JSObjHandle getGlobalObject();
-
-	CefRefPtr<CefV8Context> getCefV8();
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::CookieI> createCookie();
 
 private:
-	uint32 m_uiCount;
-	CefRefPtr<CefV8Context> m_pContext;
-
-	CEF3_IMPLEMENTREF_COUNTING(JavaScriptContext);
+	CEF3_IMPLEMENTREF_COUNTING(CookieManager);
 };
 
 
 
 
-#endif //THIRDPARTY_CEF3_JAVASCRIPTCONTEXT_H
+#endif

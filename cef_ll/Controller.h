@@ -44,23 +44,20 @@ public:
 
 	virtual void Stop();
 
-	virtual bool RegisterJSExtender(ChromiumDLL::JavaScriptExtenderI* extender);
+	virtual void SetDefaults(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults) OVERRIDE;
 
-	virtual bool RegisterSchemeExtender(ChromiumDLL::SchemeExtenderI* extender);
+	virtual bool RegisterJSExtender(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& extender);
+	virtual bool RegisterSchemeExtender(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>& extender);
 
-	virtual ChromiumDLL::ChromiumBrowserI* NewChromiumBrowser(int* formHandle, const char* name, const char* defaultUrl);
-
-	virtual ChromiumDLL::ChromiumRendererI* NewChromiumRenderer(int* formHandle, const char* defaultUrl, int width, int height);
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserI> NewChromiumBrowser(int* formHandle, const char* name, const char* defaultUrl);
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererI> NewChromiumRenderer(int* formHandle, const char* defaultUrl, int width, int height);
 
 	virtual void SetLogHandler(ChromiumDLL::LogMessageHandlerFn logFn);
 
-	virtual void PostCallback(ChromiumDLL::CallbackI* callback);
-	virtual void PostCallbackEx(ChromiumDLL::ThreadID thread, ChromiumDLL::CallbackI* callback);
+	virtual void PostCallback(const ChromiumDLL::RefPtr<ChromiumDLL::CallbackI>& callback);
+	virtual void PostCallbackEx(ChromiumDLL::ThreadID thread, const ChromiumDLL::RefPtr<ChromiumDLL::CallbackI>& callback);
 
-	virtual void DeleteCookie(const char* url, const char* name);
-	virtual ChromiumDLL::CookieI* CreateCookie();
-	virtual void SetCookie(const char* url, ChromiumDLL::CookieI* cookie);
-
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::ChromiumCookieManagerI> GetCookieManager() OVERRIDE;
 
 	bool Init(bool threaded, const char* cachePath, const char* logPath, const char* userAgent);
 
@@ -87,4 +84,7 @@ private:
 #ifdef WIN32_SANDBOX_ENABLED
 	CefScopedSandboxInfo m_pSandbox;
 #endif
+
+	ChromiumDLL::RefPtr<ChromiumDLL::ChromiumCookieManagerI> m_pCookieManager;
+	ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI> m_pDefaults;
 };

@@ -31,10 +31,8 @@ $/LicenseInfo$
 class ChromiumApp : public CefApp, protected CefBrowserProcessHandler
 {
 public:
-	ChromiumApp()
-		: m_bInit(false)
-	{
-	}
+	ChromiumApp();
+	~ChromiumApp();
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////
 	// CefBrowserProcessHandler
@@ -58,15 +56,15 @@ public:
 	// CefApp
 	/////////////////////////////////////////////////////////////////////////////////////////////////
 
-	bool RegisterJSExtender(ChromiumDLL::JavaScriptExtenderI* extender);
-	bool RegisterSchemeExtender(ChromiumDLL::SchemeExtenderI* extender);
+	bool RegisterJSExtender(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& extender);
+	bool RegisterSchemeExtender(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>& extender);
 
 protected:
 	std::vector<std::string> getSchemeList();
 
 private:
-	std::vector<ChromiumDLL::JavaScriptExtenderI*> m_vJSExtenders;
-	std::vector<ChromiumDLL::SchemeExtenderI*> m_vSchemeExtenders;
+	std::vector<ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>> m_vJSExtenders;
+	std::vector<ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>> m_vSchemeExtenders;
 
 	bool m_bInit;
 

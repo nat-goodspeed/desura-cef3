@@ -23,25 +23,26 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_JAVASCRIPTFACTORY_H
-#define DESURA_JAVASCRIPTFACTORY_H
+#ifndef THIRDPARTY_CEF3_JAVASCRIPTFACTORY_H
+#define THIRDPARTY_CEF3_JAVASCRIPTFACTORY_H
 #ifdef _WIN32
 #pragma once
 #endif
 
 #include "ChromiumBrowserI.h"
+#include "RefCount.h"
 //#include "include/cef.h"
 #include "include/cef_base.h"
 
 class ObjectWrapper : public CefBase
 {
 public:
-	ObjectWrapper(void* data)
+	ObjectWrapper(const ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI>& data)
+		: m_pData(data)
 	{
-		m_pData = data;
 	}
 
-	void* getData()
+	ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI> getData()
 	{
 		return m_pData;
 	}
@@ -49,7 +50,7 @@ public:
 	IMPLEMENT_REFCOUNTING(ObjectWrapper);
 
 private:
-	void* m_pData;
+	ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI> m_pData;
 };
 
 class JavaScriptFactory : public ChromiumDLL::JavaScriptFactoryI
@@ -66,11 +67,13 @@ public:
 	virtual ChromiumDLL::JSObjHandle CreateString(const char* value);
 	virtual ChromiumDLL::JSObjHandle CreateArray();
 	virtual ChromiumDLL::JSObjHandle CreateObject();
-	virtual ChromiumDLL::JSObjHandle CreateObject(void* userData);
+	virtual ChromiumDLL::JSObjHandle CreateObject(const ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI>& userData);
 	virtual ChromiumDLL::JSObjHandle CreateException(const char* value);
-	virtual ChromiumDLL::JSObjHandle CreateFunction(const char* name, ChromiumDLL::JavaScriptExtenderI* handler);
+	virtual ChromiumDLL::JSObjHandle CreateFunction(const char* name, const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& handler);
+
+	CEF3_IMPLEMENTREF_COUNTING(JavaScriptFactory);
 };
 
-ChromiumDLL::JavaScriptFactoryI* GetJSFactory();
+ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI> GetJSFactory();
 
-#endif //DESURA_JAVASCRIPTFACTORY_H
+#endif //THIRDPARTY_CEF3_JAVASCRIPTFACTORY_H

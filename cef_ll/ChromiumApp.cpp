@@ -26,6 +26,19 @@ $/LicenseInfo$
 #include "ChromiumApp.h"
 #include "SchemeExtender.h"
 
+ChromiumApp::ChromiumApp()
+	: m_bInit(false)
+{
+}
+
+
+ChromiumApp::~ChromiumApp()
+{
+	int a = 1;
+	for (size_t x = 0; x < m_vSchemeExtenders.size(); ++x)
+		a++;
+}
+
 std::vector<std::string> ChromiumApp::getSchemeList()
 {
 	std::map<std::string, int> mSchemes;
@@ -80,14 +93,14 @@ void ChromiumApp::OnRenderProcessThreadCreated(CefRefPtr<CefListValue> extra_inf
 void ChromiumApp::OnContextInitialized()
 {
 	for (size_t x = 0; x < m_vSchemeExtenders.size(); ++x)
-		SchemeExtender::Register(m_vSchemeExtenders[x]);
+		SchemeExtender::Register(m_vSchemeExtenders[x].get());
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 // CefApp
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool ChromiumApp::RegisterJSExtender(ChromiumDLL::JavaScriptExtenderI* extender)
+bool ChromiumApp::RegisterJSExtender(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& extender)
 {
 	if (m_bInit)
 		return false;
@@ -96,7 +109,7 @@ bool ChromiumApp::RegisterJSExtender(ChromiumDLL::JavaScriptExtenderI* extender)
 	return true;
 }
 
-bool ChromiumApp::RegisterSchemeExtender(ChromiumDLL::SchemeExtenderI* extender)
+bool ChromiumApp::RegisterSchemeExtender(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>& extender)
 {
 	if (m_bInit)
 		return false;

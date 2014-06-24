@@ -194,14 +194,14 @@ public:
 	CefBrowser* m_pBrowser;
 };
 
-ChromiumBrowser::ChromiumBrowser(WIN_HANDLE handle, const char* defaultUrl)
+ChromiumBrowser::ChromiumBrowser(WIN_HANDLE handle, const char* defaultUrl, const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults)
 {
 	m_iLastTask = 0;
 	m_hFormHandle = handle;
 	m_pBrowser = NULL;
 
 	m_rEventHandler = (CefClient*)new ChromiumBrowserEvents(this);
-	init(defaultUrl, false);
+	init(defaultUrl, false, defaults);
 }
 
 ChromiumBrowser::ChromiumBrowser(WIN_HANDLE handle)
@@ -225,12 +225,14 @@ ChromiumBrowser::~ChromiumBrowser()
 	}
 }
 
-CefBrowserSettings ChromiumBrowser::getBrowserDefaults()
+CefBrowserSettings ChromiumBrowser::getBrowserDefaults(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults)
 {
 	CefBrowserSettings browserDefaults;
 	browserDefaults.universal_access_from_file_urls = STATE_ENABLED;
 	browserDefaults.file_access_from_file_urls = STATE_ENABLED;
-	browserDefaults.java = STATE_DISABLED;
+	browserDefaults.java = (defaults && defaults->enableJava()) ? STATE_ENABLED : STATE_DISABLED;
+	browserDefaults.plugins = (!defaults || defaults->enablePlugins()) ? STATE_ENABLED : STATE_DISABLED;
+	browserDefaults.javascript = (!defaults || defaults->enableJavascript()) ? STATE_ENABLED : STATE_DISABLED;
 	browserDefaults.javascript_close_windows = STATE_DISABLED;
 	browserDefaults.javascript_open_windows = STATE_DISABLED;
 
@@ -238,7 +240,7 @@ CefBrowserSettings ChromiumBrowser::getBrowserDefaults()
 }
 
 #ifdef OS_WIN
-void ChromiumBrowser::init(const char *defaultUrl, bool offScreen, int width, int height)
+void ChromiumBrowser::init(const char *defaultUrl, bool offScreen, int width, int height, const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults)
 {
 	if (width <= 0)
 		width = 500;
@@ -259,7 +261,7 @@ void ChromiumBrowser::init(const char *defaultUrl, bool offScreen, int width, in
 	const char* name = "DesuraCEFBrowser";
 	cef_string_utf8_to_utf16(name, strlen(name), &winInfo.window_name);
 
-	CefBrowserHost::CreateBrowser(winInfo, m_rEventHandler, defaultUrl, getBrowserDefaults(), CefRefPtr<CefRequestContext>());
+	CefBrowserHost::CreateBrowser(winInfo, m_rEventHandler, defaultUrl, getBrowserDefaults(defaults), CefRefPtr<CefRequestContext>());
 }
 
 #else
@@ -425,7 +427,7 @@ void ChromiumBrowser::selectall()
 
 
 
-void ChromiumBrowser::setEventCallback(ChromiumDLL::ChromiumBrowserEventI* cbeI)
+void ChromiumBrowser::setEventCallback(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserEventI>& cbeI)
 {
 	ChromiumBrowserEvents* cbe = (ChromiumBrowserEvents*)m_rEventHandler.get();
 
@@ -493,7 +495,7 @@ void ChromiumBrowser::onResize(int x, int y, int width, int height)
 }
 #endif
 
-void ChromiumBrowser::setBrowser(CefBrowser* browser)
+void ChromiumBrowser::setBrowser(const CefRefPtr<CefBrowser>& browser)
 {
 	m_pBrowser = browser;
 
@@ -536,6 +538,11 @@ private:
 	ChromiumBrowser *m_pBrowser;
 };
 
+class DevToolsClient : public CefClient
+{
+public:
+	IMPLEMENT_REFCOUNTING(DevToolsClient);
+};
 
 
 void ChromiumBrowser::showInspector()
@@ -565,10 +572,17 @@ void ChromiumBrowser::showInspector()
 		cef_string_utf8_to_utf16(name, strlen(name), &winInfo.window_name);
 
 		CefString devUrl = m_pBrowser->GetHost()->GetDevToolsURL(true);
-		m_Inspector = CefBrowserHost::CreateBrowserSync(winInfo, CefRefPtr<CefClient>(), devUrl, getBrowserDefaults(), CefRefPtr<CefRequestContext>());
+		m_Inspector = CefBrowserHost::CreateBrowserSync(winInfo, CefRefPtr<CefClient>(), devUrl, getBrowserDefaults(NULL), CefRefPtr<CefRequestContext>());
 #else
-		CefWindowInfo info;
-		m_pBrowser->GetHost()->ShowDevTools(info, CefRefPtr<CefClient>(), getBrowserDefaults());
+		CefWindowInfo windowInfo;
+		CefBrowserSettings settings;
+
+#if defined(OS_WIN)
+		windowInfo.SetAsPopup(m_pBrowser->GetHost()->GetWindowHandle(), "DevTools");
+#endif
+
+		CefRefPtr<CefClient> client = new DevToolsClient();
+		m_pBrowser->GetHost()->ShowDevTools(windowInfo, client, settings);
 #endif
 	}
 }
@@ -597,7 +611,7 @@ void ChromiumBrowser::inspectElement(int x, int y)
 	showInspector();
 }
 
-void ChromiumBrowser::scroll(int x, int y, int delta, unsigned int flags)
+void ChromiumBrowser::scroll(int x, int y, int deltaX, int deltaY)
 {
 	CefMouseEvent e;
 
@@ -605,7 +619,7 @@ void ChromiumBrowser::scroll(int x, int y, int delta, unsigned int flags)
 	e.y = y;
 
 	if (m_pBrowser && m_pBrowser->GetHost())
-		m_pBrowser->GetHost()->SendMouseWheelEvent(e, delta, 0);
+		m_pBrowser->GetHost()->SendMouseWheelEvent(e, deltaX, deltaY);
 }
 
 int* ChromiumBrowser::getBrowserHandle()
@@ -616,7 +630,7 @@ int* ChromiumBrowser::getBrowserHandle()
 	return 0;
 }
 
-ChromiumDLL::JavaScriptContextI* ChromiumBrowser::getJSContext()
+ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptContextI> ChromiumBrowser::getJSContext()
 {
 	if (m_pBrowser)
 		return new JavaScriptContext(m_rContext);
@@ -624,7 +638,7 @@ ChromiumDLL::JavaScriptContextI* ChromiumBrowser::getJSContext()
 	return NULL;
 }
 
-void ChromiumBrowser::setContext(CefRefPtr<CefV8Context> context)
+void ChromiumBrowser::setContext(const CefRefPtr<CefV8Context>& context)
 {
 	m_rContext = context;
 }
@@ -632,12 +646,12 @@ void ChromiumBrowser::setContext(CefRefPtr<CefV8Context> context)
 
 
 
-ChromiumRenderer::ChromiumRenderer(WIN_HANDLE handle, const char* defaultUrl, int width, int height)
+ChromiumRenderer::ChromiumRenderer(WIN_HANDLE handle, const char* defaultUrl, int width, int height, const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults)
 	: ChromiumBrowser(handle)
 	, m_nDefaultWidth(width)
 	, m_nDefaultHeight(height)
 {
-	init(defaultUrl, true, width, height);
+	init(defaultUrl, true, width, height, defaults);
 }
 
 void ChromiumRenderer::invalidateSize()
@@ -669,7 +683,7 @@ void ChromiumRenderer::onMouseMove(int x, int y, bool mouseLeave)
 	}
 }
 
-void ChromiumRenderer::onKeyPress(ChromiumDLL::ChromiumKeyPressI* pKeyPress)
+void ChromiumRenderer::onKeyPress(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumKeyPressI>& pKeyPress)
 {
 	if (!pKeyPress)
 		return;
@@ -689,8 +703,6 @@ void ChromiumRenderer::onKeyPress(ChromiumDLL::ChromiumKeyPressI* pKeyPress)
 #endif
 		m_pBrowser->GetHost()->SendKeyEvent(event);
 	}
-
-	pKeyPress->destroy();
 }
 
 void ChromiumRenderer::onFocus(bool setFocus)
@@ -705,16 +717,25 @@ void ChromiumRenderer::onCaptureLost()
 		m_pBrowser->GetHost()->SendCaptureLostEvent();
 }
 
-void ChromiumRenderer::setBrowser(CefBrowser* browser)
+void ChromiumRenderer::setBrowser(const CefRefPtr<CefBrowser>& browser)
 {
 	ChromiumBrowser::setBrowser(browser);
 	invalidateSize();
 }
 
-void ChromiumRenderer::setEventCallback(ChromiumDLL::ChromiumRendererEventI* cbeI)
+void ChromiumRenderer::setEventCallback(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererEventI>& cbeI)
 {
 	ChromiumBrowserEvents* cbe = (ChromiumBrowserEvents*)m_rEventHandler.get();
 
 	if (cbe)
 		cbe->setCallBack(cbeI);
 }
+
+void ChromiumRenderer::setEventCallback(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererPopupEventI>& cbeI)
+{
+	ChromiumBrowserEvents* cbe = (ChromiumBrowserEvents*)m_rEventHandler.get();
+
+	if (cbe)
+		cbe->setCallBack(cbeI);
+}
+

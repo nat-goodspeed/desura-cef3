@@ -23,13 +23,14 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_JAVASCRIPTEXTENDER_H
-#define DESURA_JAVASCRIPTEXTENDER_H
+#ifndef THIRDPARTY_CEF3_JAVASCRIPTEXTENDER_H
+#define THIRDPARTY_CEF3_JAVASCRIPTEXTENDER_H
 #ifdef _WIN32
 #pragma once
 #endif
 
 #include "ChromiumBrowserI.h"
+#include "RefCount.h"
 //#include "include/cef.h"
 #include "include/cef_v8.h"
 
@@ -71,9 +72,9 @@ public:
 class JavaScriptExtender : public CefV8Handler
 {
 public:
-	static bool Register(ChromiumDLL::JavaScriptExtenderI* jse);
+	static bool Register(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& jse);
 
-	JavaScriptExtender(ChromiumDLL::JavaScriptExtenderI* jse);
+	JavaScriptExtender(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& jse);
 	~JavaScriptExtender();
 
 	virtual bool Execute(const CefString& name, CefRefPtr<CefV8Value> object, const CefV8ValueList& arguments, CefRefPtr<CefV8Value>& retval, CefString& exception);
@@ -81,7 +82,7 @@ public:
 	IMPLEMENT_REFCOUNTING(JavaScriptExtender)
 
 private:
-	ChromiumDLL::JavaScriptExtenderI* m_pJSExtender;
+	ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI> m_pJSExtender;
 };
 
 
@@ -93,8 +94,8 @@ public:
 	JavaScriptWrapper(CefRefPtr<CefV8Handler> obj);
 
 	virtual void destroy();
-	virtual ChromiumDLL::JavaScriptExtenderI* clone();
-	virtual ChromiumDLL::JSObjHandle execute(ChromiumDLL::JavaScriptFunctionArgs *args);
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI> clone();
+	virtual ChromiumDLL::JSObjHandle execute(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFunctionArgs>& args);
 
 	virtual const char* getName();
 	virtual const char* getRegistrationCode();
@@ -104,6 +105,8 @@ public:
 
 private:
 	CefRefPtr<CefV8Handler> m_pObject;
+
+	CEF3_IMPLEMENTREF_COUNTING(JavaScriptWrapper);
 };
 
-#endif //DESURA_JAVASCRIPTEXTENDER_H
+#endif //THIRDPARTY_CEF3_JAVASCRIPTEXTENDER_H

@@ -27,21 +27,48 @@ $/LicenseInfo$
 #include "JavaScriptFactory.h"
 #include "JavaScriptObject.h"
 #include "JavaScriptContext.h"
+#include "RefCount.h"
 
-bool JavaScriptExtender::Register(ChromiumDLL::JavaScriptExtenderI* jse)
+
+class JavaScriptFunctionArgs : public ChromiumDLL::JavaScriptFunctionArgs
+{
+public:
+	JavaScriptFunctionArgs(const CefString& name, CefRefPtr<CefV8Value> o, const CefV8ValueList& a)
+	{
+		for (size_t x = 0; x<a.size(); x++)
+			m_Args[x] = new JavaScriptObject(a[x]);
+
+		cef_string_utf8_t tmp;
+		cef_string_to_utf8(name.c_str(), name.size(), &tmp);
+
+		m_Function = CefStringUTF8(&tmp);
+
+		function = m_Function.c_str();
+		argv = &m_Args[0];
+		argc = a.size();
+		object = new JavaScriptObject(o);
+		factory = GetJSFactory();
+		context = new JavaScriptContext();
+	}
+
+	std::vector<ChromiumDLL::JSObjHandle> m_Args;
+	CefStringUTF8 m_Function;
+
+	CEF3_IMPLEMENTREF_COUNTING(JavaScriptFunctionArgs);
+};
+
+bool JavaScriptExtender::Register(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& jse)
 {
 	return CefRegisterExtension(jse->getName(), jse->getRegistrationCode(), new JavaScriptExtender(jse));
 }
 
-JavaScriptExtender::JavaScriptExtender(ChromiumDLL::JavaScriptExtenderI* jse)
+JavaScriptExtender::JavaScriptExtender(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& jse)
+	: m_pJSExtender(jse)
 {
-	m_pJSExtender = jse;
 }
 
 JavaScriptExtender::~JavaScriptExtender()
 {
-	if (m_pJSExtender)
-		m_pJSExtender->destroy();
 }
 
 bool JavaScriptExtender::Execute(const CefString& name, CefRefPtr<CefV8Value> object, const CefV8ValueList& arguments, CefRefPtr<CefV8Value>& retval, CefString& exception)
@@ -49,31 +76,8 @@ bool JavaScriptExtender::Execute(const CefString& name, CefRefPtr<CefV8Value> ob
 	if (!m_pJSExtender)
 		return false;
 
-	size_t argc = arguments.size();
-	ChromiumDLL::JSObjHandle *argv = new ChromiumDLL::JSObjHandle[argc];
-
-	for (size_t x=0; x<argc; x++)
-		argv[x] = new JavaScriptObject(arguments[x]);
-
-	ChromiumDLL::JavaScriptFunctionArgs args;
-
-	cef_string_utf8_t tmp;
-	cef_string_to_utf8(name.c_str(), name.size(), &tmp);
-
-	CefStringUTF8 t(&tmp);
-	
-
-	args.function = t.c_str();
-	args.argc = argc;
-	args.argv = argv;
-	args.object = new JavaScriptObject(object);
-	args.factory = GetJSFactory();
-	args.context = new JavaScriptContext();
-
-	ChromiumDLL::JSObjHandle jsoRes = m_pJSExtender->execute(&args);
-
-	delete [] argv;
-	args.context->destroy();
+	ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFunctionArgs> args = new JavaScriptFunctionArgs(name, object, arguments);
+	ChromiumDLL::JSObjHandle jsoRes = m_pJSExtender->execute(args);
 
 	if (jsoRes.get() == NULL)
 		return false;
@@ -116,26 +120,26 @@ void JavaScriptWrapper::destroy()
 	delete this;
 }
 
-ChromiumDLL::JavaScriptExtenderI* JavaScriptWrapper::clone()
+ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI> JavaScriptWrapper::clone()
 {
 	return new JavaScriptWrapper(m_pObject);
 }
 
-ChromiumDLL::JSObjHandle JavaScriptWrapper::execute(ChromiumDLL::JavaScriptFunctionArgs *args)
+ChromiumDLL::JSObjHandle JavaScriptWrapper::execute(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFunctionArgs>& args)
 {
 	int argc = args->argc;
 	const char* function = args->function;
 
 	ChromiumDLL::JSObjHandle *argv = args->argv;
-	ChromiumDLL::JavaScriptFactoryI *factory = args->factory;
-	ChromiumDLL::JavaScriptObjectI* jso = args->object.get();
+	ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI> factory = args->factory;
+	ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> jso = args->object.get();
 	
 	CefRefPtr<CefV8Value> object;
 	CefRefPtr<CefV8Value> ret;
 	CefString exception;
 	CefV8ValueList arguments;
 
-	JavaScriptObject* jsoRetProper = (JavaScriptObject*)jso;
+	JavaScriptObject* jsoRetProper = (JavaScriptObject*)jso.get();
 
 	if (jsoRetProper)
 		object = jsoRetProper->getCefV8();

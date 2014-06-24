@@ -23,8 +23,8 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_CHROMIUMBROWSEREVENTS_H
-#define DESURA_CHROMIUMBROWSEREVENTS_H
+#ifndef THIRDPARTY_CEF3_CHROMIUMBROWSEREVENTS_H
+#define THIRDPARTY_CEF3_CHROMIUMBROWSEREVENTS_H
 #ifdef _WIN32
 #pragma once
 #endif
@@ -55,9 +55,11 @@ class ChromiumBrowser;
 class ChromiumEventInfoI
 {
 public:
-	virtual ChromiumDLL::ChromiumBrowserEventI* GetCallback()=0;
-	virtual ChromiumDLL::ChromiumBrowserEventI_V2* GetCallbackV2() = 0;
-	virtual ChromiumDLL::ChromiumRendererEventI* GetRenderCallback()=0;
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserEventI> GetCallback() = 0;
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserEventI_V2> GetCallbackV2() = 0;
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererEventI> GetRenderCallback() = 0;
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererPopupEventI> GetRenderPopupCallback() = 0;
+
 	virtual void SetBrowser(CefRefPtr<CefBrowser> browser)=0;
 	virtual CefRefPtr<CefBrowser> GetBrowser()=0;
 	virtual void setContext(CefRefPtr<CefV8Context> context)=0;
@@ -109,6 +111,19 @@ class RequestHandler : public CefRequestHandler, public virtual ChromiumEventInf
 {
 public:
 	virtual bool OnBeforeBrowse(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefRequest> request, bool isRedirect) OVERRIDE;
+
+	virtual bool GetAuthCredentials(CefRefPtr<CefBrowser> browser,
+		CefRefPtr<CefFrame> frame,
+		bool isProxy,
+		const CefString& host,
+		int port,
+		const CefString& realm,
+		const CefString& scheme,
+		CefRefPtr<CefAuthCallback> callback) OVERRIDE;
+
+	virtual void OnProtocolExecution(CefRefPtr<CefBrowser> browser,
+		const CefString& url,
+		bool& allow_os_execution) OVERRIDE;
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -184,6 +199,10 @@ public:
 		const void* buffer,
 		int width, int height) OVERRIDE;
 
+
+	virtual void OnPopupShow(CefRefPtr<CefBrowser> browser, bool show) OVERRIDE;
+	virtual void OnPopupSize(CefRefPtr<CefBrowser> browser, const CefRect& rect) OVERRIDE;
+
 	virtual void OnCursorChange(CefRefPtr<CefBrowser> browser, CefCursorHandle cursor) OVERRIDE;
 	virtual bool GetViewRect(CefRefPtr<CefBrowser> browser, CefRect& rect) OVERRIDE;
 };
@@ -234,14 +253,16 @@ class ChromiumBrowserEvents :
 public:
 	ChromiumBrowserEvents(ChromiumBrowser* pParent);
 
-	void setCallBack(ChromiumDLL::ChromiumBrowserEventI* cbe);
-	void setCallBack(ChromiumDLL::ChromiumRendererEventI* cbe);
+	void setCallBack(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserEventI>& cbe);
+	void setCallBack(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererEventI>& cbe);
+	void setCallBack(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererPopupEventI>& cbe);
 
 	void setParent(ChromiumBrowser* parent);
 
-	virtual ChromiumDLL::ChromiumBrowserEventI* GetCallback() OVERRIDE;
-	virtual ChromiumDLL::ChromiumBrowserEventI_V2* GetCallbackV2() OVERRIDE;
-	virtual ChromiumDLL::ChromiumRendererEventI* GetRenderCallback() OVERRIDE;
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserEventI> GetCallback() OVERRIDE;
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserEventI_V2> GetCallbackV2() OVERRIDE;
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererEventI> GetRenderCallback() OVERRIDE;
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererPopupEventI> GetRenderPopupCallback() OVERRIDE;
 
 	virtual void SetBrowser(CefRefPtr<CefBrowser> browser);
 	virtual CefRefPtr<CefBrowser> GetBrowser();
@@ -261,11 +282,12 @@ public:
 private:
 	CefRefPtr<CefBrowser> m_Browser;
 	ChromiumBrowser* m_pParent;
-	ChromiumDLL::ChromiumBrowserEventI* m_pEventCallBack;
-	ChromiumDLL::ChromiumRendererEventI* m_pRendereEventCallBack;
+	ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserEventI> m_pEventCallBack;
+	ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererEventI> m_pRendereEventCallBack;
+	ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererPopupEventI> m_pRenderePopupEventCallBack;
 
 	IMPLEMENT_REFCOUNTING(ChromiumBrowserEvents);
 };
 
 
-#endif //DESURA_CHROMIUMBROWSEREVENTS_H
+#endif //THIRDPARTY_CEF3_CHROMIUMBROWSEREVENTS_H

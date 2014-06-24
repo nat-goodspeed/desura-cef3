@@ -222,6 +222,72 @@ void LoadHandler::OnLoadError(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame>
 /// RequestHandler
 /////////////////////////////////////////////////////////////////////////////////////////////
 
+
+class ChromiumAuthCredentials : public ChromiumDLL::ChromiumAuthCredentialsI
+{
+public:
+	ChromiumAuthCredentials(bool isProxy,
+		const CefString& host,
+		int port,
+		const CefString& realm,
+		const CefString& scheme,
+		CefRefPtr<CefAuthCallback> callback)
+		: m_bProxy(isProxy)
+		, m_nPort(port)
+		, m_strRealm(realm)
+		, m_strScheme(scheme)
+		, m_strHost(host)
+		, m_Callback(callback)
+	{
+	}
+
+	void cancel()
+	{
+		m_Callback->Cancel();
+	}
+
+	void procecced(const char* szUsername, const char* szPassword)
+	{
+		m_Callback->Continue(szUsername, szPassword);
+	}
+
+	int getPort()
+	{
+		return m_nPort;
+	}
+
+	const char* getRealm()
+	{
+		return m_strRealm.c_str();
+	}
+
+	const char* getScheme()
+	{
+		return m_strScheme.c_str();
+	}
+
+	const char* getHost()
+	{
+		return m_strHost.c_str();
+	}
+
+	bool isProxy()
+	{
+		return m_bProxy;
+	}
+
+private:
+	bool m_bProxy;
+	int m_nPort;
+
+	const std::string m_strRealm;
+	const std::string m_strScheme;
+	const std::string m_strHost;
+
+	CefRefPtr<CefAuthCallback> m_Callback;
+	CEF3_IMPLEMENTREF_COUNTING(ChromiumAuthCredentials);
+};
+
 bool RequestHandler::OnBeforeBrowse(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefRequest> request, bool isRedirect)
 {
 	if (!GetCallback())
@@ -231,6 +297,32 @@ bool RequestHandler::OnBeforeBrowse(CefRefPtr<CefBrowser> browser, CefRefPtr<Cef
 	return !GetCallback()->onNavigateUrl(url.c_str(), frame->IsMain());
 }
 
+bool RequestHandler::GetAuthCredentials(CefRefPtr<CefBrowser> browser,
+	CefRefPtr<CefFrame> frame,
+	bool isProxy,
+	const CefString& host,
+	int port,
+	const CefString& realm,
+	const CefString& scheme,
+	CefRefPtr<CefAuthCallback> callback)
+{
+	if (!GetCallbackV2())
+		return false;
+
+	ChromiumDLL::RefPtr<ChromiumAuthCredentials> cred = new ChromiumAuthCredentials(isProxy, host, port, realm, scheme, callback);
+	return GetCallbackV2()->getAuthCredentials(cred);
+}
+
+void RequestHandler::OnProtocolExecution(CefRefPtr<CefBrowser> browser,
+	const CefString& url,
+	bool& allow_os_execution)
+{
+	if (!GetCallbackV2())
+		return;
+
+	std::string u = url;
+	allow_os_execution = GetCallbackV2()->onProtocolExecution(u.c_str());
+}
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -341,7 +433,7 @@ bool KeyboardHandler::OnKeyEvent(CefRefPtr<CefBrowser> browser,
 		return false;
 
 	return GetCallback()->onKeyEvent(keyfinder.find(event.type),
-									 event.native_key_code, event.modifiers, event.is_system_key);
+									 event.native_key_code, event.modifiers, !!event.is_system_key);
 }
 
 
@@ -358,9 +450,9 @@ void ContextMenuHandler::OnBeforeContextMenu(CefRefPtr<CefBrowser> browser,
 	if (!GetCallback())
 		return;
 
-	ChromiumMenuInfo cmi(params, GetBrowser()->GetHost()->GetWindowHandle());
+	ChromiumDLL::RefPtr<ChromiumDLL::ChromiumMenuInfoI> cmi = new ChromiumMenuInfo(params, GetBrowser()->GetHost()->GetWindowHandle());
 
-	if (GetCallback()->HandlePopupMenu(&cmi))
+	if (GetCallback()->HandlePopupMenu(cmi))
 		model->Clear();
 }
 
@@ -419,22 +511,62 @@ void RenderHandler::OnPaint(CefRefPtr<CefBrowser> browser,
 	const void* buffer,
 	int width, int height)
 {
-	if (GetRenderCallback() && type == PET_VIEW)
+	//TODO: dirtyRects[0].x, dirtyRects[0].y, dirtyRects[0].width, dirtyRects[0].height
+
+	if (type == PET_VIEW)
 	{
-		//TODO: dirtyRects[0].x, dirtyRects[0].y, dirtyRects[0].width, dirtyRects[0].height
-		GetRenderCallback()->onPaint(0 , 0, width, height, buffer);
+		if (GetRenderCallback())
+			GetRenderCallback()->onPaint(0, 0, width, height, buffer);
 	}
-		
+	else if (type == PET_POPUP)
+	{
+		if (GetRenderPopupCallback())
+			GetRenderPopupCallback()->onPUPaint(0, 0, width, height, buffer);
+	}
 }
+
+
+void RenderHandler::OnPopupShow(CefRefPtr<CefBrowser> browser, bool show)
+{
+	if (!GetRenderPopupCallback())
+		return;
+
+	if (show)
+		GetRenderPopupCallback()->onShow();
+	else
+		GetRenderPopupCallback()->onHide();
+}
+
+void RenderHandler::OnPopupSize(CefRefPtr<CefBrowser> browser, const CefRect& rect)
+{
+	if (!GetRenderPopupCallback())
+		return;
+
+	GetRenderPopupCallback()->onResize(rect.x, rect.y, rect.width, rect.height);
+}
+
+
 
 void RenderHandler::OnCursorChange(CefRefPtr<CefBrowser> browser, CefCursorHandle cursor)
 {
 #ifdef _WIN32
 	static HCURSOR s_Hand = LoadCursor(NULL, MAKEINTRESOURCE(IDC_HAND));
+	static HCURSOR s_IBeam = LoadCursor(NULL, MAKEINTRESOURCE(IDC_IBEAM));
+	static HCURSOR s_SizeWestEast = LoadCursor(NULL, MAKEINTRESOURCE(IDC_SIZEWE));
+	static HCURSOR s_SizeNorthSouth = LoadCursor(NULL, MAKEINTRESOURCE(IDC_SIZENS));
+	static HCURSOR s_SizeAll = LoadCursor(NULL, MAKEINTRESOURCE(IDC_SIZEALL));
 
 	ChromiumDLL::eCursor ec = ChromiumDLL::CURSOR_NORMAL;
 
 	if (cursor == s_Hand)
+		ec = ChromiumDLL::CURSOR_HAND;
+	else if (cursor == s_IBeam)
+		ec = ChromiumDLL::CURSOR_IBEAM;
+	else if (cursor == s_SizeWestEast)
+		ec = ChromiumDLL::CURSOR_HAND;
+	else if (cursor == s_SizeNorthSouth)
+		ec = ChromiumDLL::CURSOR_IBEAM;
+	else if (cursor == s_SizeAll)
 		ec = ChromiumDLL::CURSOR_HAND;
 
 	if (GetRenderCallback())
@@ -476,14 +608,19 @@ ChromiumBrowserEvents::ChromiumBrowserEvents(ChromiumBrowser* pParent)
 	m_pRendereEventCallBack = NULL;
 }
 
-void ChromiumBrowserEvents::setCallBack(ChromiumDLL::ChromiumBrowserEventI* cbe)
+void ChromiumBrowserEvents::setCallBack(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserEventI>& cbe)
 {
 	m_pEventCallBack = cbe;
 }
 
-void ChromiumBrowserEvents::setCallBack(ChromiumDLL::ChromiumRendererEventI* cbe)
+void ChromiumBrowserEvents::setCallBack(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererEventI>& cbe)
 {
 	m_pRendereEventCallBack = cbe;
+}
+
+void ChromiumBrowserEvents::setCallBack(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererPopupEventI>& cbe)
+{
+	m_pRenderePopupEventCallBack = cbe;
 }
 
 void ChromiumBrowserEvents::setParent(ChromiumBrowser* parent)
@@ -491,12 +628,12 @@ void ChromiumBrowserEvents::setParent(ChromiumBrowser* parent)
 	m_pParent = parent;
 }
 
-ChromiumDLL::ChromiumBrowserEventI* ChromiumBrowserEvents::GetCallback()
+ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserEventI> ChromiumBrowserEvents::GetCallback()
 {
 	return m_pEventCallBack;
 }
 
-ChromiumDLL::ChromiumBrowserEventI_V2* ChromiumBrowserEvents::GetCallbackV2()
+ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserEventI_V2> ChromiumBrowserEvents::GetCallbackV2()
 {
 	if (!GetCallback())
 		return NULL;
@@ -507,13 +644,19 @@ ChromiumDLL::ChromiumBrowserEventI_V2* ChromiumBrowserEvents::GetCallbackV2()
 	if (GetCallback()->ApiVersion() <= 1)
 		return NULL;
 
-	return static_cast<ChromiumDLL::ChromiumBrowserEventI_V2*>(GetCallback());
+	return static_cast<ChromiumDLL::ChromiumBrowserEventI_V2*>(GetCallback().get());
 }
 
-ChromiumDLL::ChromiumRendererEventI* ChromiumBrowserEvents::GetRenderCallback()
+ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererEventI> ChromiumBrowserEvents::GetRenderCallback()
 {
 	return m_pRendereEventCallBack;
 }
+
+ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererPopupEventI> ChromiumBrowserEvents::GetRenderPopupCallback()
+{
+	return m_pRenderePopupEventCallBack;
+}
+
 
 void ChromiumBrowserEvents::SetBrowser(CefRefPtr<CefBrowser> browser)
 {

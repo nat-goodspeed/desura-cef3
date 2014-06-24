@@ -44,7 +44,7 @@ void JavaScriptContext::destroy()
 	delete this;
 }
 
-ChromiumDLL::JavaScriptContextI* JavaScriptContext::clone()
+ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptContextI> JavaScriptContext::clone()
 {
 	return new JavaScriptContext(m_pContext);
 }
@@ -67,7 +67,7 @@ void JavaScriptContext::exit()
 	}
 }
 
-ChromiumDLL::JavaScriptFactoryI* JavaScriptContext::getFactory()
+ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI> JavaScriptContext::getFactory()
 {
 	if (!m_pContext.get() || m_uiCount == 0)
 		return NULL;

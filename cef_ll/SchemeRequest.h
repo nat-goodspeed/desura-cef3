@@ -23,13 +23,14 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_SCHEMEREQUEST_H
-#define DESURA_SCHEMEREQUEST_H
+#ifndef THIRDPARTY_CEF3_SCHEMEREQUEST_H
+#define THIRDPARTY_CEF3_SCHEMEREQUEST_H
 #ifdef _WIN32
 #pragma once
 #endif
 
 #include "ChromiumBrowserI.h"
+#include "RefCount.h"
 //#include "include/cef.h"
 #include "include/internal/cef_ptr.h"
 #include "include/cef_request.h"
@@ -40,26 +41,21 @@ public:
 	SchemeRequest();
 	SchemeRequest(CefRefPtr<CefRequest> request);
 
-	virtual void destroy()
-	{
-		delete this;
-	}
-
 	virtual void getURL(char *buff, size_t buffsize);
 	virtual void setURL(const char* url);
 
 	virtual void getMethod(char *buff, size_t buffsize);
 	virtual void setMethod(const char* method);
 
-	virtual ChromiumDLL::PostDataI* getPostData();
-	virtual void setPostData(ChromiumDLL::PostDataI* postData);
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::PostDataI> getPostData();
+	virtual void setPostData(const ChromiumDLL::RefPtr<ChromiumDLL::PostDataI>& postData);
 
 	virtual size_t getHeaderCount();
 
 	virtual void getHeaderItem(size_t index, char *key, size_t keysize, char* data, size_t datasize);
 	virtual void setHeaderItem(const char* key, const char* data);
 
-	virtual void set(const char* url, const char* method, ChromiumDLL::PostDataI* postData);
+	virtual void set(const char* url, const char* method, const ChromiumDLL::RefPtr<ChromiumDLL::PostDataI>& postData);
 
 	CefRefPtr<CefRequest> getHandle()
 	{
@@ -68,7 +64,9 @@ public:
 
 private:
 	CefRefPtr<CefRequest> m_rRequest;
+
+	CEF3_IMPLEMENTREF_COUNTING(SchemeRequest);
 };
 
 
-#endif //DESURA_SCHEMEREQUEST_H
+#endif //THIRDPARTY_CEF3_SCHEMEREQUEST_H

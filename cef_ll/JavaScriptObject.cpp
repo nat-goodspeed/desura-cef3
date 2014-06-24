@@ -46,14 +46,12 @@ int mystrncpy_s(char* dest, size_t destSize, const char* src, size_t srcSize)
 
 JavaScriptObject::JavaScriptObject()
 {
-	m_iRefCount = 0;
 	m_bIsException = false;
 }
 
 JavaScriptObject::JavaScriptObject(CefRefPtr<CefV8Value> obj)
 {
 	m_pObject = obj;
-	m_iRefCount = 0;
 	m_bIsException = false;
 }
 
@@ -61,25 +59,12 @@ JavaScriptObject::~JavaScriptObject()
 {
 }
 
-void JavaScriptObject::addRef()
-{
-	m_iRefCount++;
-}
-
-void JavaScriptObject::delRef()
-{
-	m_iRefCount--;
-
-	if (!m_iRefCount)
-		delete this;
-}
-
 void JavaScriptObject::destory()
 {
 	delete this;
 }
 
-ChromiumDLL::JavaScriptObjectI* JavaScriptObject::clone()
+ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> JavaScriptObject::clone()
 {
 	return new JavaScriptObject(m_pObject);
 }
@@ -258,12 +243,12 @@ void JavaScriptObject::getFunctionName(char* buff, size_t buffsize)
 	mystrncpy_s(buff, buffsize, name.c_str(), name.size());
 }
 
-ChromiumDLL::JavaScriptExtenderI* JavaScriptObject::getFunctionHandler()
+ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI> JavaScriptObject::getFunctionHandler()
 {
 	return new JavaScriptWrapper(m_pObject->GetFunctionHandler());
 }
 
-ChromiumDLL::JSObjHandle JavaScriptObject::executeFunction(ChromiumDLL::JavaScriptFunctionArgs *args)
+ChromiumDLL::JSObjHandle JavaScriptObject::executeFunction(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFunctionArgs>& args)
 {
 	if (!isFunction())
 		return GetJSFactory()->CreateException("Not a function!");
@@ -271,7 +256,7 @@ ChromiumDLL::JSObjHandle JavaScriptObject::executeFunction(ChromiumDLL::JavaScri
 	if (!args)
 		return GetJSFactory()->CreateException("Args are null for function call");
 
-	JavaScriptContext* context = (JavaScriptContext*)args->context;
+	JavaScriptContext* context = (JavaScriptContext*)args->context.get();
 	JavaScriptObject* jso = (JavaScriptObject*)args->object.get();
 
 	CefV8ValueList argList;
@@ -306,7 +291,7 @@ ChromiumDLL::JSObjHandle JavaScriptObject::executeFunction(ChromiumDLL::JavaScri
 	return new JavaScriptObject(retval);
 }
 
-void* JavaScriptObject::getUserObject()
+ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI> JavaScriptObject::getUserObject()
 {
 	CefRefPtr<CefBase> data = m_pObject->GetUserData();
 

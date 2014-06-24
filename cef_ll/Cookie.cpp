@@ -23,11 +23,13 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#include "ChromiumBrowserI.h"
-//#include "include/cef.h"
+#include "Cookie.h"
+
 #include "include/cef_task.h"
 #include "include/cef_cookie.h"
 #include "include/internal/cef_types_wrappers.h" // CefCookie
+
+
 
 class Cookie : public ChromiumDLL::CookieI
 {
@@ -36,6 +38,11 @@ public:
 	{
 		m_rCookie.secure = false;
 		m_rCookie.httponly = false;
+	}
+
+	Cookie(CefCookie cookie)
+		: m_rCookie(cookie)
+	{
 	}
 
 	virtual void destroy()
@@ -64,6 +71,8 @@ public:
 	}
 
 	CefCookie m_rCookie;
+
+	CEF3_IMPLEMENTREF_COUNTING(Cookie);
 };
 
 class CookieTask : public CefTask
@@ -109,23 +118,89 @@ public:
 };
 
 
-void CEF_DeleteCookie_Internal(const char* url, const char* name)
+class DeleteCookiesVisitor : public CefCookieVisitor
 {
-	CefPostTask(TID_IO, new CookieTask(url, name));
+public:
+	bool Visit(const CefCookie& cookie, int count, int total,
+		bool& deleteCookie) OVERRIDE
+	{
+		deleteCookie = true;
+		return true;
+	}
+
+	IMPLEMENT_REFCOUNTING(DeleteCookiesVisitor);
+};
+
+class CookiesVisitor : public CefCookieVisitor
+{
+public:
+	CookiesVisitor(const ChromiumDLL::RefPtr<ChromiumDLL::ChormiumCookieVistor>& visitor)
+		: m_Visitor(visitor)
+	{
+	}
+
+	bool Visit(const CefCookie& cookie, int count, int total,
+		bool& deleteCookie) OVERRIDE
+	{
+		auto c = new Cookie(cookie);
+		return m_Visitor->visit(c);
+	}
+
+	ChromiumDLL::RefPtr<ChromiumDLL::ChormiumCookieVistor>  m_Visitor;
+	IMPLEMENT_REFCOUNTING(DeleteCookiesVisitor);
+};
+
+
+void CookieManager::purgeAll()
+{
+	CefCookieManager::GetGlobalManager()->VisitAllCookies(new DeleteCookiesVisitor());
 }
 
-ChromiumDLL::CookieI* CEF_CreateCookie_Internal()
+void CookieManager::setCookie(const char* url, const ChromiumDLL::RefPtr<ChromiumDLL::CookieI>& cookie)
 {
-	return new Cookie();
-}
-
-void CEF_SetCookie_Internal(const char* url, ChromiumDLL::CookieI* cookie)
-{
-	Cookie* c = (Cookie*)cookie;
+	Cookie* c = (Cookie*)cookie.get();
 
 	if (!c)
 		return;
 
 	CefPostTask(TID_IO, new CookieTask(url, c->m_rCookie));
+}
+
+void CookieManager::delCookie(const char* url, const char* name)
+{
+	CefPostTask(TID_IO, new CookieTask(url, name));
+}
+
+void CookieManager::visitCookies(const ChromiumDLL::RefPtr<ChromiumDLL::ChormiumCookieVistor>& visitor, const char* szUrl)
+{
+	if (szUrl)
+		CefCookieManager::GetGlobalManager()->VisitUrlCookies(szUrl, false, new CookiesVisitor(visitor));
+	else
+		CefCookieManager::GetGlobalManager()->VisitAllCookies(new CookiesVisitor(visitor));
+}
+
+void CookieManager::enableCookies()
+{
+	std::vector<CefString> schemes;
+
+	schemes.push_back("http");
+	schemes.push_back("https");
+
+	CefCookieManager::GetGlobalManager()->SetSupportedSchemes(schemes);
+}
+
+void CookieManager::disableCookies()
+{
+	std::vector<CefString> schemes;
+	schemes.push_back("fakecookiescheme");
+
+	CefCookieManager::GetGlobalManager()->SetSupportedSchemes(schemes);
+
+	purgeAll();
+}
+
+ChromiumDLL::RefPtr<ChromiumDLL::CookieI> CookieManager::createCookie()
+{
+	return new Cookie();
 }
 

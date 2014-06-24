@@ -37,6 +37,8 @@ $/LicenseInfo$
 
 #define CEF_IGNORE_FUNCTIONS 1
 #include "ChromiumBrowserI.h"
+#include "ChromiumWin32KeyPress.h"
+#include "ChromiumRefCount.h"
 #include "SharedObjectLoader.h"
 
 #ifndef WIN32
@@ -124,26 +126,37 @@ private:
 	Mutex &m_Mutex;
 };
 
-class cefGL : 
-	public ChromiumDLL::ChromiumBrowserEventI_V2,
-	public ChromiumDLL::ChromiumRendererEventI
+class Proxy : public ChromiumDLL::ChromiumBrowserEventI_V2, public ChromiumDLL::ChromiumRendererEventI, public ChromiumDLL::ChromiumRendererPopupEventI
+{
+public:
+	void destroy()
+	{
+		delete this;
+	}
+};
+
+class cefGL : public ChromiumDLL::ChromiumRefCount<Proxy>
 {
     public:
         cefGL() :
 			// TODO make this work with non power of two sizes
-            mAppWindowWidth( 1024 ),                     // dimensions of the app window - can be anything
-            mAppWindowHeight( 1024 ),
-            mAppTextureWidth( -1 ),                     // dimensions of the texture that the browser is rendered into
-            mAppTextureHeight( -1 ),                    // calculated at initialization
+            mAppWindowWidth( 1024 )                     // dimensions of the app window - can be anything
+			, mAppWindowHeight(1024)
+			, mAppTextureWidth(-1)                     // dimensions of the texture that the browser is rendered into
+			, mAppTextureHeight(-1)                   // calculated at initialization
 
-            mAppTexture( 0 ),                           // OpenGL texture handle
-			mAppTexturePixels( NULL ),
+			, mAppTexture(0)                           // OpenGL texture handle
+			, mAppTexturePixels(NULL)
 
-            mAppWindowName( "cefGL" ),
-            mNeedsUpdate( true ),                        // flag to indicate if browser texture needs an update
-            mNeedsResize( true ),
+			, mAppWindowName("cefGL")
+			, mNeedsUpdate(true)                       // flag to indicate if browser texture needs an update
+			, mNeedsResize(true)
 
-            pRenderer( NULL )
+			, pRenderer(NULL)
+
+#ifdef WIN32
+			, m_hMenu(NULL)
+#endif
         {
 			//std::cout << "LLQtWebKit version: " << LLQtWebKit::getInstance()->getVersion() << std::endl;
         };
@@ -169,9 +182,9 @@ class cefGL :
 		void initCEF()
 		{
 #ifdef WIN32
-			const char* szCefDLL = "cef_desura.dll";
+			const char* szCefDLL = "3p_cef3.dll";
 #else
-			const char* szCefDLL = "libcef_desura.so";
+			const char* szCefDLL = "lib3p_cef3.dll";
 #endif
 
 			if (!g_CEFDll.load(szCefDLL))
@@ -210,12 +223,12 @@ class cefGL :
 			pController->SetApiVersion(2);
 
 #ifdef WIN32
-			HWND hWnd = FindWindow(NULL, mAppWindowName.c_str());
+			m_hWnd = FindWindow(NULL, mAppWindowName.c_str());
 
-			pRenderer = pController->NewChromiumRenderer((int*)hWnd, "http://news.google.com", mAppTextureWidth, mAppTextureHeight);
+			pRenderer = pController->NewChromiumRenderer((int*)m_hWnd, "https://www.youtube.com/watch?v=GLlLQ3LmZWU", mAppTextureWidth, mAppTextureHeight);
+			g_pRenderer = pRenderer;
 
-			g_pRenderer = &pRenderer;
-			HHOOK hook = SetWindowsHookEx(WH_GETMESSAGE, handleWinMsg, GetModuleHandle(NULL), GetWindowThreadProcessId(hWnd, 0));
+			HHOOK hook = SetWindowsHookEx(WH_GETMESSAGE, handleWinMsg, GetModuleHandle(NULL), GetWindowThreadProcessId(m_hWnd, 0));
 #else
             pRenderer = pController->NewChromiumRenderer((int*)NULL, "http://news.google.com", mAppTextureWidth, mAppTextureHeight);
 #endif
@@ -229,11 +242,12 @@ class cefGL :
 
 			pRenderer->getBrowser()->setEventCallback(this);
 
-			pRenderer->setEventCallback(this);
+			pRenderer->setEventCallback(ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererEventI>(this));
+			pRenderer->setEventCallback(ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererPopupEventI>(this));
 		}
 
 #ifdef WIN32
-		static ChromiumDLL::ChromiumRendererI** g_pRenderer;
+		static ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererI> g_pRenderer;
 
 #ifndef GET_X_LPARAM
 #define GET_X_LPARAM(lp)                        ((int)(short)LOWORD(lp))
@@ -244,10 +258,13 @@ class cefGL :
 
 		static LRESULT CALLBACK handleWinMsg(int nCode, WPARAM wParam, LPARAM lParam)
 		{
-			if (nCode != HC_ACTION || wParam != PM_REMOVE || !*g_pRenderer)
+			if (nCode != HC_ACTION || wParam != PM_REMOVE || !g_pRenderer)
 				return CallNextHookEx(0, nCode, wParam, lParam);
 
 			MSG *pMsg = (MSG*)lParam;
+
+			int xPos = GET_X_LPARAM(lParam);
+			int yPos = GET_Y_LPARAM(lParam);
 
 			switch (pMsg->message)
 			{
@@ -257,7 +274,7 @@ class cefGL :
 			case WM_KEYDOWN:
 			case WM_KEYUP:
 			case WM_CHAR:
-				(*g_pRenderer)->onKeyPress(new ChromiumDLL::Win32ChromiumKeyPress(pMsg->message, pMsg->wParam, pMsg->lParam));
+				g_pRenderer->onKeyPress(new ChromiumDLL::Win32ChromiumKeyPress(pMsg->message, pMsg->wParam, pMsg->lParam));
 				break;
 
 			case WM_MOUSEWHEEL:
@@ -266,27 +283,29 @@ class cefGL :
 
 			case WM_MOUSEMOVE:
 				break;
-
-			case WM_LBUTTONUP:
-			case WM_RBUTTONUP:
-			case WM_MBUTTONUP:
-				break;
-
-			case WM_LBUTTONDOWN:
-			case WM_RBUTTONDOWN:
-			case WM_MBUTTONDOWN:
-				break;
 			}
 
 			return CallNextHookEx(0, nCode, wParam, lParam);
 		}
 #endif
 
-        void idle()
-        {
+		void idle()
+		{
 #ifdef NIX
-            if (pController)
-                pController->DoMsgLoop();
+			if (pController)
+				pController->DoMsgLoop();
+#endif
+#ifdef WIN32
+			if (m_hMenu)
+			{
+				int screen_pos_x = glutGet((GLenum)GLUT_WINDOW_X);
+				int screen_pos_y = glutGet((GLenum)GLUT_WINDOW_Y);
+
+				TrackPopupMenu(m_hMenu, TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_RECURSE | TPM_NONOTIFY, m_nLastXIn + screen_pos_x, m_nLastYIn + screen_pos_y, 0, m_hWnd, NULL);
+				DestroyMenu(m_hMenu);
+				m_hMenu = NULL;
+			}
+				
 #endif
         }
 
@@ -394,21 +413,25 @@ class cefGL :
 			xIn = (xIn * mAppTextureWidth) / mAppWindowWidth;
 			yIn = (yIn * mAppTextureHeight) / mAppWindowHeight;
 
+			ChromiumDLL::MouseButtonType type = ChromiumDLL::MBT_LEFT;
+
             if ( button == GLUT_LEFT_BUTTON )
+				type = ChromiumDLL::MBT_LEFT;
+			else if (button == GLUT_RIGHT_BUTTON)
+				type = ChromiumDLL::MBT_RIGHT;
+			else if(button == GLUT_MIDDLE_BUTTON)
+				type = ChromiumDLL::MBT_MIDDLE;
+
+            if ( state == GLUT_DOWN )
             {
-                if ( state == GLUT_DOWN )
-                {
-					pRenderer->onMouseClick(xIn, yIn, ChromiumDLL::MBT_LEFT, false, 1);
-
-					pRenderer->onFocus(true);
-                }
-                else
-                if ( state == GLUT_UP )
-                {
-					pRenderer->onMouseClick(xIn, yIn, ChromiumDLL::MBT_LEFT, true, 1);
-                };
-            };
-
+				pRenderer->onMouseClick(xIn, yIn, type, false, 1);
+				pRenderer->onFocus(true);
+            }
+            else if ( state == GLUT_UP )
+            {
+				pRenderer->onMouseClick(xIn, yIn, type, true, 1);
+            }
+  
             glutPostRedisplay();
         }
 
@@ -416,10 +439,10 @@ class cefGL :
         //
         void mouseMove( int xIn , int yIn )
         {
-			xIn = (xIn * mAppTextureWidth) / mAppWindowWidth;
-			yIn = (yIn * mAppTextureHeight) / mAppWindowHeight;
+			m_nLastXIn = (xIn * mAppTextureWidth) / mAppWindowWidth;
+			m_nLastYIn = (yIn * mAppTextureHeight) / mAppWindowHeight;
 
-			pRenderer->onMouseMove(xIn, yIn, false);
+			pRenderer->onMouseMove(m_nLastXIn, m_nLastYIn, false);
 
             glutPostRedisplay();
         }
@@ -438,7 +461,32 @@ class cefGL :
 
 			if (keyIn == 'z' && isDown)
 			{
-				pRenderer->getBrowser()->loadUrl("http://desura.com");
+				pRenderer->getBrowser()->loadUrl("https://osiris.lindenlab.com/love/index.php");
+			}
+
+			if (keyIn == 'w' && isDown)
+			{
+				pRenderer->getBrowser()->scroll(m_nLastXIn, m_nLastYIn, 0, 120);
+			}
+
+			if (keyIn == 's' && isDown)
+			{
+				pRenderer->getBrowser()->scroll(m_nLastXIn, m_nLastYIn, 0, -120);
+			}
+
+			if (keyIn == 'a' && isDown)
+			{
+				pRenderer->getBrowser()->scroll(m_nLastXIn, m_nLastYIn, 120, 0);
+			}
+
+			if (keyIn == 'd' && isDown)
+			{
+				pRenderer->getBrowser()->scroll(m_nLastXIn, m_nLastYIn, -120, 0);
+			}
+
+			if (keyIn == 'i' && isDown)
+			{
+				pRenderer->getBrowser()->showInspector();
 			}
 
 			std::cout << "Key press was " << keyIn << " is down: " << isDown << std::endl;
@@ -509,12 +557,35 @@ class cefGL :
 		{
 		}
 
-		bool HandlePopupMenu(ChromiumDLL::ChromiumMenuInfoI* menuInfo) override
+		static void onMenuSelect(int nVal)
 		{
+
+		}
+
+		inline bool HasAnyFlags(int value, int flags)
+		{
+			return (value&flags ? true : false);
+		}
+
+		bool HandlePopupMenu(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumMenuInfoI>& menuInfo) override
+		{
+			std::cout << "HandlePopupMenu: " << m_nLastXIn << " " << m_nLastYIn << std::endl;
+
+			//Have a look at desura: gcMenu* EventHandler::createMenu(ChromiumDLL::ChromiumMenuInfoI* menuInfo)
+
+#ifdef WIN32
+			HMENU hPopupMenu = CreatePopupMenu();
+			InsertMenu(hPopupMenu, 0, MF_BYPOSITION | MF_STRING, 1, "Forward");
+			InsertMenu(hPopupMenu, 0, MF_BYPOSITION | MF_STRING, 2, "Back");
+
+			DestroyMenu(m_hMenu);
+			m_hMenu = hPopupMenu;
+#endif
+
 			return true;
 		}
 
-		void HandleJSBinding(ChromiumDLL::JavaScriptObjectI* jsObject, ChromiumDLL::JavaScriptFactoryI* factory) override
+		void HandleJSBinding(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI>& jsObject, const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI>& factory) override
 		{
 		}
 
@@ -522,6 +593,19 @@ class cefGL :
 		{
 			std::cout << "Download file requested: " << szUrl << std::endl;
 		}
+
+		bool getAuthCredentials(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumAuthCredentialsI>& info)
+		{
+			std::cout << "getAuthCredentials: " << info->getPort() << " " << info->getHost() << " " << info->getScheme() << " " << info->getRealm() << " " << info->isProxy() << " " << std::endl;
+			return false;
+		}
+
+		bool onProtocolExecution(const char* szUrl)
+		{
+			std::cout << "onProtocolExecution: " << szUrl << std::endl;
+			return false;
+		}
+
 
 		void onStatus(const char* szStatus, ChromiumDLL::StatusType eType) override
 		{
@@ -537,11 +621,6 @@ class cefGL :
 		{
 			//std::cout << "Tool tip triggered: " << szToolTop << std::endl;
 			return true;
-		}
-
-		void onInvalidateRect(unsigned int x, unsigned int y, unsigned int w, unsigned int h) override
-		{
-			std::cout << "onInvalidateRect at " << x << " x " << y << std::endl;
 		}
 
 		bool getViewRect(int &x, int &y, int &w, int &h) override
@@ -610,6 +689,26 @@ class cefGL :
 				glutSetCursor(GLUT_CURSOR_INHERIT);
 		}
 
+		void onPUPaint(unsigned int x, unsigned int y, unsigned int w, unsigned int h, const void* buffer) override
+		{
+			std::cout << "onPUPaint at " << x << " x " << y << " of size " << w << " x " << h << std::endl;
+		}
+
+		void onShow() override
+		{
+			std::cout << "onShow" << std::endl;
+		}
+
+		void onHide() override
+		{
+			std::cout << "onHide" << std::endl;
+		}
+
+		void onResize(int x, int y, int w, int h) override
+		{
+			std::cout << "onResize at " << x << " x " << y << " of size " << w << " x " << h << std::endl;
+		}
+
         ////////////////////////////////////////////////////////////////////////////////
         //
         std::string getAppWindowName()
@@ -633,17 +732,25 @@ class cefGL :
 		SharedObjectLoader g_CEFDll;
 		typedef ChromiumDLL::ChromiumControllerI* (*CEF_InitFn)(bool, const char*, const char*, const char*);
 		CEF_InitFn CEF_Init;
-		ChromiumDLL::ChromiumRendererI* pRenderer;
+		ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererI> pRenderer;
 		ChromiumDLL::ChromiumControllerI* pController;
 
+		int m_nLastXIn;
+		int m_nLastYIn;
+
 		Mutex m_BufferLock;
+
+#ifdef WIN32
+		HWND m_hWnd;
+		HMENU m_hMenu;
+#endif
 };
 
 #ifdef WIN32
-ChromiumDLL::ChromiumRendererI** cefGL::g_pRenderer = nullptr;
+ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererI> cefGL::g_pRenderer;
 #endif
 
-cefGL* theApp;
+ChromiumDLL::RefPtr<cefGL> theApp;
 
 void glutReshape( int widthIn, int heightIn ) { theApp->reshape( widthIn, heightIn ); };
 void glutDisplay() { if ( theApp ) theApp->display(); };
@@ -680,8 +787,6 @@ int main( int argc, char* argv[] )
 
     glutIdleFunc( glutIdle );
     glutMainLoop();
-
-    delete theApp;
 
     return 0;
 }

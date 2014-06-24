@@ -51,13 +51,7 @@ public:
 		if (m_mSchemeMap.size() > 0)
 			g_mSchemeExtenders[m_mSchemeMap.begin()->second->getSchemeName()] = 0;
 
-		std::for_each(m_mSchemeMap.begin(), m_mSchemeMap.end(), for_each_del);
 		m_mSchemeMap.clear();
-	}
-
-	static void for_each_del(std::pair<std::string, ChromiumDLL::SchemeExtenderI*> p)
-	{
-		p.second->destroy();
 	}
 
 	CefRefPtr<CefResourceHandler> Create(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>,
@@ -82,7 +76,7 @@ public:
 		std::string host = url.substr(slashes[1]+1, slashes[2]-slashes[1]-1);
 
 		std::string strKey = scheme + ":" + host;
-		std::map<std::string, ChromiumDLL::SchemeExtenderI*>::iterator it = m_mSchemeMap.find(strKey);
+		std::map<std::string, ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>>::iterator it = m_mSchemeMap.find(strKey);
 
 		if (it == m_mSchemeMap.end())
 		{
@@ -96,7 +90,7 @@ public:
 		return new SchemeExtender(it->second->clone(scheme.c_str()));
 	}
 
-	bool registerScheme(ChromiumDLL::SchemeExtenderI* se)
+	bool registerScheme(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>& se)
 	{
 		std::string strHostname;
 		std::string strScheme;
@@ -111,11 +105,6 @@ public:
 			strHostname = "__ALL__";
 
 		std::string strKey = strScheme + ":" + strHostname;
-
-
-		if (m_mSchemeMap[strKey])
-			m_mSchemeMap[strKey]->destroy();
-
 		m_mSchemeMap[strKey] = se;
 
 		return CefRegisterSchemeHandlerFactory(se->getSchemeName(), se->getHostName(), this);
@@ -124,10 +113,10 @@ public:
 	IMPLEMENT_REFCOUNTING(SchemeHandlerFactory);
 
 private:
-	std::map<std::string, ChromiumDLL::SchemeExtenderI*> m_mSchemeMap;
+	std::map<std::string, ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>> m_mSchemeMap;
 };
 
-bool SchemeExtender::Register(ChromiumDLL::SchemeExtenderI* se)
+bool SchemeExtender::Register(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>& se)
 {
 	if (!se)
 		return false;
@@ -138,16 +127,14 @@ bool SchemeExtender::Register(ChromiumDLL::SchemeExtenderI* se)
 	return g_mSchemeExtenders[se->getSchemeName()]->registerScheme(se);
 }
 
-SchemeExtender::SchemeExtender(ChromiumDLL::SchemeExtenderI* se):
-	m_redirect(false)
+SchemeExtender::SchemeExtender(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>& se) 
+	: m_redirect(false)
 {
 	m_pSchemeExtender = se;
 }
 
 SchemeExtender::~SchemeExtender()
 {
-	if (m_pSchemeExtender)
-		m_pSchemeExtender->destroy();
 }
 
 bool SchemeExtender::ProcessRequest(CefRefPtr<CefRequest> request, CefRefPtr<CefCallback> callback)
@@ -155,10 +142,10 @@ bool SchemeExtender::ProcessRequest(CefRefPtr<CefRequest> request, CefRefPtr<Cef
 	if (!m_pSchemeExtender)
 		return false;
 
-	SchemeRequest r(request);
+	ChromiumDLL::RefPtr<ChromiumDLL::SchemeRequestI> r = new SchemeRequest(request);
 
 	// capture redirect flag in bool member for GetResponseHeaders()
-	bool res = m_pSchemeExtender->processRequest(&r, &m_redirect);
+	bool res = m_pSchemeExtender->processRequest(r, &m_redirect);
 
 	if (res)
 		callback->Continue();

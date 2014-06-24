@@ -156,7 +156,7 @@ int ChromiumMenuInfo::getCustomCount()
 	return 0;
 }
 
-ChromiumDLL::ChromiumMenuItemI* ChromiumMenuInfo::getCustomItem(size_t index)
+ChromiumDLL::RefPtr<ChromiumDLL::ChromiumMenuItemI> ChromiumMenuInfo::getCustomItem(size_t index)
 {
 	return NULL;
 }

@@ -23,13 +23,14 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_SCHEMEPOST_H
-#define DESURA_SCHEMEPOST_H
+#ifndef THIRDPARTY_CEF3_SCHEMEPOST_H
+#define THIRDPARTY_CEF3_SCHEMEPOST_H
 #ifdef _WIN32
 #pragma once
 #endif
 
 #include "ChromiumBrowserI.h"
+#include "RefCount.h"
 //#include "include/cef.h"
 #include "include/cef_request.h"
 #include "include/internal/cef_ptr.h"
@@ -39,13 +40,6 @@ class PostElement : public ChromiumDLL::PostElementI
 public:
 	PostElement();
 	PostElement(CefRefPtr<CefPostDataElement> element);
-
-	//! Deletes the object. Should never be called by user code!
-	//!
-	virtual void destroy()
-	{
-		delete this;
-	}
 
 	virtual bool isFile();
 	virtual bool isBytes();
@@ -66,6 +60,8 @@ public:
 
 private:
 	CefRefPtr<CefPostDataElement> m_rPostElement;
+
+	CEF3_IMPLEMENTREF_COUNTING(PostElement);
 };
 
 
@@ -75,19 +71,11 @@ public:
 	PostData();
 	PostData(CefRefPtr<CefPostData> data);
 
-
-	//! Deletes the object. Should never be called by user code!
-	//!
-	virtual void destroy()
-	{
-		delete this;
-	}
-
 	virtual size_t getElementCount();
-	virtual ChromiumDLL::PostElementI* getElement(size_t index);
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::PostElementI> getElement(size_t index);
 
-	virtual bool removeElement(ChromiumDLL::PostElementI* element);
-	virtual bool addElement(ChromiumDLL::PostElementI* element);
+	virtual bool removeElement(const ChromiumDLL::RefPtr<ChromiumDLL::PostElementI>& element);
+	virtual bool addElement(const ChromiumDLL::RefPtr<ChromiumDLL::PostElementI>& element);
 
 	virtual void removeElements();
 
@@ -98,10 +86,12 @@ public:
 
 private:
 	CefRefPtr<CefPostData> m_rPostData;
+
+	CEF3_IMPLEMENTREF_COUNTING(PostData);
 };
 
 
 
 
 
-#endif //DESURA_SCHEMEPOST_H
+#endif //THIRDPARTY_CEF3_SCHEMEPOST_H

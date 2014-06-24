@@ -26,10 +26,7 @@ $/LicenseInfo$
 #include "Controller.h"
 #include "ChromiumBrowser.h"
 #include "include/cef_web_plugin.h"
-
-extern void CEF_DeleteCookie_Internal(const char* url, const char* name);
-extern ChromiumDLL::CookieI* CEF_CreateCookie_Internal();
-extern void CEF_SetCookie_Internal(const char* url, ChromiumDLL::CookieI* cookie);
+#include "Cookie.h"
 
 int g_nApiVersion = 1;
 
@@ -42,6 +39,7 @@ bool logHandler(int level, const std::string& msg)
 
 	return false;
 }
+
 
 
 
@@ -81,17 +79,17 @@ void ChromiumController::Stop()
 	CefShutdown();
 }
 
-bool ChromiumController::RegisterJSExtender(ChromiumDLL::JavaScriptExtenderI* extender)
+bool ChromiumController::RegisterJSExtender(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& extender)
 {
 	return m_App->RegisterJSExtender(extender);
 }
 
-bool ChromiumController::RegisterSchemeExtender(ChromiumDLL::SchemeExtenderI* extender)
+bool ChromiumController::RegisterSchemeExtender(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>& extender)
 {
 	return m_App->RegisterSchemeExtender(extender);
 }
 
-ChromiumDLL::ChromiumBrowserI* ChromiumController::NewChromiumBrowser(int* formHandle, const char* name, const char* defaultUrl)
+ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserI> ChromiumController::NewChromiumBrowser(int* formHandle, const char* name, const char* defaultUrl)
 {
 	if (m_bInit && m_bPendingInit)
 		DoInit(m_bThreaded, m_strCachePath.c_str(), m_strLogPath.c_str(), m_strUserAgent.c_str());
@@ -99,10 +97,10 @@ ChromiumDLL::ChromiumBrowserI* ChromiumController::NewChromiumBrowser(int* formH
 	if (!m_bInit)
 		return NULL;
 
-	return new ChromiumBrowser((WIN_HANDLE)formHandle, defaultUrl);
+	return new ChromiumBrowser((WIN_HANDLE)formHandle, defaultUrl, m_pDefaults);
 }
 
-ChromiumDLL::ChromiumRendererI* ChromiumController::NewChromiumRenderer(int* formHandle, const char* defaultUrl, int width, int height)
+ChromiumDLL::RefPtr<ChromiumDLL::ChromiumRendererI> ChromiumController::NewChromiumRenderer(int* formHandle, const char* defaultUrl, int width, int height)
 {
 	if (m_bInit && m_bPendingInit)
 		DoInit(m_bThreaded, m_strCachePath.c_str(), m_strLogPath.c_str(), m_strUserAgent.c_str());
@@ -110,7 +108,7 @@ ChromiumDLL::ChromiumRendererI* ChromiumController::NewChromiumRenderer(int* for
 	if (!m_bInit)
 		return NULL;
 
-	return new ChromiumRenderer((WIN_HANDLE)formHandle, defaultUrl, width, height);
+	return new ChromiumRenderer((WIN_HANDLE)formHandle, defaultUrl, width, height, m_pDefaults);
 }
 
 void ChromiumController::SetLogHandler(ChromiumDLL::LogMessageHandlerFn logFn)
@@ -118,29 +116,14 @@ void ChromiumController::SetLogHandler(ChromiumDLL::LogMessageHandlerFn logFn)
 	g_pLogHandler = logFn;
 }
 
-void ChromiumController::PostCallback(ChromiumDLL::CallbackI* callback)
+void ChromiumController::PostCallback(const ChromiumDLL::RefPtr<ChromiumDLL::CallbackI>& callback)
 {
 	CefPostTask(TID_UI, CefRefPtr<CefTask>(new TaskWrapper(callback)));
 }
 
-void ChromiumController::PostCallbackEx(ChromiumDLL::ThreadID thread, ChromiumDLL::CallbackI* callback)
+void ChromiumController::PostCallbackEx(ChromiumDLL::ThreadID thread, const ChromiumDLL::RefPtr<ChromiumDLL::CallbackI>& callback)
 {
 	CefPostTask((CefThreadId)thread, CefRefPtr<CefTask>(new TaskWrapper(callback)));
-}
-
-void ChromiumController::DeleteCookie(const char* url, const char* name)
-{
-	CEF_DeleteCookie_Internal(url, name);
-}
-
-ChromiumDLL::CookieI* ChromiumController::CreateCookie()
-{
-	return CEF_CreateCookie_Internal();
-}
-
-void ChromiumController::SetCookie(const char* url, ChromiumDLL::CookieI* cookie)
-{
-	CEF_SetCookie_Internal(url, cookie);
 }
 
 
@@ -181,7 +164,7 @@ bool ChromiumController::DoInit(bool threaded, const char* cachePath, const char
 		cef_string_utf8_to_utf16(temp.c_str(), temp.size(), &settings.product_version);
 	}
 
-	static const char browser_subprocess_path[] = "cef_desura_host";
+	static const char browser_subprocess_path[] = "3p_cef3_host";
 	cef_string_utf8_to_utf16(browser_subprocess_path, strlen(browser_subprocess_path), &settings.browser_subprocess_path);
 	cef_string_utf8_to_utf16(cachePath, strlen(cachePath), &settings.cache_path);
 	
@@ -203,12 +186,30 @@ bool ChromiumController::DoInit(bool threaded, const char* cachePath, const char
 		return false;
 	}
 
+	if (!m_pDefaults || m_pDefaults->enableFlash())
+	{
 #if defined(_WIN32)
-	CefAddWebPluginPath("gcswf32.dll");
+		CefAddWebPluginPath("gcswf32.dll");
 #else
-	CefAddWebPluginPath("libdesura_flashwrapper.so");
+		CefAddWebPluginPath("libdesura_flashwrapper.so");
 #endif
+
+		CefRefreshWebPlugins();
+	}
 
 	m_bPendingInit = false;
 	return true;
+}
+
+void ChromiumController::SetDefaults(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults)
+{
+	m_pDefaults = defaults;
+}
+
+ChromiumDLL::RefPtr<ChromiumDLL::ChromiumCookieManagerI> ChromiumController::GetCookieManager()
+{
+	if (!m_pCookieManager)
+		m_pCookieManager = new CookieManager();
+
+	return m_pCookieManager;
 }

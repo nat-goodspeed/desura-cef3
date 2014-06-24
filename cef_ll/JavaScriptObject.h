@@ -23,13 +23,14 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_JAVASCRIPTOBJECT_H
-#define DESURA_JAVASCRIPTOBJECT_H
+#ifndef THIRDPARTY_CEF3_JAVASCRIPTOBJECT_H
+#define THIRDPARTY_CEF3_JAVASCRIPTOBJECT_H
 #ifdef _WIN32
 #pragma once
 #endif
 
 #include "ChromiumBrowserI.h"
+#include "RefCount.h"
 //#include "include/cef.h"
 #include "include/cef_v8.h"
 
@@ -54,7 +55,7 @@ public:
 	~JavaScriptObject();
 
 	virtual void destory();
-	virtual ChromiumDLL::JavaScriptObjectI* clone();
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> clone();
 
 
 	virtual bool isUndefined();
@@ -91,13 +92,10 @@ public:
 	virtual int getArrayLength();
 	virtual void getFunctionName(char* buff, size_t buffsize);
 
-	virtual ChromiumDLL::JavaScriptExtenderI* getFunctionHandler();
-	virtual ChromiumDLL::JSObjHandle executeFunction(ChromiumDLL::JavaScriptFunctionArgs *args);
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI> getFunctionHandler();
+	virtual ChromiumDLL::JSObjHandle executeFunction(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFunctionArgs>& args);
 
-	virtual void* getUserObject();
-
-	virtual void addRef();
-	virtual void delRef();
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI> getUserObject();
 
 	CefRefPtr<CefV8Value> getCefV8();
 	CefRefPtr<CefBase> getCefBase();
@@ -105,13 +103,14 @@ public:
 	void setException();
 
 private:
-	int m_iRefCount;
 	bool m_bIsException;
 	CefRefPtr<CefV8Value> m_pObject;
+
+	CEF3_IMPLEMENTREF_COUNTING(JavaScriptObject);
 };
 
 
 
 
 
-#endif //DESURA_JAVASCRIPTOBJECT_H
+#endif //THIRDPARTY_CEF3_JAVASCRIPTOBJECT_H

@@ -23,43 +23,23 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef THIRDPARTY_CEF3_JAVASCRIPTCONTEXT_H
-#define THIRDPARTY_CEF3_JAVASCRIPTCONTEXT_H
+#ifndef THIRDPARTY_CEF3_REFCOUNT_H
+#define THIRDPARTY_CEF3_REFCOUNT_H
 #ifdef _WIN32
 #pragma once
 #endif
 
-#include "ChromiumBrowserI.h"
-#include "RefCount.h"
-//#include "include/cef.h"
-#include "include/cef_v8.h"
+
 #include "include/internal/cef_ptr.h"
+#include "include/cef_base.h"
 
-class JavaScriptContext : public ChromiumDLL::JavaScriptContextI
-{
-public:
-	JavaScriptContext();
-	JavaScriptContext(CefRefPtr<CefV8Context> context);
-
-	virtual void destroy();
-	virtual ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptContextI> clone();
-
-	virtual void enter();
-	virtual void exit();
-
-	virtual ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI> getFactory();
-	virtual ChromiumDLL::JSObjHandle getGlobalObject();
-
-	CefRefPtr<CefV8Context> getCefV8();
-
-private:
-	uint32 m_uiCount;
-	CefRefPtr<CefV8Context> m_pContext;
-
-	CEF3_IMPLEMENTREF_COUNTING(JavaScriptContext);
-};
+#define CEF3_IMPLEMENTREF_COUNTING(ClassName)					\
+public:															\
+	void addRef() { refct_.AddRef(); }							\
+	void delRef() { if (refct_.Release() == 0) destroy(); }		\
+private:														\
+	CefRefCount refct_;
 
 
 
-
-#endif //THIRDPARTY_CEF3_JAVASCRIPTCONTEXT_H
+#endif

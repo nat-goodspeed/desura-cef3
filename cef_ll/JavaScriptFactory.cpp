@@ -29,30 +29,16 @@ $/LicenseInfo$
 #include "JavaScriptExtender.h"
 #include "JavaScriptObject.h"
 
-JavaScriptFactory* g_pJavaScriptFactory = NULL;
+ChromiumDLL::RefPtr<JavaScriptFactory> g_pJavaScriptFactory;
 
-ChromiumDLL::JavaScriptFactoryI* GetJSFactory()
+ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI> GetJSFactory()
 {
 	if (!g_pJavaScriptFactory)
 		g_pJavaScriptFactory = new JavaScriptFactory();
 
-	return g_pJavaScriptFactory;
+	return g_pJavaScriptFactory.get();
 }
 
-class AutoDelete
-{
-public:
-	~AutoDelete()
-	{
-		if (g_pJavaScriptFactory)
-		{
-			delete g_pJavaScriptFactory;
-			g_pJavaScriptFactory = NULL;
-		}
-	}
-};
-
-AutoDelete ad;
 
 
 
@@ -104,7 +90,7 @@ ChromiumDLL::JSObjHandle JavaScriptFactory::CreateObject()
 	return new JavaScriptObject(CefV8Value::CreateObject(NULL));
 }
 
-ChromiumDLL::JSObjHandle JavaScriptFactory::CreateObject(void* userData)
+ChromiumDLL::JSObjHandle JavaScriptFactory::CreateObject(const ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI>& userData)
 {
 	CefBase* base = new ObjectWrapper(userData);
 	// per Mark 2014-03-10: first create an object with no accessor
@@ -114,7 +100,7 @@ ChromiumDLL::JSObjHandle JavaScriptFactory::CreateObject(void* userData)
 	return new JavaScriptObject(object);
 }
 
-ChromiumDLL::JSObjHandle JavaScriptFactory::CreateFunction(const char* name, ChromiumDLL::JavaScriptExtenderI* handler)
+ChromiumDLL::JSObjHandle JavaScriptFactory::CreateFunction(const char* name, const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& handler)
 {
 	CefRefPtr<CefV8Handler> e = new JavaScriptExtender(handler);
 	return new JavaScriptObject(CefV8Value::CreateFunction(name, e));
