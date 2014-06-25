@@ -452,7 +452,7 @@ void ContextMenuHandler::OnBeforeContextMenu(CefRefPtr<CefBrowser> browser,
 
 	ChromiumDLL::RefPtr<ChromiumDLL::ChromiumMenuInfoI> cmi = new ChromiumMenuInfo(params, GetBrowser()->GetHost()->GetWindowHandle());
 
-	if (GetCallback()->HandlePopupMenu(cmi))
+	if (GetCallback()->handlePopupMenu(cmi))
 		model->Clear();
 }
 
@@ -505,23 +505,65 @@ bool JSDialogHandler::OnJSDialog(CefRefPtr<CefBrowser> browser,
 /// RenderHandler
 /////////////////////////////////////////////////////////////////////////////////////////////
 
+class PaintInfo : public ChromiumDLL::ChromiumPaintInfo
+{
+public:
+	PaintInfo(const CefRenderHandler::RectList& dirtyRects, const void* buffer, int width, int height)
+	{
+		windowRegion.x = 0;
+		windowRegion.y = 0;
+		windowRegion.w = width;
+		windowRegion.h = height;
+
+		this->buffer = buffer;
+
+		if (dirtyRects.size() == 1 && dirtyRects[0].x == 0 && dirtyRects[0].y == 0 && dirtyRects[0].width == width && dirtyRects[0].height == height)
+		{
+			regionCount = 0;
+			invalidatedRegions = NULL;
+		}
+		else
+		{
+			regionCount = dirtyRects.size();
+
+			for (int x = 0; x < regionCount; ++x)
+			{
+				ChromiumDLL::ChromiumRegionInfo ri;
+				ri.x = dirtyRects[x].x;
+				ri.y = dirtyRects[x].y;
+				ri.w = dirtyRects[x].width;
+				ri.h = dirtyRects[x].height;
+
+				m_vRegionInfo.push_back(ri);
+			}
+
+			invalidatedRegions = &m_vRegionInfo[0];
+		}
+	}
+
+private:
+	std::vector<ChromiumDLL::ChromiumRegionInfo> m_vRegionInfo;
+
+	CEF3_IMPLEMENTREF_COUNTING(PaintInfo);
+};
+
 void RenderHandler::OnPaint(CefRefPtr<CefBrowser> browser,
 	PaintElementType type,
 	const RectList& dirtyRects,
 	const void* buffer,
 	int width, int height)
 {
-	//TODO: dirtyRects[0].x, dirtyRects[0].y, dirtyRects[0].width, dirtyRects[0].height
+	ChromiumDLL::RefPtr<ChromiumDLL::ChromiumPaintInfo> info = new PaintInfo(dirtyRects, buffer, width, height);
 
 	if (type == PET_VIEW)
 	{
 		if (GetRenderCallback())
-			GetRenderCallback()->onPaint(0, 0, width, height, buffer);
+			GetRenderCallback()->onPaint(info);
 	}
 	else if (type == PET_POPUP)
 	{
 		if (GetRenderPopupCallback())
-			GetRenderPopupCallback()->onPUPaint(0, 0, width, height, buffer);
+			GetRenderPopupCallback()->onPUPaint(info);
 	}
 }
 

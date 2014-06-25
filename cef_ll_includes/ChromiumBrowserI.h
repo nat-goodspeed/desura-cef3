@@ -31,6 +31,11 @@ $/LicenseInfo$
 #endif
 
 #ifdef WIN32
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <windows.h>
 #endif
 
@@ -732,13 +737,7 @@ namespace ChromiumDLL
 		//! @return true if handled, false if not
 		//!
 		virtual bool onLoadError(const char* errorMsg, const char* url, char* buff, size_t size) = 0;
-
-
-		virtual void HandleWndProc(int message, int wparam, int lparam) = 0;
-		virtual bool HandlePopupMenu(const RefPtr<ChromiumMenuInfoI>& menuInfo) = 0;
-
-
-		virtual void HandleJSBinding(const RefPtr<JavaScriptObjectI>& jsObject, const RefPtr<JavaScriptFactoryI>& factory) = 0;
+		virtual bool handlePopupMenu(const RefPtr<ChromiumMenuInfoI>& menuInfo) = 0;
 
 #ifdef CHROMIUM_API_SUPPORTS_V2
 		virtual int ApiVersion()
@@ -894,6 +893,25 @@ namespace ChromiumDLL
 		CURSOR_SIZE_ALL
 	};
 
+
+	class ChromiumRegionInfo
+	{
+	public:
+		unsigned int x;
+		unsigned int y;
+		unsigned int w;
+		unsigned int h;
+	};
+
+	class ChromiumPaintInfo : public IntrusiveRefPtrI
+	{
+	public:
+		ChromiumRegionInfo windowRegion;
+		const void* buffer;
+		int regionCount;
+		ChromiumRegionInfo* invalidatedRegions;
+	};
+
 	class ChromiumRendererEventI : public IntrusiveRefPtrI
 	{
 	public:
@@ -902,7 +920,7 @@ namespace ChromiumDLL
 			return 1;
 		}
 
-		virtual void onPaint(unsigned int x, unsigned int y, unsigned int w, unsigned int h, const void* buffer) = 0;
+		virtual void onPaint(const RefPtr<ChromiumPaintInfo>& info) = 0;
 
 		virtual void onCursorChange(eCursor cursor) = 0;
 
@@ -917,7 +935,7 @@ namespace ChromiumDLL
 			return 1;
 		}
 
-		virtual void onPUPaint(unsigned int x, unsigned int y, unsigned int w, unsigned int h, const void* buffer) = 0;
+		virtual void onPUPaint(const RefPtr<ChromiumPaintInfo>& info) = 0;
 
 		virtual void onShow() = 0;
 
@@ -1031,23 +1049,6 @@ namespace ChromiumDLL
 		// The main thread in the renderer. Used for all WebKit and V8 interaction.
 		///
 		TID_RENDERER,
-	};
-
-	template <typename T>
-	class CallbackT : public CallbackI
-	{
-	public:
-		CallbackT(T t)
-			: m_T(t)
-		{
-		}
-
-		virtual void run()
-		{
-			m_T();
-		}
-
-		T m_T;
 	};
 
 	class ChromiumBrowserDefaultsI : public IntrusiveRefPtrI

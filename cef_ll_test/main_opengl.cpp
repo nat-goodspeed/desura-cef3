@@ -553,10 +553,6 @@ class cefGL : public ChromiumDLL::ChromiumRefCount<Proxy>
 			return true;
 		}
 
-		void HandleWndProc(int message, int wparam, int lparam) override
-		{
-		}
-
 		static void onMenuSelect(int nVal)
 		{
 
@@ -567,7 +563,7 @@ class cefGL : public ChromiumDLL::ChromiumRefCount<Proxy>
 			return (value&flags ? true : false);
 		}
 
-		bool HandlePopupMenu(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumMenuInfoI>& menuInfo) override
+		bool handlePopupMenu(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumMenuInfoI>& menuInfo) override
 		{
 			std::cout << "HandlePopupMenu: " << m_nLastXIn << " " << m_nLastYIn << std::endl;
 
@@ -583,10 +579,6 @@ class cefGL : public ChromiumDLL::ChromiumRefCount<Proxy>
 #endif
 
 			return true;
-		}
-
-		void HandleJSBinding(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI>& jsObject, const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI>& factory) override
-		{
 		}
 
 		void onDownloadFile(const char* szUrl, const char* szMimeType, unsigned long long ullFileSize) override
@@ -635,21 +627,41 @@ class cefGL : public ChromiumDLL::ChromiumRefCount<Proxy>
 			return true;
 		}
 
-		void onPaint(unsigned int x, unsigned int y, unsigned int w, unsigned int h, const void* buffer) override
+		void copyRegion(int x, int y, int w, int h, unsigned char* buffer)
 		{
-			std::cout << "onPaint at " << x << " x " << y << " of size " << w << " x " << h << std::endl;
+			for (int i = y; i < (y + h); ++i)
+			{
+				unsigned char* b = buffer + ((i * mAppTextureWidth) + x) * 4;
+				unsigned char* p = mAppTexturePixels + ((i * mAppTextureWidth) + x) * 4;
+
+				memcpy(p, b, w * 4);
+			}
+		}
+
+		void onPaint(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumPaintInfo>& info) override
+		{
+			std::cout << "onPaint at " << info->windowRegion.x << " x " << info->windowRegion.y << " of size " << info->windowRegion.w << " x " << info->windowRegion.h << std::endl;
 
 			{
 				LockGaurd guard(m_BufferLock);
 
-				mNeedsResize = mNeedsResize || mAppWindowHeight != h || mAppTextureWidth != w;
+				mNeedsResize = mNeedsResize || mAppWindowHeight != info->windowRegion.h || mAppTextureWidth != info->windowRegion.w;
 	
-				mAppTextureWidth = w;
-				mAppTextureHeight = h;
+				mAppTextureWidth = info->windowRegion.w;
+				mAppTextureHeight = info->windowRegion.h;
 
-				size_t totSize = mAppTextureWidth * mAppTextureHeight * 4;
-				mAppTexturePixels = (unsigned char*)realloc(mAppTexturePixels, totSize);
-				memcpy(mAppTexturePixels, buffer, totSize);
+				if (mNeedsResize || info->regionCount == 0)
+				{
+					size_t totSize = mAppTextureWidth * mAppTextureHeight * 4;
+					mAppTexturePixels = (unsigned char*)realloc(mAppTexturePixels, totSize);
+					memcpy(mAppTexturePixels, info->buffer, totSize);
+				}
+				else
+				{
+					for (int x = 0; x < info->regionCount; ++x)
+						copyRegion(info->invalidatedRegions[x].x, info->invalidatedRegions[x].y, info->invalidatedRegions[x].w, info->invalidatedRegions[x].h, (unsigned char*)info->buffer);
+				}
+
 				mNeedsUpdate = true;
 			}
 
@@ -689,9 +701,9 @@ class cefGL : public ChromiumDLL::ChromiumRefCount<Proxy>
 				glutSetCursor(GLUT_CURSOR_INHERIT);
 		}
 
-		void onPUPaint(unsigned int x, unsigned int y, unsigned int w, unsigned int h, const void* buffer) override
+		void onPUPaint(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumPaintInfo>& info) override
 		{
-			std::cout << "onPUPaint at " << x << " x " << y << " of size " << w << " x " << h << std::endl;
+			std::cout << "onPUPaint at " << info->windowRegion.x << " x " << info->windowRegion.y << " of size " << info->windowRegion.w << " x " << info->windowRegion.h << std::endl;
 		}
 
 		void onShow() override
