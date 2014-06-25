@@ -41,6 +41,8 @@ class EventCallback : public ChromiumDLL::ChromiumRefCount<ChromiumDLL::Chromium
 public:
 	virtual bool onNavigateUrl(const char* url, bool isMain)
 	{
+		g_Browser->showInspector();
+
 		std::cout << "onNavigateUrl: " << url << std::endl;
 		SetWindowText(m_MainWinHwnd, url);
 		return true;
@@ -103,7 +105,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 	case WM_CREATE: 
 		std::cout << "WM_CREATE" << std::endl;
-		g_Browser = g_ChromiumController->NewChromiumBrowser((int*)hWnd, "", "http://google.com");
+		g_Browser = g_ChromiumController->NewChromiumBrowser((int*)hWnd, "", "desura://testpage");
 		g_Browser->setEventCallback(g_EventCallback);
 		return 0;
 
@@ -198,6 +200,7 @@ HWND CreateMessageWindow(HINSTANCE hInstance)
 typedef ChromiumDLL::ChromiumControllerI* (*CEF_InitFn)(bool, const char*, const char*, const char*);
 
 extern ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI> NewExternalLoaderScheme();
+extern ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI> NewDesuraJSExtender();
 
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -217,12 +220,13 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	if (!CEF_Init)
 		return -2;
 
-	g_ChromiumController = CEF_Init(false, "cache", "log", "UserAgent");
+	g_ChromiumController = CEF_Init(false, "cache", "log", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.220 Safari/535.1 Desura/500.123 (Windows 8.1 x64)");
 
 	if (!g_ChromiumController)
 		return -3;
 
 	g_ChromiumController->RegisterSchemeExtender(NewExternalLoaderScheme());
+	g_ChromiumController->RegisterJSExtender(NewDesuraJSExtender());
 
 	MyRegisterClass(hInstance);
 

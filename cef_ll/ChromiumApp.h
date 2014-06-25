@@ -27,8 +27,50 @@ $/LicenseInfo$
 #include "ChromiumBrowserI.h"
 #include "include/cef_app.h"
 
+#include "JavaScriptContext.h"
 
-class ChromiumApp : public CefApp, protected CefBrowserProcessHandler
+#include "SharedMem.h"
+#include "tinythread.h"
+
+#include "zmq.hpp"
+#include "libjson.h"
+
+#include <list>
+
+class JavaScriptExtenderRef : public CefBase
+{
+public:
+	static const cef_thread_id_t TaskThread = TID_UI;
+
+	JavaScriptExtenderRef(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& pExtender)
+		: m_pExtender(pExtender)
+	{
+	}
+
+	ChromiumDLL::JavaScriptExtenderI* operator->()
+	{
+		return m_pExtender.get();
+	}
+
+	operator ChromiumDLL::JavaScriptExtenderI*()
+	{
+		return m_pExtender.get();
+	}
+
+	JSONNode execute(const std::string &strFunction, JSONNode object, JSONNode argumets);
+
+	const char* getName()
+	{
+		return m_pExtender->getName();
+	}
+
+private:
+	ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI> m_pExtender;
+
+	IMPLEMENT_REFCOUNTING(JavaScriptExtenderRef);
+};
+
+class ChromiumApp : public CefApp, protected CefBrowserProcessHandler, protected JsonSendTargetI
 {
 public:
 	ChromiumApp();
@@ -59,14 +101,43 @@ public:
 	bool RegisterJSExtender(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& extender);
 	bool RegisterSchemeExtender(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>& extender);
 
+	bool send(int nBrowser, JSONNode msg) OVERRIDE;
+
 protected:
 	std::vector<std::string> getSchemeList();
 
+	bool initJSExtenderSharedMem();
+
+	void initThread();
+	void run();
+	static void runThread(void* pObj);
+
+	void initIpc();
+
+	CefRefPtr<JavaScriptExtenderRef> findExtender(JSONNode msg);
+	int getBrowserId(JSONNode msg);
+
+	void processMessageReceived(const std::string &strFrom, const std::string &strJson);
+
 private:
-	std::vector<ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>> m_vJSExtenders;
+	zmq::context_t m_ZmqContext;
+	zmq::socket_t m_ZmqServer;
+
+	std::vector<CefRefPtr<JavaScriptExtenderRef>> m_vJSExtenders;
 	std::vector<ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>> m_vSchemeExtenders;
 
+	SharedMem m_SharedMemInfo;
+
 	bool m_bInit;
+	bool m_bIpcInit;
+
+	volatile bool m_bIsStopped;
+	tthread::thread* m_pWorkerThread;
+
+	tthread::mutex m_BrowserLock;
+	std::map<int, std::string> m_mBrowserIdentity;
+
+	int m_nZmqPort;
 
 	IMPLEMENT_REFCOUNTING(ChromiumApp);
 };

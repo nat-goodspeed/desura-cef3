@@ -237,6 +237,10 @@ set(CEF_DL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cef3)
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/cef_ll_includes
   ${CMAKE_CURRENT_SOURCE_DIR}/cef_ll
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libjson/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libjson/code
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libtinythread
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zeromq-4.0.4/include
   ${CEF_DL_DIR}
   ${CEF_DL_DIR}/libcef_dll
 )
@@ -254,7 +258,14 @@ add_definitions(
   -DUSING_CEF_SHARED
   -DNOMINMAX
   -DCHROMIUM_API_SUPPORTS_V2
+  -DZMQ_STATIC
 )
+
+if(DEBUG)
+	add_definitions(
+		-DJSON_DEBUG
+	)
+endif()
 
 file(GLOB cef_ll_sources 
 	cef_ll/*.cpp 
@@ -265,6 +276,38 @@ file(GLOB cef_ll_host_sources
 	cef_ll_host/*.cpp 
 	cef_ll_host/*.h 
 )
+
+file(GLOB libjson_sources
+	third_party/libjson/code/*.cpp
+	third_party/libjson/code/*.h
+)
+
+file(GLOB libtinythread_sources
+	third_party/libtinythread/*.cpp
+	third_party/libtinythread/*.h
+)
+
+file(GLOB zeromq_sources
+	third_party/zeromq-4.0.4/src/*.h
+	third_party/zeromq-4.0.4/src/*.cpp
+)
+
+if(WIN32)
+include_directories(
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zeromq-4.0.4/builds/msvc
+)
+
+file(GLOB zeromq_sources_platform
+	third_party/zeromq-4.0.4/builds/msvc/*.cpp
+	third_party/zeromq-4.0.4/builds/msvc/*.hpp
+)
+
+add_definitions(
+  -D__WINDOWS__
+  -D_WINSOCKAPI_
+)
+
+endif()
 
 file(GLOB libcef_dll_wrapper_sources 
 	${CEF_INCLUDE_PATH}/*.h 
@@ -284,6 +327,10 @@ file(GLOB libcef_dll_wrapper_sources
 add_library(3p_cef3 SHARED ${cef_ll_sources})
 add_library(libcef_dll_wrapper STATIC ${libcef_dll_wrapper_sources})
 
+add_library(libjson STATIC ${libjson_sources})
+add_library(libtinythread STATIC ${libtinythread_sources})
+add_library(libzeromq STATIC ${zeromq_sources} ${zeromq_sources_platform})
+
 if(WIN32)
 	add_executable(3p_cef3_host WIN32 ${cef_ll_host_sources})
 else()
@@ -294,6 +341,9 @@ set_property(TARGET 3p_cef3 PROPERTY COMPILE_DEFINITIONS BUILDING_3P_CEF3_SHARED
 
 target_link_libraries(3p_cef3
   libcef_dll_wrapper
+  libjson
+  libtinythread
+  libzeromq
 )
 
 target_link_libraries(3p_cef3_host
@@ -305,7 +355,7 @@ add_dependencies(3p_cef3 3p_cef3_host)
 add_dependencies(3p_cef3_test_ogl 3p_cef3)
 
 if(WIN32)
-	add_executable(3p_cef3_test_msw WIN32 cef_ll_test/main_msw.cpp cef_ll_test/ll_scheme.cpp)
+	add_executable(3p_cef3_test_msw WIN32 cef_ll_test/main_msw.cpp cef_ll_test/ll_scheme.cpp cef_ll_test/ll_jsextender.cpp)
 
 	target_link_libraries(3p_cef3_test_ogl
 		${CMAKE_CURRENT_SOURCE_DIR}/cef_ll_test/freeglut/freeglut.lib
@@ -313,6 +363,7 @@ if(WIN32)
 
 	target_link_libraries(3p_cef3
 		${CEF_BIN_PATH}/libcef.lib
+		ws2_32.lib
 	)
 
 	#build bot builds with visual studio 2010 and so should we
@@ -328,7 +379,10 @@ if(WIN32)
 	SetStaticRuntime(libcef_dll_wrapper)
 	SetStaticRuntime(3p_cef3_test_msw)
 	SetStaticRunTime(3p_cef3_test_ogl)
-
+	SetStaticRuntime(libjson)
+	SetStaticRuntime(libtinythread)
+	SetStaticRuntime(libzeromq)
+	
 	add_dependencies(3p_cef3_test_msw 3p_cef3)
 elseif(UNIX)
 	add_definitions(-DNIX)

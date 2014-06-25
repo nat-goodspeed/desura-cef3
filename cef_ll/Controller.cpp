@@ -194,6 +194,7 @@ bool ChromiumController::DoInit(bool threaded, const char* cachePath, const char
 		CefAddWebPluginPath("libdesura_flashwrapper.so");
 #endif
 
+		CefAddWebPluginDirectory("PepperFlash");
 		CefRefreshWebPlugins();
 	}
 

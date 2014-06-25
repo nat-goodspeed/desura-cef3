@@ -31,27 +31,7 @@ $/LicenseInfo$
 
 #include "ChromiumBrowserI.h"
 #include "RefCount.h"
-//#include "include/cef.h"
-#include "include/cef_base.h"
-
-class ObjectWrapper : public CefBase
-{
-public:
-	ObjectWrapper(const ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI>& data)
-		: m_pData(data)
-	{
-	}
-
-	ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI> getData()
-	{
-		return m_pData;
-	}
-
-	IMPLEMENT_REFCOUNTING(ObjectWrapper);
-
-private:
-	ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI> m_pData;
-};
+#include "libjson.h"
 
 class JavaScriptFactory : public ChromiumDLL::JavaScriptFactoryI
 {
@@ -59,21 +39,19 @@ public:
 	JavaScriptFactory();
 	~JavaScriptFactory();
 
-	virtual ChromiumDLL::JSObjHandle CreateUndefined();
-	virtual ChromiumDLL::JSObjHandle CreateNull();
-	virtual ChromiumDLL::JSObjHandle CreateBool(bool value);
-	virtual ChromiumDLL::JSObjHandle CreateInt(int value);
-	virtual ChromiumDLL::JSObjHandle CreateDouble(double value);
-	virtual ChromiumDLL::JSObjHandle CreateString(const char* value);
-	virtual ChromiumDLL::JSObjHandle CreateArray();
-	virtual ChromiumDLL::JSObjHandle CreateObject();
-	virtual ChromiumDLL::JSObjHandle CreateObject(const ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI>& userData);
-	virtual ChromiumDLL::JSObjHandle CreateException(const char* value);
-	virtual ChromiumDLL::JSObjHandle CreateFunction(const char* name, const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& handler);
+	ChromiumDLL::JSObjHandle CreateUndefined() OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateNull() OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateBool(bool value) OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateInt(int value) OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateDouble(double value) OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateString(const char* value) OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateArray() OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateObject() OVERRIDE;
+	virtual ChromiumDLL::JSObjHandle CreateObject(const ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI>& userData) OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateException(const char* value) OVERRIDE;
+	virtual ChromiumDLL::JSObjHandle CreateFunction(const char* name, const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& handler) OVERRIDE;
 
 	CEF3_IMPLEMENTREF_COUNTING(JavaScriptFactory);
 };
 
-ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI> GetJSFactory();
-
-#endif //THIRDPARTY_CEF3_JAVASCRIPTFACTORY_H
+#endif //DESURA_JAVASCRIPTFACTORY_H

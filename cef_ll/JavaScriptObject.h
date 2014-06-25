@@ -31,27 +31,17 @@ $/LicenseInfo$
 
 #include "ChromiumBrowserI.h"
 #include "RefCount.h"
-//#include "include/cef.h"
-#include "include/cef_v8.h"
+#include "include/cef_base.h"
+#include "libjson.h"
 
-class V8ValueBaseWrapper : public CefBase
-{
-public:
-	V8ValueBaseWrapper(CefRefPtr<CefV8Value> object)
-	{
-		m_pObject = object;
-	}
-
-	CefRefPtr<CefV8Value> m_pObject;
-	IMPLEMENT_REFCOUNTING(V8ValueBaseWrapper);
-};
-
+class JavaScriptExtenderRef;
 
 class JavaScriptObject : public ChromiumDLL::JavaScriptObjectI
 {
 public:
 	JavaScriptObject();
-	JavaScriptObject(CefRefPtr<CefV8Value> obj);
+	JavaScriptObject(JSONNode node, bool bIsException = false);
+	JavaScriptObject(const char* name, const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& handler);
 	~JavaScriptObject();
 
 	virtual void destory();
@@ -97,14 +87,22 @@ public:
 
 	virtual ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI> getUserObject();
 
-	CefRefPtr<CefV8Value> getCefV8();
-	CefRefPtr<CefBase> getCefBase();
-
 	void setException();
+	void setFunctionHandler(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& pExtender);
+
+	JSONNode getNode()
+	{
+		return m_JsonNode;
+	}
 
 private:
+	int m_iRefCount;
 	bool m_bIsException;
-	CefRefPtr<CefV8Value> m_pObject;
+
+	std::string m_strId;
+
+	CefRefPtr<JavaScriptExtenderRef> m_pJavaScriptExtender;
+	JSONNode m_JsonNode;
 
 	CEF3_IMPLEMENTREF_COUNTING(JavaScriptObject);
 };

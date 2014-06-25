@@ -31,7 +31,7 @@ $/LicenseInfo$
 #endif
 
 #ifdef WIN32
-
+#include <winsock2.h>
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -56,6 +56,12 @@ $/LicenseInfo$
 #endif
 #else
 #define DLLINTERFACE __attribute__ ((visibility("default")))
+#endif
+
+#ifdef WIN32
+#define OVERRIDE override
+#else
+#define OVERRIDE
 #endif
 
 #ifdef CHROMIUM_API_SUPPORTS_V2

@@ -111,7 +111,6 @@ public:
 protected:
 	CefBrowserSettings getBrowserDefaults(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults);
 
-	CefRefPtr<CefV8Context> m_rContext;
 	CefRefPtr<CefClient> m_rEventHandler;
 	CefRefPtr<CefBrowser> m_pBrowser;
 

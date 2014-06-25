@@ -27,16 +27,15 @@ $/LicenseInfo$
 #include "JavaScriptFactory.h"
 #include "JavaScriptObject.h"
 
-JavaScriptContext::JavaScriptContext()
-{
-	m_pContext = CefV8Context::GetCurrentContext();
-	m_uiCount = 0;
-}
 
-JavaScriptContext::JavaScriptContext(CefRefPtr<CefV8Context> context)
+
+
+
+JavaScriptContext::JavaScriptContext(int nBrowserId)
+	: m_uiCount(0)
+	, m_nBrowserId(nBrowserId)
+	, m_JSFactory(new JavaScriptFactory())
 {
-	m_pContext = context;
-	m_uiCount = 0;
 }
 
 void JavaScriptContext::destroy()
@@ -46,44 +45,28 @@ void JavaScriptContext::destroy()
 
 ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptContextI> JavaScriptContext::clone()
 {
-	return new JavaScriptContext(m_pContext);
+	return new JavaScriptContext(m_nBrowserId);
 }
 
 void JavaScriptContext::enter()
 {
-	if (m_pContext.get())
-	{
-		m_pContext->Enter();
-		m_uiCount++;
-	}
+	//TODO: Implement
+	m_uiCount++;
 }
 
 void JavaScriptContext::exit()
 {
-	if (m_pContext.get())
-	{
-		m_pContext->Exit();
-		m_uiCount--;
-	}
+	//TODO: Implement
+	m_uiCount--;
 }
 
 ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI> JavaScriptContext::getFactory()
 {
-	if (!m_pContext.get() || m_uiCount == 0)
-		return NULL;
-
-	return GetJSFactory();
-}
-
-CefRefPtr<CefV8Context> JavaScriptContext::getCefV8()
-{
-	return m_pContext;
+	return m_JSFactory;
 }
 
 ChromiumDLL::JSObjHandle JavaScriptContext::getGlobalObject()
 {
-	if (m_pContext.get())
-		return new JavaScriptObject(m_pContext->GetGlobal());
-
+	//TODO: Implement
 	return NULL;
 }

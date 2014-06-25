@@ -67,12 +67,15 @@ static void gtkFocus(GtkWidget *widget, GdkEvent *event, ChromiumBrowser *data)
 }
 #endif
 
-ChromiumController* g_Controller = new ChromiumController();
+ChromiumController* g_Controller = NULL;
 
 extern "C"
 {
 	DLLINTERFACE ChromiumDLL::ChromiumControllerI* CEF_InitEx(bool threaded, const char* cachePath, const char* logPath, const char* userAgent)
 	{
+		if (!g_Controller)
+			g_Controller = new ChromiumController();
+
 		if (g_Controller->Init(threaded, cachePath, logPath, userAgent))
 			return g_Controller;
 
@@ -82,11 +85,17 @@ extern "C"
 #ifdef WIN32
 	DLLINTERFACE int CEF_ExecuteProcessWin(HINSTANCE instance)
 	{
+		if (!g_Controller)
+			g_Controller = new ChromiumController();
+
 		return g_Controller->ExecuteProcess(instance);
 	}
 #else
 	DLLINTERFACE int CEF_ExecuteProcess(int argc, char** argv)
 	{
+		if (!g_Controller)
+			g_Controller = new ChromiumController();
+
 		return g_Controller->ExecuteProcess(argc, argv);
 	}
 #endif
@@ -633,14 +642,13 @@ int* ChromiumBrowser::getBrowserHandle()
 ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptContextI> ChromiumBrowser::getJSContext()
 {
 	if (m_pBrowser)
-		return new JavaScriptContext(m_rContext);
+		return new JavaScriptContext(m_pBrowser->GetIdentifier());
 
 	return NULL;
 }
 
 void ChromiumBrowser::setContext(const CefRefPtr<CefV8Context>& context)
 {
-	m_rContext = context;
 }
 
 
