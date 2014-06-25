@@ -89,17 +89,9 @@ public:
 		return false;
 	}
 
-	virtual void HandleWndProc(int message, int wparam, int lparam)
-	{
-	}
-
-	virtual bool HandlePopupMenu(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumMenuInfoI>& menuInfo)
+	virtual bool handlePopupMenu(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumMenuInfoI>& menuInfo)
 	{
 		return false;
-	}
-
-	virtual void HandleJSBinding(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI>& jsObject, const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI>& factory)
-	{
 	}
 };
 
