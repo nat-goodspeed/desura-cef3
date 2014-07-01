@@ -23,17 +23,23 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
+#ifndef THIRDPARTY_CEF3_CONTROLLER_H
+#define THIRDPARTY_CEF3_CONTROLLER_H
+
 #include "ChromiumBrowserI.h"
-#include "ChromiumApp.h"
+#include "Tracer.h"
+#include "include\internal\cef_ptr.h"
 
 #ifdef WIN32_SANDBOX_ENABLED
 #include "include/cef_sandbox_win.h"
 #endif
 
+class ChromiumApp;
+
 class ChromiumController : public ChromiumDLL::ChromiumControllerI
 {
 public:
-	ChromiumController();
+	ChromiumController(bool bMainProcess);
 
 	virtual int GetMaxApiVersion();
 
@@ -67,6 +73,11 @@ public:
 	int ExecuteProcess(int argc, char** argv);
 #endif
 
+	void trace(const std::string &strTrace, std::map<std::string, std::string> *mpArgs)
+	{
+		m_Tracer.trace(strTrace, mpArgs);
+	}
+
 protected:
 	bool DoInit(bool threaded, const char* cachePath, const char* logPath, const char* userAgent);
 
@@ -85,6 +96,96 @@ private:
 	CefScopedSandboxInfo m_pSandbox;
 #endif
 
+	TracerStorage m_Tracer;
+
+
 	ChromiumDLL::RefPtr<ChromiumDLL::ChromiumCookieManagerI> m_pCookieManager;
 	ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI> m_pDefaults;
 };
+
+
+extern ChromiumController* g_Controller;
+
+
+
+template <typename T>
+std::string TraceClassInfo(T *pClass)
+{
+	return "";
+}
+
+
+#ifdef WIN32
+#ifndef _delayimp_h
+extern "C" IMAGE_DOS_HEADER __ImageBase;
+#endif
+#endif
+
+#ifdef WIN32
+inline std::string GetModule(HMODULE hModule)
+{
+	char szModuleName[255] = { 0 };
+	DWORD nLen = GetModuleFileNameA(hModule, szModuleName, 255);
+
+	auto t = std::string(szModuleName, nLen);
+	return t.substr(t.find_last_of('\\') + 1);
+}
+#endif
+
+template <typename ... Args>
+void TraceS(const char* szFunction, const char* szClassInfo, const char* szFormat, Args ... args)
+{
+	static auto getCurrentThreadId = []()
+	{
+#ifdef WIN32
+		return ::GetCurrentThreadId();
+#else
+		return (uint64)pthread_self();
+#endif
+	};
+
+	char szBuff[16] = { 0 };
+	_snprintf(szBuff, 16, "%d", getCurrentThreadId());
+
+	std::map<std::string, std::string> mArgs;
+
+	mArgs["function"] = szFunction ? szFunction : "";
+	mArgs["classinfo"] = szClassInfo ? szClassInfo : "";
+	mArgs["thread"] = szBuff;
+	mArgs["time"] = "0";// gcTime().to_js_string();
+
+#ifdef WIN32
+	mArgs["module"] = GetModule(reinterpret_cast<HMODULE>(&__ImageBase));
+	mArgs["app"] = GetModule(NULL);
+#endif
+
+	std::string strTrace; // = gcString(szFormat, args...);
+	strTrace.resize(1024);
+
+	int nSize = _snprintf(&strTrace[0], 1024, szFormat, args...);
+	strTrace.resize(nSize);
+
+	g_Controller->trace(strTrace, &mArgs);
+}
+
+template <typename T, typename ... Args>
+void TraceT(const char* szFunction, T *pClass, const char* szFormat, Args ... args)
+{
+	auto ci = TraceClassInfo(pClass);
+	TraceS(szFunction, ci.c_str(), szFormat, args...);
+}
+
+namespace
+{
+	class FakeTracerClass
+	{
+	};
+}
+
+#define cef3Trace( ... ) TraceT(__FUNCTION__, this, __VA_ARGS__)
+#define cef3TraceS( ... ) TraceT(__FUNCTION__, (FakeTracerClass*)nullptr, __VA_ARGS__)
+
+
+
+
+#endif

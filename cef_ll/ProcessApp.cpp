@@ -28,11 +28,12 @@ $/LicenseInfo$
 
 #include "ChromiumBrowserI.h"
 #include "JavaScriptContext.h"
+#include "Controller.h"
 
 #include <string>
 #include <sstream>
 #include <memory>
-
+#include <assert.h>
 
 extern CefStringUTF8 ConvertToUtf8(const CefString& str);
 CefRefPtr<CefCommandLine> g_command_line;
@@ -53,6 +54,7 @@ public:
 
 		context->Enter();
 
+		assert(false);
 		//TODO
 		int a = 1;
 
@@ -122,6 +124,8 @@ CefRefPtr<CefRenderProcessHandler> ProcessApp::GetRenderProcessHandler()
 
 void ProcessApp::OnBrowserCreated(CefRefPtr<CefBrowser> browser)
 {
+	cef3Trace("Id: %d", browser->GetIdentifier());
+
 	JSONNode msg(JSON_NODE);
 	msg.push_back(JSONNode("name", "Browser-Created"));
 	msg.push_back(JSONNode("id", browser->GetIdentifier()));
@@ -134,6 +138,8 @@ void ProcessApp::OnBrowserCreated(CefRefPtr<CefBrowser> browser)
 
 void ProcessApp::OnBrowserDestroyed(CefRefPtr<CefBrowser> browser)
 {
+	cef3Trace("Id: %d", browser->GetIdentifier());
+
 	JSONNode msg(JSON_NODE);
 	msg.push_back(JSONNode("name", "Browser-Destroyed"));
 	msg.push_back(JSONNode("id", browser->GetIdentifier()));
@@ -256,6 +262,8 @@ void ProcessApp::run()
 
 void ProcessApp::processMessageReceived(const std::string &strJson)
 {
+	cef3Trace("Json: %s", strJson.c_str());
+
 	JSONNode msg;
 
 	try
@@ -295,6 +303,9 @@ void ProcessApp::processMessageReceived(const std::string &strJson)
 bool ProcessApp::send(int nBrowser, JSONNode msg)
 {
 	std::string strMsg = msg.write();
+
+	cef3Trace("Json: %s", strMsg.c_str());
+
 	m_ZmqClient.send(strMsg.c_str(), strMsg.size(), 0);
 	return true;
 }

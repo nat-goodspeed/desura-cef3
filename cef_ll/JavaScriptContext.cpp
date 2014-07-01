@@ -26,8 +26,7 @@ $/LicenseInfo$
 #include "JavaScriptContext.h"
 #include "JavaScriptFactory.h"
 #include "JavaScriptObject.h"
-
-
+#include "Controller.h"
 
 
 
@@ -50,12 +49,16 @@ ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptContextI> JavaScriptContext::clone()
 
 void JavaScriptContext::enter()
 {
+	cef3Trace("");
+
 	//TODO: Implement
 	m_uiCount++;
 }
 
 void JavaScriptContext::exit()
 {
+	cef3Trace("");
+
 	//TODO: Implement
 	m_uiCount--;
 }

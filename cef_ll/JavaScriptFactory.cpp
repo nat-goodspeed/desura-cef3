@@ -24,7 +24,6 @@ $/LicenseInfo$
 */
 
 #include "JavaScriptFactory.h"
-#include "JavaScriptExtender.h"
 #include "JavaScriptObject.h"
 
 JavaScriptFactory::JavaScriptFactory()

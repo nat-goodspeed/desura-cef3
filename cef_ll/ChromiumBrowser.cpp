@@ -29,7 +29,6 @@ $/LicenseInfo$
 
 #include "ChromiumBrowser.h"
 #include "Controller.h"
-#include "JavaScriptExtender.h"
 #include "SchemeExtender.h"
 
 #include "JavaScriptContext.h"
@@ -74,7 +73,7 @@ extern "C"
 	DLLINTERFACE ChromiumDLL::ChromiumControllerI* CEF_InitEx(bool threaded, const char* cachePath, const char* logPath, const char* userAgent)
 	{
 		if (!g_Controller)
-			g_Controller = new ChromiumController();
+			g_Controller = new ChromiumController(true);
 
 		if (g_Controller->Init(threaded, cachePath, logPath, userAgent))
 			return g_Controller;
@@ -86,7 +85,7 @@ extern "C"
 	DLLINTERFACE int CEF_ExecuteProcessWin(HINSTANCE instance)
 	{
 		if (!g_Controller)
-			g_Controller = new ChromiumController();
+			g_Controller = new ChromiumController(false);
 
 		return g_Controller->ExecuteProcess(instance);
 	}
@@ -94,7 +93,7 @@ extern "C"
 	DLLINTERFACE int CEF_ExecuteProcess(int argc, char** argv)
 	{
 		if (!g_Controller)
-			g_Controller = new ChromiumController();
+			g_Controller = new ChromiumController(false);
 
 		return g_Controller->ExecuteProcess(argc, argv);
 	}

@@ -32,6 +32,7 @@ $/LicenseInfo$
 
 #include "libjson.h"
 #include <memory>
+#include "Controller.h"
 
 std::vector<std::string> ChromiumApp::getSchemeList()
 {
@@ -284,6 +285,8 @@ bool ChromiumApp::RegisterSchemeExtender(const ChromiumDLL::RefPtr<ChromiumDLL::
 
 void ChromiumApp::processMessageReceived(const std::string &strFrom, const std::string &strJson)
 {
+	cef3Trace("From: %s, Json: %s", strFrom.c_str(), strJson.c_str());
+
 	JSONNode msg;
 
 	try
@@ -375,6 +378,8 @@ int ChromiumApp::getBrowserId(JSONNode msg)
 
 bool ChromiumApp::send(int nBrowser, JSONNode msg)
 {
+	cef3Trace("Browser: %d", nBrowser);
+
 	std::string strTo;
 
 	{
@@ -390,6 +395,8 @@ bool ChromiumApp::send(int nBrowser, JSONNode msg)
 
 	std::string strOut = msg.write();
 
+	cef3Trace("To: %s, Json: %s", strTo.c_str(), strOut.c_str());
+
 	m_ZmqServer.send(strTo.c_str(), strTo.size(), ZMQ_SNDMORE);
 	m_ZmqServer.send(strOut.c_str(), strOut.size(), 0);
 
@@ -398,22 +405,63 @@ bool ChromiumApp::send(int nBrowser, JSONNode msg)
 
 
 
+class JSContext : public ChromiumDLL::JavaScriptContextI
+{
+public:
+	JSContext(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI> &factory, const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> &object)
+		: m_Factory(factory)
+		, m_Object(object)
+		, m_nBrowserId(JavaScriptContextHelper<JavaScriptExtenderRef>::Self.peek())
+	{
+	}
 
+	ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptContextI> clone() OVERRIDE
+	{
+		return new JSContext(m_Factory, m_Object);
+	}
+
+	void enter() OVERRIDE
+	{
+		cef3Trace("");
+		JavaScriptContextHelper<JavaScriptExtenderRef>::Self.push(m_nBrowserId);
+	}
+
+	void exit() OVERRIDE
+	{
+		cef3Trace("");
+		JavaScriptContextHelper<JavaScriptExtenderRef>::Self.pop(m_nBrowserId);
+	}
+
+	ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI> getFactory() OVERRIDE
+	{
+		return m_Factory;
+	}
+
+	ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> getGlobalObject() OVERRIDE
+	{
+		return m_Object;
+	}
+
+	ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> m_Object;
+	ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI> m_Factory;
+	int m_nBrowserId;
+	CEF3_IMPLEMENTREF_COUNTING(JSContext);
+};
 
 
 class JSFunctArgs : public ChromiumDLL::JavaScriptFunctionArgs
 {
 public:
-	JSFunctArgs(const std::string &strFunction, JSONNode object, JSONNode argumets)
+	JSFunctArgs(const std::string &strFunction, JSONNode o, JSONNode argumets)
 		: m_Factory(new JavaScriptFactory())
 	{
 		function = strFunction.c_str();
 		factory = m_Factory;
 		argc = argumets.size();
 		argv = new ChromiumDLL::JSObjHandle[argumets.size()];
-		context = NULL;
-		object = new JavaScriptObject(object);
-
+		object = new JavaScriptObject(o);
+		context = new JSContext(m_Factory, object);
+	
 		for (size_t x = 0; x < argc; ++x)
 			argv[x] = new JavaScriptObject(argumets[x]);
 	}
@@ -430,6 +478,8 @@ public:
 
 JSONNode JavaScriptExtenderRef::execute(const std::string &strFunction, JSONNode object, JSONNode argumets)
 {
+	cef3Trace("Function: %s, argc: %d", strFunction.c_str(), argumets.size());
+
 	ChromiumDLL::JSObjHandle pRet = m_pExtender->execute(new JSFunctArgs(strFunction, object, argumets));
 
 	JavaScriptObject* pObj = dynamic_cast<JavaScriptObject*>(pRet.get());
@@ -442,4 +492,5 @@ JSONNode JavaScriptExtenderRef::execute(const std::string &strFunction, JSONNode
 	
 	char szException[255] = { 0 };
 	pObj->getStringValue(szException, 255);
+	throw std::exception(szException);
 }

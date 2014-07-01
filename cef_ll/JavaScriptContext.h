@@ -36,8 +36,11 @@ $/LicenseInfo$
 #include "libjson.h"
 #include "tinythread.h"
 
+#include "Controller.h"
+
 #include <xstring>
 #include <vector>
+#include <assert.h>
 
 template <typename T>
 class JavaScriptContextHandle
@@ -106,13 +109,20 @@ public:
 	//!
 	void push(int nBrowser)
 	{
+		cef3Trace("nBrowser: %d", nBrowser);
 		m_vBrowserContext.push_back(nBrowser);
 	}
 
 	void pop(int nBrowser)
 	{
-		//ASSERT(nBrowser == m_vBrowserContext.back());
+		cef3Trace("nBrowser: %d", nBrowser);
+		assert(nBrowser == m_vBrowserContext.back());
 		m_vBrowserContext.pop_back();
+	}
+
+	int peek()
+	{
+		return m_vBrowserContext.back();
 	}
 
 	bool processResponse(CefRefPtr<T> &pExtender, int nBrowser, JSONNode jsonRes);
@@ -189,6 +199,8 @@ private:
 template <typename T>
 JSONNode JavaScriptContextHelper<T>::invokeFunction(const std::string &strJSNameOrFunctId, const std::string &strFunction, JSONNode object, const std::vector<JSONNode> &args)
 {
+	cef3Trace("id: %s, fun: %s, argc: %d", strJSNameOrFunctId.c_str(), strFunction.c_str(), args.size());
+
 	int nBrowserId = -1;
 
 	if (!m_vBrowserContext.empty())
@@ -235,14 +247,16 @@ JSONNode JavaScriptContextHelper<T>::invokeFunction(const std::string &strJSName
 template <typename T>
 JSONNode JavaScriptContextHelper<T>::waitForResponse()
 {
-#ifdef DEBUG
+//#ifdef DEBUG
 	int nWaitTimeout = 999; //allow for debugging
-#else
-	int nWaitTimeout = 1;
-#endif
+//#else
+//	int nWaitTimeout = 1;
+//#endif
 
 	while (true)
 	{
+		cef3Trace("wait");
+
 		{
 			tthread::lock_guard<tthread::mutex> guard(m_WaitLock);
 
@@ -275,15 +289,23 @@ JSONNode JavaScriptContextHelper<T>::waitForResponse()
 
 		if (strAction == "FunctionReturn")
 		{
-			return jsonReq["result"];
+			cef3Trace("function return - Extender: %s, nBrowser: %d", info.m_pExtender->getName(), info.m_nBrowser);
+
+			if (jsonReq.find("result") != jsonReq.end())
+				return jsonReq["result"];
+
+			return JSONNode(JSON_NULL);
 		}
 		else if (strAction == "FunctionException")
 		{
+			cef3Trace("function exception - Extender: %s, nBrowser: %d", info.m_pExtender->getName(), info.m_nBrowser);
+
 			std::string strExcpt = jsonReq["exception"].as_string();
 			throw std::exception(strExcpt.c_str());
 		}
 		else
 		{
+			cef3Trace("new request - Extender: %s, nBrowser: %d", info.m_pExtender->getName(), info.m_nBrowser);
 			newRequest(info.m_pExtender, info.m_nBrowser, info.m_jsonReq);
 		}
 	}
@@ -302,10 +324,13 @@ bool JavaScriptContextHelper<T>::processRequest(CefRefPtr<T> &pExtender, int nBr
 	//if we have a pending active request let it handle the new request
 	if (m_nActiveRequests == 0)
 	{
+		cef3Trace("PostTask - Extender: %s, nBrowser: %d", pExtender->getName(), nBrowser);
 		CefPostTask(T::TaskThread, new JsonRequestTask(info));
 	}
 	else
 	{
+		cef3Trace("Waiting Task - Extender: %s, nBrowser: %d", pExtender->getName(), nBrowser);
+
 		tthread::lock_guard<tthread::mutex> guard(m_ResponseLock);
 		m_vResponseList.push_back(info);
 		m_WaitCond.notify_all();
@@ -317,6 +342,8 @@ bool JavaScriptContextHelper<T>::processRequest(CefRefPtr<T> &pExtender, int nBr
 template <typename T>
 bool JavaScriptContextHelper<T>::processResponse(CefRefPtr<T> &pExtender, int nBrowser, JSONNode jsonReq)
 {
+	cef3Trace("Extender: %s, nBrowser: %d", pExtender->getName(), nBrowser);
+
 	RequestInfo info(pExtender, nBrowser, jsonReq);
 
 	tthread::lock_guard<tthread::mutex> arguard(m_ActiveRequestLock);
@@ -338,6 +365,8 @@ void JavaScriptContextHelper<T>::newRequest(CefRefPtr<T> &pExtender, int nBrowse
 		return; //TODO: Handle better
 
 	std::string strAction = jsonReq["command"].as_string();
+
+	cef3Trace("Action: %s, Extender: %s, nBrowser: %d", strAction.c_str(), pExtender->getName(), nBrowserId);
 
 	if (strAction == "FunctionCall")
 	{

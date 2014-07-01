@@ -28,8 +28,8 @@ $/LicenseInfo$
 #include "FunctionHolder.h"
 
 #include "JavaScriptContext.h"
-
 #include "libjson.h"
+#include "Controller.h"
 
 
 extern CefStringUTF8 ConvertToUtf8(const CefString& str);
@@ -186,6 +186,12 @@ JSONNode ConvertV8ToJson(const CefRefPtr<CefV8Value>& val, CefRefPtr<CefV8Contex
 }
 
 
+template <>
+std::string TraceClassInfo<JavaScriptExtenderProxy>(JavaScriptExtenderProxy *pClass)
+{
+	return pClass->getName();
+}
+
 JavaScriptExtenderProxy::JavaScriptExtenderProxy(const std::string &strId, const CefRefPtr<CefV8Value> &funct, const CefRefPtr<CefV8Context> &context)
 	: m_strName(strId)
 	, m_Function(funct)
@@ -206,8 +212,13 @@ const char* JavaScriptExtenderProxy::getName()
 bool JavaScriptExtenderProxy::Execute(const CefString& function, CefRefPtr<CefV8Value> object, const CefV8ValueList& arguments, CefRefPtr<CefV8Value>& retval, CefString& exception)
 {
 	CefStringUTF8 strFunction = ConvertToUtf8(function);
+	cef3Trace("Function: %s, argc: %d", strFunction.c_str(), arguments.size());
 
-	int nBrowserId = CefV8Context::GetCurrentContext()->GetBrowser()->GetIdentifier();
+	auto v8Context = CefV8Context::GetCurrentContext();
+
+	v8Context->Enter();
+
+	int nBrowserId = v8Context->GetBrowser()->GetIdentifier();
 	JavaScriptContextHandle<JavaScriptExtenderProxy> context(nBrowserId);
 
 	JSONNode o(JSON_NULL); // = ConvertV8ToJson(object, vObjectIdent);
@@ -228,11 +239,15 @@ bool JavaScriptExtenderProxy::Execute(const CefString& function, CefRefPtr<CefV8
 		exception = e.what();
 	}
 
+	v8Context->Exit();
+
 	return true;
 }
 
 JSONNode JavaScriptExtenderProxy::execute(const std::string &strFunction, JSONNode object, JSONNode argumets)
 {
+	cef3Trace("Function: %s, argc: %d", strFunction.c_str(), argumets.size());
+
 	if (!m_Function || !m_Function->IsFunction())
 		throw std::exception("No valid v8 function");
 

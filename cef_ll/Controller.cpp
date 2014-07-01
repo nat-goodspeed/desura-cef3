@@ -27,6 +27,7 @@ $/LicenseInfo$
 #include "ChromiumBrowser.h"
 #include "include/cef_web_plugin.h"
 #include "Cookie.h"
+#include "ChromiumApp.h"
 
 int g_nApiVersion = 1;
 
@@ -44,10 +45,11 @@ bool logHandler(int level, const std::string& msg)
 
 
 
-ChromiumController::ChromiumController()
+ChromiumController::ChromiumController(bool bMainProcess)
 	: m_bInit(false)
 	, m_bPendingInit(false)
 	, m_App(new ChromiumApp())
+	, m_Tracer(L"CEF3_TRACER_OUTPUT", bMainProcess)
 {
 }
 

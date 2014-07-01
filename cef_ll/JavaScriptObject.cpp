@@ -24,12 +24,12 @@ $/LicenseInfo$
 */
 
 #include "JavaScriptObject.h"
-#include "JavaScriptExtender.h"
 #include "JavaScriptFactory.h"
 #include "JavaScriptContext.h"
 
 #include "ChromiumApp.h"
 #include "FunctionHolder.h"
+#include "Controller.h"
 
 int mystrncpy_s(char* dest, size_t destSize, const char* src, size_t srcSize)
 {
@@ -54,6 +54,7 @@ CefRefPtr<JavaScriptExtenderRef> LookupExtenderFromFunctionHolder_Browser(const 
 	return g_V8FunctionHolder.find(strId);
 }
 
+
 class JsonJavaScriptExtender : public ChromiumDLL::JavaScriptExtenderI
 {
 public:
@@ -74,6 +75,8 @@ public:
 
 	ChromiumDLL::JSObjHandle execute(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFunctionArgs>& args) OVERRIDE
 	{
+		cef3Trace("Function: %s, argc: %d", args->function, args->argc);
+
 		if (args->context)
 			args->context->enter();
 
@@ -96,7 +99,12 @@ public:
 			vArgs.push_back(a);
 		}
 
-		JSONNode ret = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.invokeFunction(m_strId, args->function, object, vArgs);
+		std::string strFunct = "";
+
+		if (args->function)
+			strFunct = args->function;
+
+		JSONNode ret = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.invokeFunction(m_strId, strFunct, object, vArgs);
 
 		if (args->context)
 			args->context->exit();
@@ -119,6 +127,12 @@ private:
 
 	CEF3_IMPLEMENTREF_COUNTING(JsonJavaScriptExtender);
 };
+
+template <>
+std::string TraceClassInfo<JsonJavaScriptExtender>(JsonJavaScriptExtender *pClass)
+{
+	return pClass->getName();
+}
 
 
 
