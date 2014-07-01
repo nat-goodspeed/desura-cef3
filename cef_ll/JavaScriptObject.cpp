@@ -385,6 +385,7 @@ ChromiumDLL::JSObjHandle JavaScriptObject::executeFunction(const ChromiumDLL::Re
 	if (!isFunction() || !getFunctionHandler())
 		return NULL;
 
+	args->function = m_strId.c_str();
 	return getFunctionHandler()->execute(args);
 }
 

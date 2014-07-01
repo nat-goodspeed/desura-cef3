@@ -122,33 +122,40 @@ CefRefPtr<CefRenderProcessHandler> ProcessApp::GetRenderProcessHandler()
 // CefRenderProcessHandler
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
+int ProcessApp::CreateBrowserId(const CefRefPtr<CefBrowser>& browser)
+{
+	return (browser->GetIdentifier() << 16) + (GetCurrentProcessId() & 0xFFFF);
+}
+
 void ProcessApp::OnBrowserCreated(CefRefPtr<CefBrowser> browser)
 {
-	cef3Trace("Id: %d", browser->GetIdentifier());
+	int bid = CreateBrowserId(browser);
+	cef3Trace("Id: %d", bid);
 
 	JSONNode msg(JSON_NODE);
 	msg.push_back(JSONNode("name", "Browser-Created"));
-	msg.push_back(JSONNode("id", browser->GetIdentifier()));
+	msg.push_back(JSONNode("id", bid));
 
 	send(-1, msg);
 
 	tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
-	m_mBrowsers[browser->GetIdentifier()] = browser;
+	m_mBrowsers[bid] = browser;
 }
 
 void ProcessApp::OnBrowserDestroyed(CefRefPtr<CefBrowser> browser)
 {
-	cef3Trace("Id: %d", browser->GetIdentifier());
+	int bid = CreateBrowserId(browser);
+	cef3Trace("Id: %d", bid);
 
 	JSONNode msg(JSON_NODE);
 	msg.push_back(JSONNode("name", "Browser-Destroyed"));
-	msg.push_back(JSONNode("id", browser->GetIdentifier()));
+	msg.push_back(JSONNode("id", bid));
 
 	send(-1, msg);
 
 
 	tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
-	std::map<int, CefRefPtr<CefBrowser>>::iterator it = m_mBrowsers.find(browser->GetIdentifier());
+	std::map<int, CefRefPtr<CefBrowser>>::iterator it = m_mBrowsers.find(bid);
 
 	if (it != m_mBrowsers.end())
 		m_mBrowsers.erase(it);
@@ -305,6 +312,9 @@ bool ProcessApp::send(int nBrowser, JSONNode msg)
 	std::string strMsg = msg.write();
 
 	cef3Trace("Json: %s", strMsg.c_str());
+
+	if (!m_ZmqClient.connected())
+		return false;
 
 	m_ZmqClient.send(strMsg.c_str(), strMsg.size(), 0);
 	return true;

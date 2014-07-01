@@ -69,6 +69,8 @@ public:
 
 	bool send(int nBrowser, JSONNode msg) OVERRIDE;
 
+	static int CreateBrowserId(const CefRefPtr<CefBrowser>& browser);
+
 protected:
 	static void runThread(void* pObj);
 	void run();

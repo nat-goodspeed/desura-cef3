@@ -122,13 +122,22 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;
 #endif
 
 #ifdef WIN32
-inline std::string GetModule(HMODULE hModule)
+inline std::string GetModule(HMODULE hModule, bool addPid = false)
 {
 	char szModuleName[255] = { 0 };
 	DWORD nLen = GetModuleFileNameA(hModule, szModuleName, 255);
 
 	auto t = std::string(szModuleName, nLen);
-	return t.substr(t.find_last_of('\\') + 1);
+	t = t.substr(t.find_last_of('\\') + 1);
+
+	if (addPid)
+	{
+		char szBuff[16] = { 0 };
+		_snprintf(szBuff, 16, "-%d", GetCurrentProcessId());
+		t += szBuff;
+	}
+
+	return t;
 }
 #endif
 
@@ -147,16 +156,19 @@ void TraceS(const char* szFunction, const char* szClassInfo, const char* szForma
 	char szBuff[16] = { 0 };
 	_snprintf(szBuff, 16, "%d", getCurrentThreadId());
 
+	char szTime[16] = { 0 };
+	_snprintf(szTime, 16, "%d", GetTickCount());
+
 	std::map<std::string, std::string> mArgs;
 
 	mArgs["function"] = szFunction ? szFunction : "";
 	mArgs["classinfo"] = szClassInfo ? szClassInfo : "";
 	mArgs["thread"] = szBuff;
-	mArgs["time"] = "0";// gcTime().to_js_string();
+	mArgs["time"] = szTime;// gcTime().to_js_string();
 
 #ifdef WIN32
 	mArgs["module"] = GetModule(reinterpret_cast<HMODULE>(&__ImageBase));
-	mArgs["app"] = GetModule(NULL);
+	mArgs["app"] = GetModule(NULL, true);
 #endif
 
 	std::string strTrace; // = gcString(szFormat, args...);

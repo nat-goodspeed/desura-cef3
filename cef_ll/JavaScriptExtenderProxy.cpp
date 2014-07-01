@@ -218,7 +218,7 @@ bool JavaScriptExtenderProxy::Execute(const CefString& function, CefRefPtr<CefV8
 
 	v8Context->Enter();
 
-	int nBrowserId = v8Context->GetBrowser()->GetIdentifier();
+	int nBrowserId = ProcessApp::CreateBrowserId(v8Context->GetBrowser());
 	JavaScriptContextHandle<JavaScriptExtenderProxy> context(nBrowserId);
 
 	JSONNode o(JSON_NULL); // = ConvertV8ToJson(object, vObjectIdent);

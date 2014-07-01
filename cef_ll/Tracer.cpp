@@ -46,6 +46,7 @@ TracerStorage::TracerStorage(const wchar_t* szSharedMemName, bool bFirst)
 
 	if (bFirst)
 	{
+		m_pHeader->lock = 0;
 		m_pHeader->pid = GetCurrentProcessId();
 		m_pHeader->segCount = m_nNumSegments;
 		m_pHeader->segSize = m_nSegmentSize;
@@ -75,6 +76,10 @@ void TracerStorage::trace(const std::string &strTrace, std::map<std::string, std
 		pos = m_nNumSegments;
 
 	auto saveSpot = m_szMappedMemory + (m_nSegmentSize * (pos - 1));
+
+	if (saveSpot[0] != 0)
+		throw std::exception("over writing!");
+
 	strncpy_s(saveSpot, m_nSegmentSize, strFormated.c_str(), strFormated.size());
 }
 
