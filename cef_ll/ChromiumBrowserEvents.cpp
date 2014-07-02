@@ -28,6 +28,8 @@ $/LicenseInfo$
 #include "ChromiumBrowser.h"
 #include "MenuInfo.h"
 
+#include "Controller.h"
+
 #include <sstream>
 #include "JavaScriptObject.h"
 #include "JavaScriptFactory.h"
@@ -127,6 +129,8 @@ bool LifeSpanHandler::OnBeforePopup(CefRefPtr<CefBrowser> parentBrowser,
 	//dont show popups unless its the inspector
 	CefStringUTF8 t(ConvertToUtf8(target_url));
 
+	cef3Trace("Url: %s", t.c_str());
+
 	if (!t.empty() && std::string(t.c_str()).find("resources/inspector/devtools.") != std::string::npos)
 		return false;
 
@@ -166,8 +170,11 @@ void LoadHandler::OnLoadError(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame>
 		return;
 
 	std::string errorMsg;
-
 	std::map<int, std::string>::iterator it = g_mErrorMsgMap.find(errorCode);
+	
+	CefStringUTF8 strUrl = ConvertToUtf8(failedUrl);
+	CefStringUTF8 et = ConvertToUtf8(errorText);
+	cef3Trace("ErrId: %d, ErrMsg: [%s], Url: [%s]", errorCode, et.c_str(), strUrl.c_str());
 
 	if (it != g_mErrorMsgMap.end())
 	{
@@ -182,6 +189,8 @@ void LoadHandler::OnLoadError(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame>
 		errorMsg = stream.str();
 	}
 
+	std::string out;
+
 	//if no frame its the whole page
 	if (GetCallback())
 	{
@@ -189,33 +198,43 @@ void LoadHandler::OnLoadError(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame>
 		char buff[size];
 		buff[0] = 0;
 
-		CefStringUTF8 t(ConvertToUtf8(failedUrl));
-
-		if (GetCallback()->onLoadError(errorMsg.c_str(), t.c_str(), buff, size) && buff[0])
+		if (GetCallback()->onLoadError(errorMsg.c_str(), strUrl.c_str(), buff, size) && buff[0])
 		{
 			size_t nSize = strlen(buff);
 
 			if (nSize > size)
 				nSize = size;
 
-			std::string e(buff, nSize);
-			frame->LoadString(e, failedUrl);
-			return;
+			out = std::string(buff, nSize);
 		}
 	}
 
-	CefStringUTF8 strUrl = ConvertToUtf8(failedUrl);
-		
-	// All other messages.
-	std::stringstream ss;
-	ss <<       "<html><head><title>Load Failed</title></head>"
-				"<body><h1>Load Failed</h1>"
-				"<h2>Load of URL " << strUrl.c_str() <<
-				" failed: " << errorMsg <<
-				".</h2></body>"
-				"</html>";
+	if (out.empty())
+	{
+		// All other messages.
+		std::stringstream ss;
+		ss << "<html><head><title>Load Failed</title></head>"
+			"<body><h1>Load Failed</h1>"
+			"<h2>Load of URL " << strUrl.c_str() <<
+			" failed: " << errorMsg <<
+			".</h2></body>"
+			"</html>";
 
-	frame->LoadString(ss.str(), failedUrl);
+		out = ss.str();
+	}
+
+	CefRefPtr<CefPostData> postData = CefPostData::Create();
+
+	CefRefPtr<CefPostDataElement> el = CefPostDataElement::Create();
+	el->SetToBytes(out.size(), out.c_str());
+
+	postData->AddElement(el);
+
+	CefRefPtr<CefRequest> req = CefRequest::Create();
+	req->SetMethod("POST");
+	req->SetURL("internal://loaderror");
+	req->SetPostData(postData);
+	frame->LoadRequest(req);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -290,10 +309,15 @@ private:
 
 bool RequestHandler::OnBeforeBrowse(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefRequest> request, bool isRedirect)
 {
-	if (!GetCallback())
+	std::string url = request->GetURL();
+	cef3Trace("Url: %s", url.c_str());
+
+	if (url.find("internal://") == 0)
 		return false;
 
-	std::string url = request->GetURL();
+	if (!GetCallback())
+		return false;
+	
 	return !GetCallback()->onNavigateUrl(url.c_str(), frame->IsMain());
 }
 

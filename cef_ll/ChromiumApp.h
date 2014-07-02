@@ -34,6 +34,7 @@ $/LicenseInfo$
 
 #include "zmq.hpp"
 #include "libjson.h"
+#include "ZmqMonitor.h"
 
 #include <list>
 
@@ -122,6 +123,7 @@ protected:
 private:
 	zmq::context_t m_ZmqContext;
 	zmq::socket_t m_ZmqServer;
+	ZmqMonitor m_ZmqMonitor;
 
 	std::vector<CefRefPtr<JavaScriptExtenderRef>> m_vJSExtenders;
 	std::vector<ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>> m_vSchemeExtenders;

@@ -71,11 +71,19 @@ void SchemeRequest::setMethod(const char* method)
 
 ChromiumDLL::RefPtr<ChromiumDLL::PostDataI> SchemeRequest::getPostData()
 {
-	return new PostData(m_rRequest->GetPostData());
+	if (!m_rRequest->GetPostData())
+		return NULL;
+
+	if (!m_pPostData)
+		m_pPostData = new PostData(m_rRequest->GetPostData());
+
+	return m_pPostData;
 }
 
 void SchemeRequest::setPostData(const ChromiumDLL::RefPtr<ChromiumDLL::PostDataI>& postData)
 {
+	m_pPostData = postData;
+
 	if (postData)
 	{
 		PostData* pd = (PostData*)postData.get();

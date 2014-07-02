@@ -64,6 +64,7 @@ public:
 
 private:
 	CefRefPtr<CefRequest> m_rRequest;
+	ChromiumDLL::RefPtr<ChromiumDLL::PostDataI> m_pPostData;
 
 	CEF3_IMPLEMENTREF_COUNTING(SchemeRequest);
 };

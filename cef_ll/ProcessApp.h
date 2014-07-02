@@ -35,6 +35,7 @@ $/LicenseInfo$
 #include "libjson.h"
 #include "tinythread.h"
 #include "zmq.hpp"
+#include "ZmqMonitor.h"
 
 class JavaScriptExtenderProxy;
 
@@ -91,6 +92,7 @@ private:
 
 	zmq::context_t m_ZmqContext;
 	zmq::socket_t m_ZmqClient;
+	ZmqMonitor m_ZmqMonitor;
 
 	volatile bool m_bIsStopped;
 	tthread::thread* m_pWorkerThread;
@@ -103,6 +105,10 @@ private:
 
 	tthread::mutex m_BrowserLock;
 	std::map<int, CefRefPtr<CefBrowser>> m_mBrowsers;
+
+	tthread::mutex m_StartLock;
+	bool m_bConnected;
+	std::vector<std::string> m_vPendingSend;
 };
 
 

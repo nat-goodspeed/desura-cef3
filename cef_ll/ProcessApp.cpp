@@ -75,10 +75,12 @@ JavaScriptContextHelper<JavaScriptExtenderProxy> JavaScriptContextHelper<JavaScr
 ProcessApp::ProcessApp()
 	: m_ZmqContext(1)
 	, m_ZmqClient(m_ZmqContext, ZMQ_DEALER)
+	, m_ZmqMonitor(m_ZmqContext, m_ZmqClient)
 	, m_pWorkerThread(NULL)
 	, m_bIsStopped(false)
 	, m_strZmqIdentity(generateZmqName())
 	, m_nZmqPort(0)
+	, m_bConnected(false)
 {
 	JavaScriptContextHelper<JavaScriptExtenderProxy>::Self.setTarget(this);
 }
@@ -86,12 +88,15 @@ ProcessApp::ProcessApp()
 ProcessApp::~ProcessApp()
 {
 	JavaScriptContextHelper<JavaScriptExtenderProxy>::Self.setTarget(nullptr);
+	
 	m_bIsStopped = true;
 
 	if (m_pWorkerThread && m_pWorkerThread->joinable())
 		m_pWorkerThread->join();
 
 	delete m_pWorkerThread;
+
+	m_ZmqMonitor.stop();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -163,6 +168,8 @@ void ProcessApp::OnBrowserDestroyed(CefRefPtr<CefBrowser> browser)
 
 void ProcessApp::OnRenderThreadCreated(CefRefPtr<CefListValue> extra_info)
 {
+	cef3Trace("");
+
 //#ifdef DEBUG
 //	while (!IsDebuggerPresent())
 //		Sleep(1000);
@@ -171,10 +178,10 @@ void ProcessApp::OnRenderThreadCreated(CefRefPtr<CefListValue> extra_info)
 
 void ProcessApp::OnWebKitInitialized()
 {
+	cef3Trace("");
+
 	if (m_bIsStopped || m_pWorkerThread)
 		return;
-
-	
 
 	CefStringUTF8 strJSEName = ConvertToUtf8(g_command_line->GetSwitchValue("desura-jse-name"));
 	CefStringUTF8 strJSESize = ConvertToUtf8(g_command_line->GetSwitchValue("desura-jse-size"));
@@ -240,8 +247,25 @@ void ProcessApp::run()
 	assert(false);
 #endif
 
+	int nTimeout = 1000;
+
+	m_ZmqMonitor.start();
 	m_ZmqClient.setsockopt(ZMQ_IDENTITY, m_strZmqIdentity.c_str(), m_strZmqIdentity.size());
+	m_ZmqClient.setsockopt(ZMQ_RCVTIMEO, &nTimeout, sizeof(int));
 	m_ZmqClient.connect(szHost);
+
+	{
+		tthread::lock_guard<tthread::mutex> guard(m_StartLock);
+		m_bConnected = true;
+
+		for (size_t x = 0; x < m_vPendingSend.size(); x++)
+		{
+			cef3Trace("PendingSend Json: %s", m_vPendingSend[x].c_str());
+			m_ZmqClient.send(m_vPendingSend[x].c_str(), m_vPendingSend[x].size(), 0);
+		}
+
+		m_vPendingSend.clear();
+	}
 
 	while (!m_bIsStopped)
 	{
@@ -253,11 +277,14 @@ void ProcessApp::run()
 		do
 		{
 			std::shared_ptr<zmq::message_t> message(new zmq::message_t);
-			m_ZmqClient.recv(message.get(), 0);
-			vMsgList.push_back(message);
+			
+			if (m_ZmqClient.recv(message.get(), 0) == 0)
+				break;
 
+			vMsgList.push_back(message);
 			m_ZmqClient.getsockopt(ZMQ_RCVMORE, &more, &more_size);
-		} while (more);
+		} 
+		while (more);
 
 		if (vMsgList.size() > 0)
 		{
@@ -265,6 +292,31 @@ void ProcessApp::run()
 			processMessageReceived(strData);
 		}
 	}
+
+	m_ZmqMonitor.stop();
+}
+
+bool ProcessApp::send(int nBrowser, JSONNode msg)
+{
+	std::string strMsg = msg.write();
+
+	{
+		tthread::lock_guard<tthread::mutex> guard(m_StartLock);
+
+		if (!m_bConnected)
+		{
+			m_vPendingSend.push_back(strMsg);
+			return true;
+		}
+	}
+
+	cef3Trace("Json: %s", strMsg.c_str());
+
+	if (!m_ZmqClient.connected())
+		return false;
+
+	m_ZmqClient.send(strMsg.c_str(), strMsg.size(), 0);
+	return true;
 }
 
 void ProcessApp::processMessageReceived(const std::string &strJson)
@@ -305,19 +357,6 @@ void ProcessApp::processMessageReceived(const std::string &strJson)
 	{
 		//TODO
 	}
-}
-
-bool ProcessApp::send(int nBrowser, JSONNode msg)
-{
-	std::string strMsg = msg.write();
-
-	cef3Trace("Json: %s", strMsg.c_str());
-
-	if (!m_ZmqClient.connected())
-		return false;
-
-	m_ZmqClient.send(strMsg.c_str(), strMsg.size(), 0);
-	return true;
 }
 
 std::string ProcessApp::generateZmqName()

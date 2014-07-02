@@ -53,6 +53,83 @@ std::vector<std::string> ChromiumApp::getSchemeList()
 JavaScriptContextHelper<JavaScriptExtenderRef> JavaScriptContextHelper<JavaScriptExtenderRef>::Self;
 
 
+class InternalErrorScheme : public ChromiumDLL::SchemeExtenderI
+{
+public:
+	InternalErrorScheme()
+		: m_strResponse("Internal Error Page")
+	{
+	}
+
+	ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI> clone(const char* schemeName)
+	{
+		return new InternalErrorScheme();
+	}
+
+	const char* getSchemeName()
+	{
+		return "internal";
+	}
+
+	const char* getHostName()
+	{
+		return "loaderror";
+	}
+
+	bool processRequest(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeRequestI>& request, bool* redirect)
+	{
+		if (!request->getPostData() || request->getPostData()->getElementCount() == 0)
+			return true;
+
+		auto el = request->getPostData()->getElement(0);
+		m_strResponse.resize(el->getBytesCount());
+		el->getBytes(m_strResponse.size(), &m_strResponse[0]);
+		return true;
+	}
+
+	size_t getResponseSize()
+	{
+		return m_strResponse.size();
+	}
+
+	const char* getResponseMimeType()
+	{
+		return "text/html";
+	}
+
+	const char* getRedirectUrl()
+	{
+		return NULL;
+	}
+
+	bool read(char* buffer, int size, int* readSize)
+	{
+		if (size < m_strResponse.size())
+		{
+			memcpy(buffer, m_strResponse.c_str(), size);
+			*readSize = size;
+			m_strResponse = m_strResponse.substr(size);
+		}
+		else
+		{
+			memcpy(buffer, m_strResponse.c_str(), m_strResponse.size());
+			*readSize = m_strResponse.size();
+			m_strResponse.clear();
+		}
+
+		return true;
+	}
+
+	void cancel()
+	{
+
+	}
+
+	std::string m_strResponse;
+
+	CEF3_IMPLEMENTREF_COUNTING(InternalErrorScheme);
+};
+
 ChromiumApp::ChromiumApp()
 	: m_bInit(false)
 	, m_bIsStopped(false)
@@ -60,14 +137,18 @@ ChromiumApp::ChromiumApp()
 	, m_pWorkerThread(NULL)
 	, m_ZmqContext(1)
 	, m_ZmqServer(m_ZmqContext, ZMQ_ROUTER)
+	, m_ZmqMonitor(m_ZmqContext, m_ZmqServer)
 {
 	JavaScriptContextHelper<JavaScriptExtenderRef>::Self.setTarget(this);
+
+	RegisterSchemeExtender(new InternalErrorScheme());
 }
 
 ChromiumApp::~ChromiumApp()
 {
 	JavaScriptContextHelper<JavaScriptExtenderRef>::Self.setTarget(nullptr);
 
+	m_ZmqMonitor.stop();
 	m_bIsStopped = true;
 
 	if (m_pWorkerThread && m_pWorkerThread->joinable())
@@ -92,6 +173,8 @@ void ChromiumApp::OnRegisterCustomSchemes(CefRefPtr<CefSchemeRegistrar> registra
 
 void ChromiumApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> command_line)
 {
+	cef3Trace("");
+
 	std::vector<std::string> vSchemes = getSchemeList();
 
 	std::string strSchemes;
@@ -211,8 +294,11 @@ void ChromiumApp::initIpc()
 	char szPort[255] = { 0 };
 	size_t nPortSize = sizeof(szPort);
 
+	m_ZmqMonitor.start();
 	m_ZmqServer.bind("tcp://*:*");
 	m_ZmqServer.getsockopt(ZMQ_LAST_ENDPOINT, &szPort, &nPortSize);
+
+	cef3Trace("Zmq Address: %s", szPort);
 
 	std::string t(szPort, nPortSize);
 	t = t.substr(t.find_last_of(":") + 1);
@@ -249,10 +335,13 @@ void ChromiumApp::run()
 			processMessageReceived(strFrom, strData);
 		}
 	}
+
+	m_ZmqMonitor.stop();
 }
 
 void ChromiumApp::OnRenderProcessThreadCreated(CefRefPtr<CefListValue> extra_info)
 {
+	cef3Trace("");
 }
 
 void ChromiumApp::OnContextInitialized()
@@ -462,7 +551,7 @@ public:
 		object = new JavaScriptObject(o);
 		context = new JSContext(m_Factory, object);
 	
-		for (size_t x = 0; x < argc; ++x)
+		for (int x = 0; x < argc; ++x)
 			argv[x] = new JavaScriptObject(argumets[x]);
 	}
 

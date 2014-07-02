@@ -231,6 +231,8 @@ JSONNode JavaScriptContextHelper<T>::invokeFunction(const std::string &strJSName
 	{
 		tthread::lock_guard<tthread::mutex> arguard(m_ActiveRequestLock);
 		m_nActiveRequests++;
+
+		cef3Trace("Increased Active Req: %d", m_nActiveRequests);
 	}
 
 	m_pTarget->send(nBrowserId, msg);
@@ -239,6 +241,8 @@ JSONNode JavaScriptContextHelper<T>::invokeFunction(const std::string &strJSName
 	{
 		tthread::lock_guard<tthread::mutex> arguard(m_ActiveRequestLock);
 		m_nActiveRequests--;
+
+		cef3Trace("Dec Active Req: %d", m_nActiveRequests);
 	}
 
 	return res;
@@ -247,11 +251,11 @@ JSONNode JavaScriptContextHelper<T>::invokeFunction(const std::string &strJSName
 template <typename T>
 JSONNode JavaScriptContextHelper<T>::waitForResponse()
 {
-//#ifdef DEBUG
+#ifdef DEBUG
 	int nWaitTimeout = 999; //allow for debugging
-//#else
-//	int nWaitTimeout = 1;
-//#endif
+#else
+	int nWaitTimeout = 1;
+#endif
 
 	while (true)
 	{
@@ -324,12 +328,12 @@ bool JavaScriptContextHelper<T>::processRequest(CefRefPtr<T> &pExtender, int nBr
 	//if we have a pending active request let it handle the new request
 	if (m_nActiveRequests == 0)
 	{
-		cef3Trace("PostTask - Extender: %s, nBrowser: %d", pExtender->getName(), nBrowser);
+		cef3Trace("PostTask - Extender: %s, nBrowser: %d (AD: %d)", pExtender->getName(), nBrowser, m_nActiveRequests);
 		CefPostTask(T::TaskThread, new JsonRequestTask(info));
 	}
 	else
 	{
-		cef3Trace("Waiting Task - Extender: %s, nBrowser: %d", pExtender->getName(), nBrowser);
+		cef3Trace("Waiting Task - Extender: %s, nBrowser: %d (AD: %d)", pExtender->getName(), nBrowser, m_nActiveRequests);
 
 		tthread::lock_guard<tthread::mutex> guard(m_ResponseLock);
 		m_vResponseList.push_back(info);
@@ -342,11 +346,10 @@ bool JavaScriptContextHelper<T>::processRequest(CefRefPtr<T> &pExtender, int nBr
 template <typename T>
 bool JavaScriptContextHelper<T>::processResponse(CefRefPtr<T> &pExtender, int nBrowser, JSONNode jsonReq)
 {
-	cef3Trace("Extender: %s, nBrowser: %d", pExtender->getName(), nBrowser);
-
 	RequestInfo info(pExtender, nBrowser, jsonReq);
 
 	tthread::lock_guard<tthread::mutex> arguard(m_ActiveRequestLock);
+	cef3Trace("Extender: %s, nBrowser: %d (AR: %d)", pExtender->getName(), nBrowser, m_nActiveRequests);
 
 	if (m_nActiveRequests == 0)
 		return false; //TODO: Handle better

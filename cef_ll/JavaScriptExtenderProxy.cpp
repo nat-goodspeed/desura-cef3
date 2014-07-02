@@ -104,6 +104,9 @@ CefRefPtr<CefV8Value> ConvertJsonToV8(const JSONNode &node, CefRefPtr<CefV8Conte
 
 JSONNode ConvertV8ToJson(const CefRefPtr<CefV8Value>& val, CefRefPtr<CefV8Context> &context)
 {
+	if (!val)
+		return JSONNode(JSON_NULL);
+
 	if (val->IsBool())
 		return JSONNode("", val->GetBoolValue());
 	else if (val->IsDouble())
