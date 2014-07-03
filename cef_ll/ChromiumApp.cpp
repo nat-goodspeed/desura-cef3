@@ -173,7 +173,7 @@ void ChromiumApp::OnRegisterCustomSchemes(CefRefPtr<CefSchemeRegistrar> registra
 
 void ChromiumApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> command_line)
 {
-	cef3Trace("");
+	TraceS("Thread::BaseThread::start", "", "ChromiumApp::OnBeforeChildProcessLaunch");
 
 	std::vector<std::string> vSchemes = getSchemeList();
 

@@ -168,7 +168,7 @@ void ProcessApp::OnBrowserDestroyed(CefRefPtr<CefBrowser> browser)
 
 void ProcessApp::OnRenderThreadCreated(CefRefPtr<CefListValue> extra_info)
 {
-	cef3Trace("");
+	TraceS("Thread::BaseThread::start::", "", "ProcessApp::OnRenderThreadCreated Starting thread");
 
 //#ifdef DEBUG
 //	while (!IsDebuggerPresent())

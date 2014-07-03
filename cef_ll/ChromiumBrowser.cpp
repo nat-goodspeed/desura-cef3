@@ -586,7 +586,7 @@ void ChromiumBrowser::showInspector()
 		CefBrowserSettings settings;
 
 #if defined(OS_WIN)
-		windowInfo.SetAsPopup(m_pBrowser->GetHost()->GetWindowHandle(), "DevTools");
+		windowInfo.SetAsPopup(NULL, "DevTools");
 #endif
 
 		CefRefPtr<CefClient> client = new DevToolsClient();

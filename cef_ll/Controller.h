@@ -156,20 +156,29 @@ void TraceS(const char* szFunction, const char* szClassInfo, const char* szForma
 	char szBuff[16] = { 0 };
 	_snprintf(szBuff, 16, "%d", getCurrentThreadId());
 
-	char szTime[16] = { 0 };
-	_snprintf(szTime, 16, "%d", GetTickCount());
-
 	std::map<std::string, std::string> mArgs;
 
 	mArgs["function"] = szFunction ? szFunction : "";
 	mArgs["classinfo"] = szClassInfo ? szClassInfo : "";
 	mArgs["thread"] = szBuff;
-	mArgs["time"] = szTime;// gcTime().to_js_string();
+
 
 #ifdef WIN32
+	LARGE_INTEGER pTime;
+	pTime.QuadPart = 0;
+	QueryPerformanceCounter(&pTime);
+
+	char szTime[32] = { 0 };
+	_snprintf(szTime, 32, "%I64u", pTime.QuadPart);
+
+	mArgs["time"] = szTime;// gcTime().to_js_string();
 	mArgs["module"] = GetModule(reinterpret_cast<HMODULE>(&__ImageBase));
 	mArgs["app"] = GetModule(NULL, true);
 #endif
+
+
+
+
 
 	std::string strTrace; // = gcString(szFormat, args...);
 	strTrace.resize(1024);

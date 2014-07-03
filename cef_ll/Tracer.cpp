@@ -80,7 +80,7 @@ void TracerStorage::trace(const std::string &strTrace, std::map<std::string, std
 	if (saveSpot[0] != 0)
 		throw std::exception("over writing!");
 
-	strncpy_s(saveSpot, m_nSegmentSize, strFormated.c_str(), strFormated.size());
+	strncpy_s(saveSpot, m_nSegmentSize, strFormated.c_str(), _TRUNCATE);
 }
 
 const wchar_t* TracerStorage::getSharedMemName()
