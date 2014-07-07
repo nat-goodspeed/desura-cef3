@@ -24,8 +24,8 @@ $/LicenseInfo$
 */
 
 
-#ifndef THIRDPARTY_CEF3_WIN32KEYPRESS_HEADER
-#define THIRDPARTY_CEF3_WIN32KEYPRESS_HEADER
+#ifndef THIRDPARTY_CEF3_CALLBACK_HEADER
+#define THIRDPARTY_CEF3_CALLBACK_HEADER
 #ifdef _WIN32
 #pragma once
 #endif
@@ -35,6 +35,8 @@ $/LicenseInfo$
 
 namespace ChromiumDLL
 {
+	class CallbackI;
+
 	template <typename T>
 	class CallbackT : public ChromiumRefCount<CallbackI>
 	{
