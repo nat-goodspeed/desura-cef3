@@ -141,6 +141,9 @@ inline std::string GetModule(HMODULE hModule, bool addPid = false)
 }
 #endif
 
+
+#if _MSC_VER > 1700
+
 template <typename ... Args>
 void TraceS(const char* szFunction, const char* szClassInfo, const char* szFormat, Args ... args)
 {
@@ -207,6 +210,11 @@ namespace
 #define cef3TraceS( ... ) TraceT(__FUNCTION__, (FakeTracerClass*)nullptr, __VA_ARGS__)
 
 
+#else
 
+#define cef3Trace( ... )
+#define cef3TraceS( ... )
+
+#endif
 
 #endif
