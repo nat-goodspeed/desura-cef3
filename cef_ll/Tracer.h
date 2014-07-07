@@ -26,10 +26,9 @@ $/LicenseInfo$
 #ifndef DESURA_TRACER_H
 #define DESURA_TRACER_H
 
-
-#include <atomic>
 #include <list>
 #include <map>
+#include <stdint.h>
 
 #pragma pack(push)
 #pragma pack(1)
@@ -83,7 +82,7 @@ private:
 class TracerStorage
 {
 public:
-	TracerStorage(const wchar_t* szSharedMemName)
+	TracerStorage(const wchar_t* szSharedMemName, bool bFirst)
 	{
 	}
 
