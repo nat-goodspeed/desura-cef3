@@ -104,15 +104,17 @@ std::string TracerStorage::formatTrace(const std::string &szMessage, std::map<st
 
 	if (pmArgs)
 	{
-		for (auto p : *pmArgs)
+		std::map<std::string, std::string>::const_iterator it = pmArgs->begin();
+
+		for (; it != pmArgs->end(); ++it)
 		{
-			if (p.second.empty())
+			if (it->second.empty())
 				continue;
 
-			auto sec = cleanUpString(p.second);
+			auto sec = cleanUpString(it->second);
 
 			std::ostringstream temp;
-			temp << ", \"" << p.first << "\": \"" << sec << "\"";
+			temp << ", \"" << it->first << "\": \"" << sec << "\"";
 
 			auto t = temp.str();
 
@@ -133,8 +135,10 @@ std::string TracerStorage::cleanUpString(const std::string &string)
 	std::string out;
 	out.reserve(string.size() + 20);
 
-	for (auto c : string)
+	for (size_t x = 0; x < string.size(); ++x)
 	{
+		char c = string[x];
+
 		if (c == '"' || c == '\\')
 			out += '\\';
 
