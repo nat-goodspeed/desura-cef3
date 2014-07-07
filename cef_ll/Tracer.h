@@ -65,16 +65,16 @@ protected:
 
 private:
 	//this number of segments should cause perfect roll around
-	const uint16_t m_nNumSegments = 4096;
-	const uint16_t m_nSegmentSize = 512;
+	static const uint16_t m_nNumSegments = 4096;
+	static const uint16_t m_nSegmentSize = 512;
 
-	volatile uint32_t* m_nCurLock = nullptr;
+	volatile uint32_t* m_nCurLock;
 
-	HANDLE m_hMappedFile = INVALID_HANDLE_VALUE;
-	char* m_szMappedMemory = nullptr;
+	HANDLE m_hMappedFile;
+	char* m_szMappedMemory;
 
-	TracerHeader_s* m_pHeader = nullptr;
-	const wchar_t* m_szSharedMemName = nullptr;
+	TracerHeader_s* m_pHeader;
+	const wchar_t* m_szSharedMemName;
 };
 
 #else

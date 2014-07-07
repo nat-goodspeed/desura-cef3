@@ -31,6 +31,10 @@ $/LicenseInfo$
 
 TracerStorage::TracerStorage(const wchar_t* szSharedMemName, bool bFirst)
 	: m_szSharedMemName(szSharedMemName)
+	, m_nCurLock(nullptr)
+	, m_hMappedFile(INVALID_HANDLE_VALUE)
+	, m_szMappedMemory(m_szMappedMemory)
+	, m_pHeader(nullptr)
 {
 	uint32_t nSize = getTotalSize() + 12;
 
