@@ -215,6 +215,11 @@ namespace
 #define cef3Trace( ... )
 #define cef3TraceS( ... )
 
+inline void TraceS(const char* szFunction, const char* szClassInfo, const char* szFormat, ...)
+{
+
+}
+
 #endif
 
 #endif
