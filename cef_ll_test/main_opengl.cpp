@@ -41,6 +41,8 @@ $/LicenseInfo$
 #include "ChromiumRefCount.h"
 #include "SharedObjectLoader.h"
 
+#include "ll_jsbridge_test.h"
+
 #ifndef WIN32
 #define override
 #endif
@@ -221,16 +223,18 @@ class cefGL : public ChromiumDLL::ChromiumRefCount<Proxy>
 			std::cout << "CEF initialized successfully" << std::endl;
 
 			pController->SetApiVersion(2);
+			pController->RegisterSchemeExtender(new JSBridgeTestScheme());
+			pController->RegisterJSExtender(new JSBridgeTestExtender(pController));
 
 #ifdef WIN32
 			m_hWnd = FindWindow(NULL, mAppWindowName.c_str());
 
-			pRenderer = pController->NewChromiumRenderer((int*)m_hWnd, "https://www.youtube.com/watch?v=GLlLQ3LmZWU", mAppTextureWidth, mAppTextureHeight);
+			pRenderer = pController->NewChromiumRenderer((int*)m_hWnd, "jsbridge://run", mAppTextureWidth, mAppTextureHeight);
 			g_pRenderer = pRenderer;
 
 			HHOOK hook = SetWindowsHookEx(WH_GETMESSAGE, handleWinMsg, GetModuleHandle(NULL), GetWindowThreadProcessId(m_hWnd, 0));
 #else
-            pRenderer = pController->NewChromiumRenderer((int*)NULL, "http://news.google.com", mAppTextureWidth, mAppTextureHeight);
+			pRenderer = pController->NewChromiumRenderer((int*)NULL, "jsbridge://run", mAppTextureWidth, mAppTextureHeight);
 #endif
 
 			if ( ! pRenderer  )

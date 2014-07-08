@@ -136,6 +136,43 @@ std::string TraceClassInfo<JsonJavaScriptExtender>(JsonJavaScriptExtender *pClas
 
 
 
+
+
+
+
+ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> JavaScriptObjectFactory::Create(JSONNode node, const std::string &strExtenderId)
+{
+	if (node.type() == JSON_NODE && node.find("__object_proxy__") != node.end())
+		return new JavaScriptProxyObject(node, strExtenderId, JavaScriptContextHelper<JavaScriptExtenderRef>::Self.peek());
+
+	return new JavaScriptObject(node);
+}
+
+JSONNode JavaScriptObjectFactory::GetNode(const ChromiumDLL::JSObjHandle &pObj, bool bDup)
+{
+	JavaScriptObject* pSJO = dynamic_cast<JavaScriptObject*>(pObj.get());
+	JavaScriptProxyObject* pSJPO = dynamic_cast<JavaScriptProxyObject*>(pObj.get());
+
+	JSONNode node(JSON_NULL);
+
+	if (pSJO)
+		node = pSJO->getNode();
+	else if (pSJPO)
+		node = pSJPO->getNode();
+
+	if (bDup)
+		return node.duplicate();
+
+	return node;
+}
+
+
+
+
+
+
+
+
 JavaScriptObject::JavaScriptObject()
 	: m_iRefCount(0)
 	, m_bIsException(false)
@@ -186,7 +223,7 @@ ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> JavaScriptObject::clone()
 
 bool JavaScriptObject::isUndefined()
 {
-	return m_JsonNode.type() == JSON_NULL;
+	return m_JsonNode.type() == JSON_STRING && m_JsonNode.as_string() == "__undefined__";
 }
 
 bool JavaScriptObject::isNull()
@@ -211,7 +248,7 @@ bool JavaScriptObject::isDouble()
 
 bool JavaScriptObject::isString()
 {
-	return m_JsonNode.type() == JSON_STRING;
+	return m_JsonNode.type() == JSON_STRING && m_JsonNode.as_string() != "__undefined__";
 }
 
 bool JavaScriptObject::isObject()
@@ -236,21 +273,25 @@ bool JavaScriptObject::isException()
 
 bool JavaScriptObject::getBoolValue()
 {
+	assert(isBool());
 	return m_JsonNode.as_bool();
 }
 
 int JavaScriptObject::getIntValue()
 {
+	assert(isInt());
 	return m_JsonNode.as_int();
 }
 
 double JavaScriptObject::getDoubleValue()
 {
+	assert(isDouble());
 	return m_JsonNode.as_float();
 }
 
 int JavaScriptObject::getStringValue(char* buff, size_t buffsize)
 {
+	assert(isString());
 	std::string str = m_JsonNode.as_string();
 
 	if (buff)
@@ -336,6 +377,9 @@ bool JavaScriptObject::setValue(int index, ChromiumDLL::JSObjHandle value)
 	JSONNode n = jso->getNode().duplicate();
 	n.set_name("");
 
+	for (int x = m_JsonNode.size(); x <= index; ++x)
+		m_JsonNode.push_back(JSONNode("", "__undefined__"));
+
 	m_JsonNode[index] = n;
 	return true;
 }
@@ -405,4 +449,250 @@ void JavaScriptObject::setException()
 void JavaScriptObject::setFunctionHandler(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& pExtender)
 {
 	m_pJavaScriptExtender = new JavaScriptExtenderRef(pExtender);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+JavaScriptProxyObject::JavaScriptProxyObject(const std::string &strExtenderId, const std::string &strObjectId, int nBrowserId)
+	: m_strId(strObjectId)
+	, m_nBrowserId(nBrowserId)
+	, m_strExtenderId(strExtenderId)
+{
+	m_JsonNode = JSONNode(JSON_NODE);
+	m_JsonNode.push_back(JSONNode("__object_proxy__", strObjectId));
+	m_JsonNode.push_back(JSONNode("__object_type__", "object"));
+}
+
+
+JavaScriptProxyObject::JavaScriptProxyObject(JSONNode node, const std::string &strExtenderId, int nBrowserId)
+	: m_JsonNode(node)
+	, m_strId(node["__object_proxy__"].as_string())
+	, m_nBrowserId(nBrowserId)
+	, m_strExtenderId(strExtenderId)
+{
+}
+
+void JavaScriptProxyObject::destory()
+{
+	delete this;
+}
+
+ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> JavaScriptProxyObject::clone()
+{
+	return new JavaScriptProxyObject(m_JsonNode, m_strExtenderId, m_nBrowserId);
+}
+
+bool JavaScriptProxyObject::isUndefined()
+{
+	return false;
+}
+
+bool JavaScriptProxyObject::isNull()
+{
+	return false;
+}
+
+bool JavaScriptProxyObject::isBool()
+{
+	return false;
+}
+
+bool JavaScriptProxyObject::isInt()
+{
+	return false;
+}
+
+bool JavaScriptProxyObject::isDouble()
+{
+	return false;
+}
+
+bool JavaScriptProxyObject::isString()
+{
+	return false;
+}
+
+bool JavaScriptProxyObject::isObject()
+{
+	return m_JsonNode["__object_type__"].as_string() == "object";
+}
+
+bool JavaScriptProxyObject::isArray()
+{
+	return m_JsonNode["__object_type__"].as_string() == "array";
+}
+
+bool JavaScriptProxyObject::isFunction()
+{
+	return false;
+}
+
+bool JavaScriptProxyObject::isException()
+{
+	return false;
+}
+
+bool JavaScriptProxyObject::getBoolValue()
+{
+	assert(false);
+	return false;
+}
+
+int JavaScriptProxyObject::getIntValue()
+{
+	assert(false);
+	return 0;
+}
+
+double JavaScriptProxyObject::getDoubleValue()
+{
+	assert(false);
+	return 0.0;
+}
+
+int JavaScriptProxyObject::getStringValue(char* buff, size_t buffsize)
+{
+	assert(false);
+	return 0;
+}
+
+bool JavaScriptProxyObject::hasValue(const char* key)
+{
+	JavaScriptContextHandle<JavaScriptExtenderRef> context(m_nBrowserId);
+	JSONNode res = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.invokeObjectRequest(m_strExtenderId, m_strId, "has_value_key", JSONNode("key", key));
+	return res.as_bool();
+}
+
+bool JavaScriptProxyObject::hasValue(int index)
+{
+	JavaScriptContextHandle<JavaScriptExtenderRef> context(m_nBrowserId);
+	JSONNode res = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.invokeObjectRequest(m_strExtenderId, m_strId, "has_value_index", JSONNode("index", index));
+	return res.as_bool();
+}
+
+
+bool JavaScriptProxyObject::deleteValue(const char* key)
+{
+	JavaScriptContextHandle<JavaScriptExtenderRef> context(m_nBrowserId);
+	JSONNode res = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.invokeObjectRequest(m_strExtenderId, m_strId, "delete_value_key", JSONNode("key", key));
+	return res.as_bool();
+}
+
+bool JavaScriptProxyObject::deleteValue(int index)
+{
+	JavaScriptContextHandle<JavaScriptExtenderRef> context(m_nBrowserId);
+	JSONNode res = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.invokeObjectRequest(m_strExtenderId, m_strId, "delete_value_index", JSONNode("index", index));
+	return res.as_bool();
+}
+
+
+ChromiumDLL::JSObjHandle JavaScriptProxyObject::getValue(const char* key)
+{
+	JavaScriptContextHandle<JavaScriptExtenderRef> context(m_nBrowserId);
+	JSONNode res = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.invokeObjectRequest(m_strExtenderId, m_strId, "get_value_key", JSONNode("key", key));
+	return JavaScriptObjectFactory::Create(res, m_strExtenderId);
+}
+
+ChromiumDLL::JSObjHandle JavaScriptProxyObject::getValue(int index)
+{
+	JavaScriptContextHandle<JavaScriptExtenderRef> context(m_nBrowserId);
+	JSONNode res = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.invokeObjectRequest(m_strExtenderId, m_strId, "get_value_index", JSONNode("index", index));
+	return JavaScriptObjectFactory::Create(res, m_strExtenderId);
+}
+
+
+bool JavaScriptProxyObject::setValue(const char* key, ChromiumDLL::JSObjHandle value)
+{
+	JavaScriptContextHandle<JavaScriptExtenderRef> context(m_nBrowserId);
+	auto o = JavaScriptObjectFactory::GetNode(value, true);
+	o.set_name("value");
+
+	JSONNode args(JSON_NODE);
+	args.push_back(JSONNode("key", key));
+	args.push_back(o);
+
+	JSONNode res = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.invokeObjectRequest(m_strExtenderId, m_strId, "set_value_key", args);
+	return res.as_bool();
+}
+
+bool JavaScriptProxyObject::setValue(int index, ChromiumDLL::JSObjHandle value)
+{
+	JavaScriptContextHandle<JavaScriptExtenderRef> context(m_nBrowserId);
+	auto o = JavaScriptObjectFactory::GetNode(value, true);
+	o.set_name("value");
+
+	JSONNode args(JSON_NODE);
+	args.push_back(JSONNode("index", index));
+	args.push_back(o);
+
+	JSONNode res = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.invokeObjectRequest(m_strExtenderId, m_strId, "set_value_index", args);
+	return res.as_bool();
+}
+
+
+int JavaScriptProxyObject::getNumberOfKeys()
+{
+	JavaScriptContextHandle<JavaScriptExtenderRef> context(m_nBrowserId);
+	JSONNode res = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.invokeObjectRequest(m_strExtenderId, m_strId, "get_num_keys");
+	return res.as_int();
+}
+
+void JavaScriptProxyObject::getKey(int index, char* buff, size_t buffsize)
+{
+	JavaScriptContextHandle<JavaScriptExtenderRef> context(m_nBrowserId);
+	JSONNode res = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.invokeObjectRequest(m_strExtenderId, m_strId, "get_key", JSONNode("index", index));
+	
+	std::string strKey = res.as_string();
+	mystrncpy_s(buff, buffsize, strKey.c_str(), strKey.size());
+}
+
+
+int JavaScriptProxyObject::getArrayLength()
+{
+	JavaScriptContextHandle<JavaScriptExtenderRef> context(m_nBrowserId);
+	JSONNode res = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.invokeObjectRequest(m_strExtenderId, m_strId, "get_array_length");
+
+	return res.as_int();
+}
+
+void JavaScriptProxyObject::getFunctionName(char* buff, size_t buffsize)
+{
+	assert(false);
+}
+
+ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI> JavaScriptProxyObject::getFunctionHandler()
+{
+	assert(false);
+	return NULL;
+}
+
+ChromiumDLL::JSObjHandle JavaScriptProxyObject::executeFunction(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFunctionArgs>& args)
+{
+	assert(false);
+	return NULL;
+}
+
+ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI> JavaScriptProxyObject::getUserObject()
+{
+	JavaScriptContextHandle<JavaScriptExtenderRef> context(m_nBrowserId);
+	JSONNode res = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.invokeObjectRequest(m_strExtenderId, m_strId, "get_user_object");
+
+	return (ChromiumDLL::IntrusiveRefPtrI*)res.as_int();
 }

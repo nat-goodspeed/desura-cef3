@@ -29,6 +29,10 @@ $/LicenseInfo$
 #include "SharedObjectLoader.h"
 #include <iostream>
 
+#include "ChromiumCallback.h"
+
+#include "ll_jsbridge_test.h"
+
 TCHAR* szWindowClass = "CefDesuraTestWinClass";  // the main window class name
 
 HINSTANCE hInst;   // current instance
@@ -36,13 +40,29 @@ ChromiumDLL::ChromiumControllerI* g_ChromiumController = NULL;
 ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserI> g_Browser;
 HWND m_MainWinHwnd;
 
+class JSFunctArgsWin : public ChromiumDLL::ChromiumRefCount<ChromiumDLL::JavaScriptFunctionArgs>
+{
+public:
+	JSFunctArgsWin(ChromiumDLL::JSObjHandle o, ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptContextI> c, const ChromiumDLL::JSObjHandle& ret)
+		: m_Ret(ret)
+	{
+		argc = 1;
+		argv = &m_Ret;
+		context = c;
+		factory = context->getFactory();
+		object = o;
+		function = "";
+	}
+
+	ChromiumDLL::JSObjHandle m_Ret;
+};
+
+
 class EventCallback : public ChromiumDLL::ChromiumRefCount<ChromiumDLL::ChromiumBrowserEventI>
 {
 public:
 	virtual bool onNavigateUrl(const char* url, bool isMain)
 	{
-		g_Browser->showInspector();
-
 		std::cout << "onNavigateUrl: " << url << std::endl;
 		SetWindowText(m_MainWinHwnd, url);
 		return true;
@@ -75,6 +95,26 @@ public:
 
 	virtual bool onKeyEvent(ChromiumDLL::KeyEventType type, int code, int modifiers, bool isSystemKey)
 	{
+		if (type == ChromiumDLL::KEYEVENT_RAWKEYDOWN && code == 'J')
+		{
+			g_ChromiumController->PostcallbackT(ChromiumDLL::TID_UI, [](){
+
+				auto context = g_Browser->getJSContext();
+				context->enter();
+
+				auto go = context->getGlobalObject();
+				auto callback = go->getValue("callback");
+
+				callback->executeFunction(new JSFunctArgsWin(go, context, context->getFactory()->CreateString("J key pressed")));
+
+				context->exit();
+			});
+		}
+		else if (type == ChromiumDLL::KEYEVENT_RAWKEYDOWN && code == 'I')
+		{
+			g_Browser->showInspector();
+		}
+
 		return false;
 	}
 
@@ -105,7 +145,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 	case WM_CREATE: 
 		std::cout << "WM_CREATE" << std::endl;
-		g_Browser = g_ChromiumController->NewChromiumBrowser((int*)hWnd, "", "desura://testpage");
+		g_Browser = g_ChromiumController->NewChromiumBrowser((int*)hWnd, "", "jsbridge://run");
 		g_Browser->setEventCallback(g_EventCallback);
 		return 0;
 
@@ -227,6 +267,10 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 	g_ChromiumController->RegisterSchemeExtender(NewExternalLoaderScheme());
 	g_ChromiumController->RegisterJSExtender(NewDesuraJSExtender());
+
+	g_ChromiumController->RegisterSchemeExtender(new JSBridgeTestScheme());
+	g_ChromiumController->RegisterJSExtender(new JSBridgeTestExtender(g_ChromiumController));
+
 
 	MyRegisterClass(hInstance);
 

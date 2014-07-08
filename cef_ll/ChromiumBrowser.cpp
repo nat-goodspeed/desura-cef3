@@ -640,8 +640,8 @@ int* ChromiumBrowser::getBrowserHandle()
 
 ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptContextI> ChromiumBrowser::getJSContext()
 {
-	//if (m_pBrowser)
-	//	return new JavaScriptContext(m_pBrowser->GetIdentifier());
+	if (m_pBrowser)
+		return new JavaScriptContext(m_pBrowser->GetIdentifier());
 
 	return NULL;
 }

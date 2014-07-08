@@ -70,6 +70,5 @@ ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI> JavaScriptContext::getFacto
 
 ChromiumDLL::JSObjHandle JavaScriptContext::getGlobalObject()
 {
-	//TODO: Implement
-	return NULL;
+	return m_JSFactory->getGlobalObject(m_nBrowserId);
 }

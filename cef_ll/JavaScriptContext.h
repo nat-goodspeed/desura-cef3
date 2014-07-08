@@ -136,6 +136,7 @@ public:
 	}
 
 	JSONNode invokeFunction(const std::string &strJSNameOrFunctId, const std::string &strFunction, JSONNode object, const std::vector<JSONNode> &args);
+	JSONNode invokeObjectRequest(const std::string &strJSNameOrFunctId, const std::string &strObjectId, const std::string &strRequestType, JSONNode args = JSONNode());
 
 	static JavaScriptContextHelper<T> Self;
 
@@ -228,15 +229,34 @@ JSONNode JavaScriptContextHelper<T>::invokeFunction(const std::string &strJSName
 	msg.push_back(JSONNode("browser", nBrowserId));
 	msg.push_back(r);
 
+	JSONNode res;
+
+	try
 	{
-		tthread::lock_guard<tthread::mutex> arguard(m_ActiveRequestLock);
-		m_nActiveRequests++;
+		{
+			tthread::lock_guard<tthread::mutex> arguard(m_ActiveRequestLock);
+			m_nActiveRequests++;
 
-		cef3Trace("Increased Active Req: %d", m_nActiveRequests);
+			cef3Trace("Increased Active Req: %d", m_nActiveRequests);
+		}
+
+
+		if (!m_pTarget->send(nBrowserId, msg))
+			throw std::exception("Failed to send request");
+
+		res = waitForResponse();
 	}
+	catch (...)
+	{
+		{
+			tthread::lock_guard<tthread::mutex> arguard(m_ActiveRequestLock);
+			m_nActiveRequests--;
 
-	m_pTarget->send(nBrowserId, msg);
-	JSONNode res = waitForResponse();
+			cef3Trace("Dec Active Req: %d", m_nActiveRequests);
+		}
+
+		throw;
+	}
 
 	{
 		tthread::lock_guard<tthread::mutex> arguard(m_ActiveRequestLock);
@@ -248,6 +268,74 @@ JSONNode JavaScriptContextHelper<T>::invokeFunction(const std::string &strJSName
 	return res;
 }
 
+
+
+template <typename T>
+JSONNode JavaScriptContextHelper<T>::invokeObjectRequest(const std::string &strJSNameOrFunctId, const std::string &strObjectId, const std::string &strRequestType, JSONNode args = JSONNode())
+{
+	cef3Trace("Id: %s Type: %s", strObjectId.c_str(), strRequestType.c_str());
+
+	int nBrowserId = -1;
+
+	if (!m_vBrowserContext.empty())
+		nBrowserId = m_vBrowserContext.back();
+
+	args.set_name("arguments");
+
+	JSONNode r(JSON_NODE);
+	r.set_name("request");
+
+	r.push_back(JSONNode("command", "ObjectRequest"));
+	r.push_back(JSONNode("object", strObjectId));
+	r.push_back(JSONNode("function", strRequestType));
+	r.push_back(args);
+
+	JSONNode msg(JSON_NODE);
+	msg.push_back(JSONNode("name", "JSE-Request"));
+	msg.push_back(JSONNode("extender", strJSNameOrFunctId));
+	msg.push_back(JSONNode("browser", nBrowserId));
+	msg.push_back(r);
+
+	JSONNode res;
+
+	try
+	{
+		{
+			tthread::lock_guard<tthread::mutex> arguard(m_ActiveRequestLock);
+			m_nActiveRequests++;
+
+			cef3Trace("Increased Active Req: %d", m_nActiveRequests);
+		}
+
+
+		if (!m_pTarget->send(nBrowserId, msg))
+			throw std::exception("Failed to send request");
+
+		res = waitForResponse();
+	}
+	catch (...)
+	{
+		{
+			tthread::lock_guard<tthread::mutex> arguard(m_ActiveRequestLock);
+			m_nActiveRequests--;
+
+			cef3Trace("Dec Active Req: %d", m_nActiveRequests);
+		}
+
+		throw;
+	}
+
+	{
+		tthread::lock_guard<tthread::mutex> arguard(m_ActiveRequestLock);
+		m_nActiveRequests--;
+
+		cef3Trace("Dec Active Req: %d", m_nActiveRequests);
+	}
+
+	return res;
+}
+
+
 template <typename T>
 JSONNode JavaScriptContextHelper<T>::waitForResponse()
 {
@@ -256,6 +344,8 @@ JSONNode JavaScriptContextHelper<T>::waitForResponse()
 #else
 	int nWaitTimeout = 1;
 #endif
+
+	int nEmptyRespone = 0;
 
 	while (true)
 	{
@@ -266,6 +356,7 @@ JSONNode JavaScriptContextHelper<T>::waitForResponse()
 
 			if (!m_WaitCond.wait_timed(guard, nWaitTimeout))
 			{
+				cef3Trace("Timed out");
 				throw std::exception("Timed out waiting for response from browser");
 				break;
 			}
@@ -278,7 +369,16 @@ JSONNode JavaScriptContextHelper<T>::waitForResponse()
 			tthread::lock_guard<tthread::mutex> guard(m_ResponseLock);
 
 			if (m_vResponseList.empty())
-				continue; //TODO: Handle better
+			{
+				cef3Trace("Empty Response");
+
+				nEmptyRespone++;
+
+				if (nEmptyRespone == 3)
+					throw std::exception("Received empty response too many times.");
+
+				continue;
+			}
 
 			info = m_vResponseList.back();
 			m_vResponseList.pop_back();
@@ -287,7 +387,16 @@ JSONNode JavaScriptContextHelper<T>::waitForResponse()
 		JSONNode jsonReq = info.m_jsonReq;
 
 		if (jsonReq.find("command") == jsonReq.end())
-			continue; //TODO: Handle better
+		{
+			cef3Trace("No Command in Response");
+
+			nEmptyRespone++;
+
+			if (nEmptyRespone == 3)
+				throw std::exception("Received empty response too many times.");
+
+			continue;
+		}
 
 		std::string strAction = jsonReq["command"].as_string();
 
@@ -307,9 +416,18 @@ JSONNode JavaScriptContextHelper<T>::waitForResponse()
 			std::string strExcpt = jsonReq["exception"].as_string();
 			throw std::exception(strExcpt.c_str());
 		}
+		else if (strAction == "ObjectReturn")
+		{
+			cef3Trace("object result - nBrowser: %d", info.m_nBrowser);
+
+			if (jsonReq.find("result") != jsonReq.end())
+				return jsonReq["result"];
+
+			return JSONNode(JSON_NULL);
+		}
 		else
 		{
-			cef3Trace("new request - Extender: %s, nBrowser: %d", info.m_pExtender->getName(), info.m_nBrowser);
+			cef3Trace("new request - Extender: %s, nBrowser: %d", info.m_pExtender ? info.m_pExtender->getName() : "NULL", info.m_nBrowser);
 			newRequest(info.m_pExtender, info.m_nBrowser, info.m_jsonReq);
 		}
 	}
@@ -349,10 +467,13 @@ bool JavaScriptContextHelper<T>::processResponse(CefRefPtr<T> &pExtender, int nB
 	RequestInfo info(pExtender, nBrowser, jsonReq);
 
 	tthread::lock_guard<tthread::mutex> arguard(m_ActiveRequestLock);
-	cef3Trace("Extender: %s, nBrowser: %d (AR: %d)", pExtender->getName(), nBrowser, m_nActiveRequests);
+	cef3Trace("Extender: %s, nBrowser: %d (AR: %d)", pExtender?pExtender->getName():"NULL", nBrowser, m_nActiveRequests);
 
 	if (m_nActiveRequests == 0)
+	{
+		cef3Trace("No Active Requests");
 		return false; //TODO: Handle better
+	}
 
 	tthread::lock_guard<tthread::mutex> guard(m_ResponseLock);
 	m_vResponseList.push_back(info);
@@ -365,21 +486,27 @@ template <typename T>
 void JavaScriptContextHelper<T>::newRequest(CefRefPtr<T> &pExtender, int nBrowserId, JSONNode jsonReq)
 {
 	if (jsonReq.find("command") == jsonReq.end())
+	{
+		cef3Trace("No Command in request");
 		return; //TODO: Handle better
-
+	}
+		
 	std::string strAction = jsonReq["command"].as_string();
 
 	cef3Trace("Action: %s, Extender: %s, nBrowser: %d", strAction.c_str(), pExtender->getName(), nBrowserId);
 
+	JSONNode res(JSON_NODE);
+	res.set_name("response");
+
 	if (strAction == "FunctionCall")
 	{
 		if (jsonReq.find("function") == jsonReq.end() || jsonReq.find("object") == jsonReq.end() || jsonReq.find("arguments") == jsonReq.end())
+		{
+			cef3Trace("Missing funciton || object || arguments for FunctionCall");
 			return; //TODO: Handle better
-
+		}
+			
 		std::string strFunction = jsonReq["function"].as_string();
-
-		JSONNode res(JSON_NODE);
-		res.set_name("response");
 
 		try
 		{
@@ -395,15 +522,31 @@ void JavaScriptContextHelper<T>::newRequest(CefRefPtr<T> &pExtender, int nBrowse
 			res.push_back(JSONNode("command", "FunctionException"));
 			res.push_back(JSONNode("exception", e.what()));
 		}
-		
-		JSONNode msg(JSON_NODE);
-		msg.push_back(JSONNode("name", "JSE-Response"));
-		msg.push_back(JSONNode("extender", pExtender->getName()));
-		msg.push_back(JSONNode("browser", nBrowserId));
-		msg.push_back(res);
-
-		m_pTarget->send(nBrowserId, msg);
+	
 	}
+	else if (strAction == "ObjectRequest")
+	{
+		if (jsonReq.find("function") == jsonReq.end() || jsonReq.find("object") == jsonReq.end() || jsonReq.find("arguments") == jsonReq.end())
+		{
+			cef3Trace("Missing funciton || object || arguments for ObjectRequest");
+			return; //TODO: Handle better
+		}
+
+		JavaScriptContextHandle<T> handle(nBrowserId);
+		JSONNode ret = pExtender->objectRequest(jsonReq["object"].as_string(), jsonReq["function"].as_string(), jsonReq["arguments"]);
+		ret.set_name("result");
+
+		res.push_back(JSONNode("command", "ObjectReturn"));
+		res.push_back(ret);
+	}
+
+	JSONNode msg(JSON_NODE);
+	msg.push_back(JSONNode("name", "JSE-Response"));
+	msg.push_back(JSONNode("extender", pExtender->getName()));
+	msg.push_back(JSONNode("browser", nBrowserId));
+	msg.push_back(res);
+	m_pTarget->send(nBrowserId, msg);
 }
+
 
 #endif //DESURA_JAVASCRIPTCONTEXT_H

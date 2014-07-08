@@ -132,6 +132,13 @@ int ProcessApp::CreateBrowserId(const CefRefPtr<CefBrowser>& browser)
 	return (browser->GetIdentifier() << 16) + (GetCurrentProcessId() & 0xFFFF);
 }
 
+std::string ProcessApp::CreateBrowserExtenderId(const CefRefPtr<CefBrowser>& browser)
+{
+	std::ostringstream ss;
+	ss << "__browser_" << browser->GetIdentifier() << "_global__";
+	return ss.str();
+}
+
 void ProcessApp::OnBrowserCreated(CefRefPtr<CefBrowser> browser)
 {
 	int bid = CreateBrowserId(browser);
@@ -222,6 +229,56 @@ void ProcessApp::OnWebKitInitialized()
 	}
 
 	m_pWorkerThread = new tthread::thread(&ProcessApp::runThread, this);
+}
+
+void ProcessApp::OnContextCreated(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefV8Context> context)
+{
+	int bid = CreateBrowserId(browser);
+	cef3Trace("Id: %d", bid);
+
+	std::string strNameOrId = CreateBrowserExtenderId(browser);
+
+	{
+		tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
+		m_mBrowserProxies[strNameOrId] = new JavaScriptGlobalObjectProxy(strNameOrId, context->GetGlobal(), context);
+	}
+
+	JSONNode msg(JSON_NODE);
+	msg.push_back(JSONNode("name", "Browser-JSContextCreated"));
+	msg.push_back(JSONNode("id", bid));
+	msg.push_back(JSONNode("browser", browser->GetIdentifier()));
+	msg.push_back(JSONNode("extender", strNameOrId));
+
+	send(-1, msg);
+}
+
+extern void ContextedRelease_Renderer(int nBrowserId);
+
+void ProcessApp::OnContextReleased(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefV8Context> context)
+{
+	int bid = CreateBrowserId(browser);
+	cef3Trace("Id: %d", bid);
+
+	std::string strNameOrId = CreateBrowserExtenderId(browser);
+
+	{
+		tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
+
+		auto it = m_mBrowserProxies.find(strNameOrId);
+
+		if (it != m_mBrowserProxies.end())
+			m_mBrowserProxies.erase(it);
+	}
+
+	JSONNode msg(JSON_NODE);
+	msg.push_back(JSONNode("name", "Browser-JSContextReleased"));
+	msg.push_back(JSONNode("id", bid));
+	msg.push_back(JSONNode("browser", browser->GetIdentifier()));
+	msg.push_back(JSONNode("extender", strNameOrId));
+
+	send(-1, msg);
+
+	ContextedRelease_Renderer(bid);
 }
 
 
@@ -381,6 +438,15 @@ CefRefPtr<JavaScriptExtenderProxy> ProcessApp::findExtender(JSONNode msg)
 
 	std::string strNameOrId = msg["extender"].as_string();
 
+	{
+		tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
+
+		auto it = m_mBrowserProxies.find(strNameOrId);
+
+		if (it != m_mBrowserProxies.end())
+			return it->second;
+	}
+
 	for (size_t x = 0; x < m_vJSExtenders.size(); ++x)
 	{
 		if (strNameOrId == m_vJSExtenders[x]->getName())
@@ -397,10 +463,6 @@ int ProcessApp::getBrowserId(JSONNode msg)
 
 	return msg["browser"].as_int();
 }
-
-
-
-
 
 
 #include "Controller.h"

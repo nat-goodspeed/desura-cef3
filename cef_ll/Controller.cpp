@@ -216,3 +216,11 @@ ChromiumDLL::RefPtr<ChromiumDLL::ChromiumCookieManagerI> ChromiumController::Get
 
 	return m_pCookieManager;
 }
+
+ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> ChromiumController::GetGlobalObject(int nBrowserIdentifier)
+{
+	if (!m_App)
+		return NULL;
+
+	return m_App->GetGlobalObject(nBrowserIdentifier);
+}

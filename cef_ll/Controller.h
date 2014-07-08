@@ -78,6 +78,8 @@ public:
 		m_Tracer.trace(strTrace, mpArgs);
 	}
 
+	ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> GetGlobalObject(int nBrowserIdentifier);
+
 protected:
 	bool DoInit(bool threaded, const char* cachePath, const char* logPath, const char* userAgent);
 

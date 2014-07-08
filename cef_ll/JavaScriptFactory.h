@@ -47,9 +47,11 @@ public:
 	ChromiumDLL::JSObjHandle CreateString(const char* value) OVERRIDE;
 	ChromiumDLL::JSObjHandle CreateArray() OVERRIDE;
 	ChromiumDLL::JSObjHandle CreateObject() OVERRIDE;
-	virtual ChromiumDLL::JSObjHandle CreateObject(const ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI>& userData) OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateObject(const ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI>& userData) OVERRIDE;
 	ChromiumDLL::JSObjHandle CreateException(const char* value) OVERRIDE;
-	virtual ChromiumDLL::JSObjHandle CreateFunction(const char* name, const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& handler) OVERRIDE;
+	ChromiumDLL::JSObjHandle CreateFunction(const char* name, const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI>& handler) OVERRIDE;
+
+	ChromiumDLL::JSObjHandle getGlobalObject(int nBrowserId);
 
 	CEF3_IMPLEMENTREF_COUNTING(JavaScriptFactory);
 };

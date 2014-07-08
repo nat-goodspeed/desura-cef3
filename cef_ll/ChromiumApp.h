@@ -60,6 +60,12 @@ public:
 
 	JSONNode execute(const std::string &strFunction, JSONNode object, JSONNode argumets);
 
+	JSONNode objectRequest(const std::string &strObjectId, const std::string &strFunction, JSONNode argumets)
+	{
+		assert(false);
+		return JSONNode();
+	}
+
 	const char* getName()
 	{
 		return m_pExtender->getName();
@@ -104,6 +110,9 @@ public:
 
 	bool send(int nBrowser, JSONNode msg) OVERRIDE;
 
+
+	ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> GetGlobalObject(int nBrowserIdentifier);
+
 protected:
 	std::vector<std::string> getSchemeList();
 
@@ -138,6 +147,7 @@ private:
 
 	tthread::mutex m_BrowserLock;
 	std::map<int, std::string> m_mBrowserIdentity;
+	std::map<int, ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI>> m_mBrowserContext;
 
 	int m_nZmqPort;
 

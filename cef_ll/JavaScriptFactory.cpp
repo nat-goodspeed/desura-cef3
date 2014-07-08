@@ -25,6 +25,7 @@ $/LicenseInfo$
 
 #include "JavaScriptFactory.h"
 #include "JavaScriptObject.h"
+#include "Controller.h"
 
 JavaScriptFactory::JavaScriptFactory()
 {
@@ -36,7 +37,7 @@ JavaScriptFactory::~JavaScriptFactory()
 
 ChromiumDLL::JSObjHandle JavaScriptFactory::CreateUndefined()
 {
-	return new JavaScriptObject();
+	return new JavaScriptObject(JSONNode("", "__undefined__"));
 }
 
 ChromiumDLL::JSObjHandle JavaScriptFactory::CreateNull()
@@ -91,4 +92,9 @@ ChromiumDLL::JSObjHandle JavaScriptFactory::CreateException(const char* value)
 	JavaScriptObject *ret = new JavaScriptObject(JSONNode("", value));
 	ret->setException();
 	return ret;
+}
+
+ChromiumDLL::JSObjHandle JavaScriptFactory::getGlobalObject(int nBrowserId)
+{
+	return g_Controller->GetGlobalObject(nBrowserId);
 }

@@ -36,6 +36,79 @@ $/LicenseInfo$
 
 class JavaScriptExtenderRef;
 
+
+class JavaScriptObjectFactory
+{
+public:
+	static ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> Create(JSONNode node, const std::string &strExtenderId);
+	static JSONNode GetNode(const ChromiumDLL::JSObjHandle &pObj, bool bDup);
+};
+
+
+class JavaScriptProxyObject : public ChromiumDLL::JavaScriptObjectI
+{
+public:
+	JavaScriptProxyObject(const std::string &strExtenderId, const std::string &strObjectId, int nBrowserId);
+	JavaScriptProxyObject(JSONNode node, const std::string &strExtenderId, int nBrowserId);
+
+	virtual void destory();
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> clone();
+
+	virtual bool isUndefined();
+	virtual bool isNull();
+	virtual bool isBool();
+	virtual bool isInt();
+	virtual bool isDouble();
+	virtual bool isString();
+	virtual bool isObject();
+	virtual bool isArray();
+	virtual bool isFunction();
+	virtual bool isException();
+
+	virtual bool getBoolValue();
+	virtual int getIntValue();
+	virtual double getDoubleValue();
+	virtual int getStringValue(char* buff, size_t buffsize);
+
+	virtual bool hasValue(const char* key);
+	virtual bool hasValue(int index);
+
+	virtual bool deleteValue(const char* key);
+	virtual bool deleteValue(int index);
+
+	virtual ChromiumDLL::JSObjHandle getValue(const char* key);
+	virtual ChromiumDLL::JSObjHandle getValue(int index);
+
+	virtual bool setValue(const char* key, ChromiumDLL::JSObjHandle value);
+	virtual bool setValue(int index, ChromiumDLL::JSObjHandle value);
+
+	virtual int getNumberOfKeys();
+	virtual void getKey(int index, char* buff, size_t buffsize);
+
+	virtual int getArrayLength();
+	virtual void getFunctionName(char* buff, size_t buffsize);
+
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI> getFunctionHandler();
+	virtual ChromiumDLL::JSObjHandle executeFunction(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFunctionArgs>& args);
+
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::IntrusiveRefPtrI> getUserObject();
+
+	JSONNode getNode()
+	{
+		return m_JsonNode;
+	}
+
+private:
+	std::string m_strId;
+	std::string m_strExtenderId;
+
+	int m_nBrowserId;
+
+	JSONNode m_JsonNode;
+
+	CEF3_IMPLEMENTREF_COUNTING(JavaScriptObject);
+};
+
 class JavaScriptObject : public ChromiumDLL::JavaScriptObjectI
 {
 public:

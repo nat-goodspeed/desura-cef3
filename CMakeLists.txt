@@ -349,13 +349,27 @@ target_link_libraries(3p_cef3
 target_link_libraries(3p_cef3_host
 )
 
-add_executable(3p_cef3_test_ogl cef_ll_test/main_opengl.cpp)
+file(GLOB 3p_cef3_test_ogl_sources
+	cef_ll_test/main_opengl.cpp 
+	cef_ll_test/ll_jsbridge_test.cpp
+)
+
+if(WIN32)
+file(GLOB 3p_cef3_test_ogl_sources
+	${3p_cef3_test_ogl_sources}
+	cef_ll_test/ll_test_win32.cpp
+	cef_ll_test/resource.h 
+	cef_ll_test/ll_test.rc
+)
+endif()
+
+add_executable(3p_cef3_test_ogl ${3p_cef3_test_ogl_sources})
 
 add_dependencies(3p_cef3 3p_cef3_host)
 add_dependencies(3p_cef3_test_ogl 3p_cef3)
 
 if(WIN32)
-	add_executable(3p_cef3_test_msw WIN32 cef_ll_test/main_msw.cpp cef_ll_test/ll_scheme.cpp cef_ll_test/ll_jsextender.cpp)
+	add_executable(3p_cef3_test_msw WIN32 cef_ll_test/main_msw.cpp cef_ll_test/ll_scheme.cpp cef_ll_test/ll_jsextender.cpp cef_ll_test/ll_jsbridge_test.cpp cef_ll_test/resource.h cef_ll_test/ll_test.rc cef_ll_test/ll_test_win32.cpp)
 
 	target_link_libraries(3p_cef3_test_ogl
 		${CMAKE_CURRENT_SOURCE_DIR}/cef_ll_test/freeglut/freeglut.lib

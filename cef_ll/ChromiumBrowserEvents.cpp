@@ -31,8 +31,8 @@ $/LicenseInfo$
 #include "Controller.h"
 
 #include <sstream>
-#include "JavaScriptObject.h"
-#include "JavaScriptFactory.h"
+//#include "JavaScriptObject.h"
+//#include "JavaScriptFactory.h"
 
 extern int g_nApiVersion;
 
@@ -457,7 +457,7 @@ bool KeyboardHandler::OnKeyEvent(CefRefPtr<CefBrowser> browser,
 		return false;
 
 	return GetCallback()->onKeyEvent(keyfinder.find(event.type),
-									 event.native_key_code, event.modifiers, !!event.is_system_key);
+									 event.unmodified_character, event.modifiers, !!event.is_system_key);
 }
 
 

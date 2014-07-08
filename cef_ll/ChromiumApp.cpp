@@ -416,6 +416,29 @@ void ChromiumApp::processMessageReceived(const std::string &strFrom, const std::
 				m_mBrowserIdentity.erase(it);
 		}
 	}
+	else if (msg["name"].as_string() == "Browser-JSContextCreated")
+	{
+		handled = true;
+
+		if (msg.find("browser") != msg.end())
+		{
+			tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
+			m_mBrowserContext[msg["browser"].as_int()] = new JavaScriptProxyObject(msg["extender"].as_string(), "__global__", msg["id"].as_int());
+		}
+	}
+	else if (msg["name"].as_string() == "Browser-JSContextReleased")
+	{
+		handled = true;
+
+		if (msg.find("browser") != msg.end())
+		{
+			tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
+			std::map<int, ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI>>::iterator it = m_mBrowserContext.find(msg["browser"].as_int());
+
+			if (it != m_mBrowserContext.end())
+				m_mBrowserContext.erase(it);
+		}
+	}
 	else
 	{
 		CefRefPtr<JavaScriptExtenderRef> pExtender = findExtender(msg);
@@ -435,8 +458,23 @@ void ChromiumApp::processMessageReceived(const std::string &strFrom, const std::
 
 	if (!handled)
 	{
+		cef3Trace("Request not handled (From: %s, Json: %s)", strFrom.c_str(), strJson.c_str());
 		//TODO
 	}
+}
+
+ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> ChromiumApp::GetGlobalObject(int nBrowserIdentifier)
+{
+	if (nBrowserIdentifier & 0xFFFF0000)
+		nBrowserIdentifier >>= 16;
+
+	tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
+	std::map<int, ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI>>::iterator it = m_mBrowserContext.find(nBrowserIdentifier);
+
+	if (it != m_mBrowserContext.end())
+		return it->second;
+
+	return NULL;
 }
 
 extern CefRefPtr<JavaScriptExtenderRef> LookupExtenderFromFunctionHolder_Browser(const std::string &strId);
@@ -478,6 +516,7 @@ bool ChromiumApp::send(int nBrowser, JSONNode msg)
 
 	if (strTo.empty())
 	{
+		cef3Trace("Browser not found for id: %d", nBrowser);
 		//TODO Handle
 		return false;
 	}
@@ -497,16 +536,16 @@ bool ChromiumApp::send(int nBrowser, JSONNode msg)
 class JSContext : public ChromiumDLL::JavaScriptContextI
 {
 public:
-	JSContext(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI> &factory, const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> &object)
+	JSContext(int nBrowserId, const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFactoryI> &factory, const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> &object)
 		: m_Factory(factory)
 		, m_Object(object)
-		, m_nBrowserId(JavaScriptContextHelper<JavaScriptExtenderRef>::Self.peek())
+		, m_nBrowserId(nBrowserId)
 	{
 	}
 
 	ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptContextI> clone() OVERRIDE
 	{
-		return new JSContext(m_Factory, m_Object);
+		return new JSContext(m_nBrowserId, m_Factory, m_Object);
 	}
 
 	void enter() OVERRIDE
@@ -541,18 +580,20 @@ public:
 class JSFunctArgs : public ChromiumDLL::JavaScriptFunctionArgs
 {
 public:
-	JSFunctArgs(const std::string &strFunction, JSONNode o, JSONNode argumets)
+	JSFunctArgs(const std::string &strExtenderId, const std::string &strFunction, JSONNode o, JSONNode argumets)
 		: m_Factory(new JavaScriptFactory())
 	{
+		int nBid = JavaScriptContextHelper<JavaScriptExtenderRef>::Self.peek();
+
 		function = strFunction.c_str();
 		factory = m_Factory;
 		argc = argumets.size();
 		argv = new ChromiumDLL::JSObjHandle[argumets.size()];
-		object = new JavaScriptObject(o);
-		context = new JSContext(m_Factory, object);
+		object = JavaScriptObjectFactory::Create(o, strExtenderId);
+		context = new JSContext(nBid, m_Factory, m_Factory->getGlobalObject(nBid));
 	
 		for (int x = 0; x < argc; ++x)
-			argv[x] = new JavaScriptObject(argumets[x]);
+			argv[x] = JavaScriptObjectFactory::Create(argumets[x], strExtenderId);
 	}
 
 	~JSFunctArgs()
@@ -569,17 +610,17 @@ JSONNode JavaScriptExtenderRef::execute(const std::string &strFunction, JSONNode
 {
 	cef3Trace("Function: %s, argc: %d", strFunction.c_str(), argumets.size());
 
-	ChromiumDLL::JSObjHandle pRet = m_pExtender->execute(new JSFunctArgs(strFunction, object, argumets));
+	ChromiumDLL::JSObjHandle pRet = m_pExtender->execute(new JSFunctArgs(getName(), strFunction, object, argumets));
 
-	JavaScriptObject* pObj = dynamic_cast<JavaScriptObject*>(pRet.get());
-
-	if (!pObj)
+	if (!pRet || pRet->isNull())
 		return JSONNode(JSON_NULL);
 
-	if (!pObj->isException())
-		return pObj->getNode().duplicate();
-	
-	char szException[255] = { 0 };
-	pObj->getStringValue(szException, 255);
-	throw std::exception(szException);
+	if (pRet->isException())
+	{
+		char szException[255] = { 0 };
+		pRet->getStringValue(szException, 255);
+		throw std::exception(szException);
+	}
+
+	return JavaScriptObjectFactory::GetNode(pRet, true);
 }

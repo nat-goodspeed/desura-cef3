@@ -64,6 +64,9 @@ public:
 	void OnRenderThreadCreated(CefRefPtr<CefListValue> extra_info) OVERRIDE;
 	void OnWebKitInitialized() OVERRIDE;
 
+	void OnContextCreated(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefV8Context> context) OVERRIDE;
+	void OnContextReleased(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefV8Context> context) OVERRIDE;
+
 	/////////////////////////////////////////////////////////////////////////////////////////////////
 	// ProcessApp
 	/////////////////////////////////////////////////////////////////////////////////////////////////
@@ -71,6 +74,7 @@ public:
 	bool send(int nBrowser, JSONNode msg) OVERRIDE;
 
 	static int CreateBrowserId(const CefRefPtr<CefBrowser>& browser);
+	static std::string CreateBrowserExtenderId(const CefRefPtr<CefBrowser>& browser);
 
 protected:
 	static void runThread(void* pObj);
@@ -90,6 +94,7 @@ private:
 	SharedMem m_SharedMemInfo;
 	std::vector<CefRefPtr<JavaScriptExtenderProxy>> m_vJSExtenders;
 
+
 	zmq::context_t m_ZmqContext;
 	zmq::socket_t m_ZmqClient;
 	ZmqMonitor m_ZmqMonitor;
@@ -105,6 +110,7 @@ private:
 
 	tthread::mutex m_BrowserLock;
 	std::map<int, CefRefPtr<CefBrowser>> m_mBrowsers;
+	std::map<std::string, CefRefPtr<JavaScriptExtenderProxy>> m_mBrowserProxies;
 
 	tthread::mutex m_StartLock;
 	bool m_bConnected;

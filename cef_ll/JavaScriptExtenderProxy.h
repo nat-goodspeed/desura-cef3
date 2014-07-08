@@ -52,6 +52,9 @@ public:
 	//! 
 	JSONNode execute(const std::string &strFunction, JSONNode object, JSONNode argumets);
 
+	virtual JSONNode objectRequest(const std::string &strObjectId, const std::string &strFunction, JSONNode argumets);
+
+
 	CefRefPtr<CefV8Value> getV8Value()
 	{
 		return m_Function;
@@ -60,14 +63,33 @@ public:
 protected:
 	JSONNode convertV8ToJson(CefRefPtr<CefV8Value> &object, const CefV8ValueList& arguments);
 
+	CefRefPtr<CefV8Context> m_Context;
+
 private:
 	const std::string m_strName;
 	CefRefPtr<CefV8Value> m_Function;
-	CefRefPtr<CefV8Context> m_Context;
-
+	
 	IMPLEMENT_REFCOUNTING(V8ProxyHandler);
 };
 
+
+class JavaScriptGlobalObjectProxy : public JavaScriptExtenderProxy
+{
+public:
+	JavaScriptGlobalObjectProxy(const std::string &strId, const CefRefPtr<CefV8Value> &object, const CefRefPtr<CefV8Context> &context)
+		: JavaScriptExtenderProxy(strId, object, context)
+		, m_Object(object)
+	{
+	}
+
+	~JavaScriptGlobalObjectProxy();
+
+	JSONNode objectRequest(const std::string &strObjectId, const std::string &strFunction, JSONNode argumets);
+
+private:
+	CefRefPtr<CefV8Value> m_Object;
+	std::vector<std::string> m_vReleated;
+};
 
 
 #endif
