@@ -144,10 +144,7 @@ inline std::string GetModule(HMODULE hModule, bool addPid = false)
 #endif
 
 
-#if _MSC_VER > 1700
-
-template <typename ... Args>
-void TraceS(const char* szFunction, const char* szClassInfo, const char* szFormat, Args ... args)
+inline void TraceS(const char* szFunction, const char* szClassInfo, const char* szFormat, ...)
 {
 	static auto getCurrentThreadId = []()
 	{
@@ -181,24 +178,36 @@ void TraceS(const char* szFunction, const char* szClassInfo, const char* szForma
 	mArgs["app"] = GetModule(NULL, true);
 #endif
 
-
-
-
-
 	std::string strTrace; // = gcString(szFormat, args...);
 	strTrace.resize(1024);
 
-	int nSize = _snprintf(&strTrace[0], 1024, szFormat, args...);
+	va_list arguments;
+	va_start(arguments, szFormat);
+
+	int nSize = _vsnprintf(&strTrace[0], 1024, szFormat, arguments);
 	strTrace.resize(nSize);
+
+	va_end(arguments);
 
 	g_Controller->trace(strTrace, &mArgs);
 }
 
-template <typename T, typename ... Args>
-void TraceT(const char* szFunction, T *pClass, const char* szFormat, Args ... args)
+template <typename T>
+void TraceT(const char* szFunction, T *pClass, const char* szFormat, ...)
 {
+	std::string strTrace; // = gcString(szFormat, args...);
+	strTrace.resize(1024);
+
+	va_list arguments;
+	va_start(arguments, szFormat);
+
+	int nSize = _vsnprintf(&strTrace[0], 1024, szFormat, arguments);
+	strTrace.resize(nSize);
+
+	va_end(arguments);
+
 	auto ci = TraceClassInfo(pClass);
-	TraceS(szFunction, ci.c_str(), szFormat, args...);
+	TraceS(szFunction, ci.c_str(), strTrace.c_str());
 }
 
 namespace
@@ -211,17 +220,5 @@ namespace
 #define cef3Trace( ... ) TraceT(__FUNCTION__, this, __VA_ARGS__)
 #define cef3TraceS( ... ) TraceT(__FUNCTION__, (FakeTracerClass*)nullptr, __VA_ARGS__)
 
-
-#else
-
-#define cef3Trace( ... )
-#define cef3TraceS( ... )
-
-inline void TraceS(const char* szFunction, const char* szClassInfo, const char* szFormat, ...)
-{
-
-}
-
-#endif
 
 #endif
