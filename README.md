@@ -48,7 +48,7 @@ JSON Object format:
  }
 ```
  * Object/Array non proxy: JSON
- * Undefined: JSON string "__undefined__"
+ * Undefined: JSON string "\_\_undefined\_\_"
  * Null: JSON null
  * Int: JSON int
  * Double: JSON double
