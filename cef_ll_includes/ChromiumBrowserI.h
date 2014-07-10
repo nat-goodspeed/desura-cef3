@@ -1091,6 +1091,9 @@ namespace ChromiumDLL
 	};
 
 
+	template <typename T>
+	class CallbackT;
+
 	class ChromiumControllerI
 	{
 	public:

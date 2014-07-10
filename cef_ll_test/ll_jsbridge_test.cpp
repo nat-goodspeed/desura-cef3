@@ -30,6 +30,7 @@
 #include "ll_jsbridge_test.h"
 #include <vector>
 #include <string>
+#include <string.h>
 
 extern std::string getResourceText(int nResourceId);
 
@@ -109,12 +110,12 @@ public:
 		m_Argv.push_back(args->factory->CreateString("in"));
 
 
-		function = nullptr;
+		function = NULL;
 		context = args->context;
 		argc = m_Argv.size();
 		argv = &m_Argv[0];
 		factory = args->factory;
-		object = nullptr;
+		object = NULL;
 	}
 
 private:
@@ -160,12 +161,12 @@ ChromiumDLL::JSObjHandle JSBridgeTestExtender::execute(const ChromiumDLL::RefPtr
 
 		if (m_fnV1)
 		{
-			auto go = args->context->getGlobalObject();
+			ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> go = args->context->getGlobalObject();
 			assert(go);
 
 			if (go)
 			{
-				auto jsobject = go->getValue("jsobject");
+				ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> jsobject = go->getValue("jsobject");
 				assert(jsobject && jsobject->isObject());
 
 				if (jsobject && jsobject->isObject())
@@ -177,7 +178,7 @@ ChromiumDLL::JSObjHandle JSBridgeTestExtender::execute(const ChromiumDLL::RefPtr
 				}
 
 
-				auto jsarray = go->getValue("jsarray");
+				ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> jsarray = go->getValue("jsarray");
 				assert(jsarray && jsarray->isArray());
 
 				if (jsarray && jsarray->isArray())
@@ -195,12 +196,12 @@ ChromiumDLL::JSObjHandle JSBridgeTestExtender::execute(const ChromiumDLL::RefPtr
 		if (m_fnV2)
 		{
 
-			auto go = args->context->getGlobalObject();
+			ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> go = args->context->getGlobalObject();
 			assert(go);
 
 			if (go)
 			{
-				auto obj = args->factory->CreateObject();
+				ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> obj = args->factory->CreateObject();
 				obj->setValue("a", args->factory->CreateInt(123));
 				go->setValue("cppobject", obj);
 			}
@@ -210,12 +211,12 @@ ChromiumDLL::JSObjHandle JSBridgeTestExtender::execute(const ChromiumDLL::RefPtr
 
 		if (m_fnV3)
 		{
-			auto go = args->context->getGlobalObject();
+			ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> go = args->context->getGlobalObject();
 			assert(go);
 
 			if (go)
 			{
-				auto jscallback = go->getValue("jscallback");
+				ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> jscallback = go->getValue("jscallback");
 				assert(jscallback && jscallback->isFunction());
 
 				if (jscallback && jscallback->isFunction())
@@ -234,13 +235,13 @@ ChromiumDLL::JSObjHandle JSBridgeTestExtender::execute(const ChromiumDLL::RefPtr
 			m_fnDT->executeFunction(new DataTypeArgs(args, "int", args->factory->CreateInt(789)));
 			m_fnDT->executeFunction(new DataTypeArgs(args, "string", args->factory->CreateString("Im a string")));
 
-			auto obj = args->factory->CreateObject();
+			ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> obj = args->factory->CreateObject();
 			obj->setValue("a", args->factory->CreateInt(123));
 
 			m_fnDT->executeFunction(new DataTypeArgs(args, "object", obj));
 
 
-			auto arr = args->factory->CreateArray();
+			ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> arr = args->factory->CreateArray();
 			arr->setValue(0, args->factory->CreateInt(190));
 			arr->setValue(1, args->factory->CreateInt(1));
 			arr->setValue(2, args->factory->CreateInt(84));
@@ -248,7 +249,7 @@ ChromiumDLL::JSObjHandle JSBridgeTestExtender::execute(const ChromiumDLL::RefPtr
 			m_fnDT->executeFunction(new DataTypeArgs(args, "array", arr));
 
 
-			auto funct = args->factory->CreateFunction("functionCallback", this);
+			ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> funct = args->factory->CreateFunction("functionCallback", this);
 			m_fnDT->executeFunction(new DataTypeArgs(args, "function", funct));
 		}
 	}
@@ -265,7 +266,7 @@ ChromiumDLL::JSObjHandle JSBridgeTestExtender::execute(const ChromiumDLL::RefPtr
 
 			std::string strDataType(szDataType);
 
-			auto val = args->argv[1];
+			ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> val = args->argv[1];
 
 			if (strDataType == "undefined") {
 				assert(val->isUndefined());
@@ -299,20 +300,20 @@ ChromiumDLL::JSObjHandle JSBridgeTestExtender::execute(const ChromiumDLL::RefPtr
 			else if (strDataType == "object") {
 				assert(val->isObject());
 
-				auto a = val->getValue("a");
+				ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> a = val->getValue("a");
 				assert(a->isInt() && a->getIntValue() == 123);
 			}
 			else if (strDataType == "array") {
 				assert(val->isArray());
 				assert(val->getArrayLength() == 3);
 
-				auto a = val->getValue(0);
+				ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> a = val->getValue(0);
 				assert(a->isInt() && a->getIntValue() == 190);
 
-				auto b = val->getValue(1);
+				ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> b = val->getValue(1);
 				assert(b->isInt() && b->getIntValue() == 1);
 
-				auto c = val->getValue(2);
+				ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> c = val->getValue(2);
 				assert(c->isInt() && c->getIntValue() == 84);
 			}
 

@@ -63,7 +63,7 @@ public:
 	virtual void onPaint();
 	virtual void onResize();
 #else
-	void initCallback(const std::string& defaultUrl);
+	void initCallback(const std::string& defaultUrl, const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults);
 	virtual void onResize(int x, int y, int width, int height);
 #endif
 

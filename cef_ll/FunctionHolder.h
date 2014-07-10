@@ -79,9 +79,9 @@ public:
 	{
 		tthread::lock_guard<tthread::mutex> guard(m_Lock);
 
-		std::map<std::string, T>::const_iterator it = m_mFunctionMap.find(strId);
+		typename std::map<std::string, T>::const_iterator it = m_mFunctionMap.find(strId);
 
-		if (it != m_mFunctionMap.cend())
+		if (it != m_mFunctionMap.end())
 			return it->second;
 
 		return NULL;
@@ -106,7 +106,7 @@ public:
 protected:
 	bool internalDelete(const std::string &strId)
 	{
-		std::map<std::string, T>::iterator it = m_mFunctionMap.find(strId);
+		typename std::map<std::string, T>::iterator it = m_mFunctionMap.find(strId);
 
 		if (it == m_mFunctionMap.end())
 			return false;

@@ -23,73 +23,44 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_SHAREDMEM_H
-#define DESURA_SHAREDMEM_H
-#ifdef _WIN32
-#pragma once
-#endif
+#ifndef WIN32
 
-#include <string>
-#include <string.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include "SharedMem.h"
 
-union IntToBuff
+SharedMem::SharedMem()
+	: m_hMappedFile(-1)
+	, m_nSize(0)
+	, m_pMemory(NULL)
 {
-	int i;
-	char b[4];
-};
-
-inline void writeInt(char* szBuff, int nVal)
-{
-	IntToBuff t;
-	t.i = nVal;
-	memcpy(szBuff, t.b, 4);
 }
 
-inline int readInt(char* szBuff)
+SharedMem::~SharedMem()
 {
-	IntToBuff t;
-	memcpy(t.b, szBuff, 4);
-
-	return t.i;
+	if (m_pMemory)
+		shmdt(m_pMemory);
 }
 
-class SharedMem
+bool SharedMem::init(const char* szName, size_t nSize, bool bReadOnly)
 {
-public:
-	SharedMem();
-	~SharedMem();
+	if (!szName)
+		return false;
 
-	bool init(const char* szName, size_t nSize, bool bReadOnly = true);
+	if (m_hMappedFile != -1)
+		return false;
 
-	size_t getSize() const
-	{
-		return m_nSize;
-	}
+	m_strName = std::string("Global\\") + szName;
+	m_nSize = nSize;
 
-	void* getMem() const
-	{
-		return m_pMemory;
-	}
+	int nKey = 0;
+	m_hMappedFile = shmget(nKey, nSize, IPC_CREAT | 0666);
 
-	const char* getName() const
-	{
-		return m_strName.c_str();
-	}
+	if (m_hMappedFile == -1)
+		return false;
 
-private:
-#ifdef WIN32
-	HANDLE m_hMappedFile;
-#else
-	int m_hMappedFile;
-#endif
-
-	size_t m_nSize;
-	std::string m_strName;
-
-	void *m_pMemory;
-};
-
-
-
+	m_pMemory = shmat(m_hMappedFile, NULL, bReadOnly?SHM_RDONLY:0);
+	return m_pMemory != (char*)-1;
+}
 
 #endif

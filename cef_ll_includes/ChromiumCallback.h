@@ -30,7 +30,7 @@ $/LicenseInfo$
 #pragma once
 #endif
 
-#include "ChromiumBrowserI.h"
+//#include "ChromiumBrowserI.h"
 #include "ChromiumRefCount.h"
 
 namespace ChromiumDLL

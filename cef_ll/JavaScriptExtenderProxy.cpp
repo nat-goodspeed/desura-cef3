@@ -30,6 +30,7 @@ $/LicenseInfo$
 #include "JavaScriptContext.h"
 #include "libjson.h"
 #include "Controller.h"
+#include "Exception.h"
 
 
 extern CefStringUTF8 ConvertToUtf8(const CefString& str);
@@ -168,8 +169,8 @@ JSONNode ConvertV8ToJson(const CefRefPtr<CefV8Value>& val, CefRefPtr<CefV8Contex
 	}
 	else if (val->IsFunction())
 	{
-		std::map<std::string, CefRefPtr<JavaScriptExtenderProxy>> holders = g_V8FunctionHolder.duplicate();
-		std::map<std::string, CefRefPtr<JavaScriptExtenderProxy>>::iterator it = holders.begin();
+		std::map<std::string, CefRefPtr<JavaScriptExtenderProxy> > holders = g_V8FunctionHolder.duplicate();
+		std::map<std::string, CefRefPtr<JavaScriptExtenderProxy> >::iterator it = holders.begin();
 
 		std::string strKey;
 
@@ -206,7 +207,7 @@ JSONNode ConvertV8ToJson(const CefRefPtr<CefV8Value>& val, CefRefPtr<CefV8Contex
 
 		for (int x = 0; x < val->GetArrayLength(); ++x)
 		{
-			auto c = ConvertV8ToJson(val->GetValue(x), context);
+			JSONNode c = ConvertV8ToJson(val->GetValue(x), context);
 			c.set_name("");
 			ret.push_back(c);
 		}
@@ -219,8 +220,8 @@ JSONNode ConvertV8ToJson(const CefRefPtr<CefV8Value>& val, CefRefPtr<CefV8Contex
 
 		if (bUseProxyObjects)
 		{
-			std::map<std::string, CefRefPtr<JavaScriptExtenderProxy>> holders = g_V8FunctionHolder.duplicate();
-			std::map<std::string, CefRefPtr<JavaScriptExtenderProxy>>::iterator it = holders.begin();
+			std::map<std::string, CefRefPtr<JavaScriptExtenderProxy> > holders = g_V8FunctionHolder.duplicate();
+			std::map<std::string, CefRefPtr<JavaScriptExtenderProxy> >::iterator it = holders.begin();
 
 			std::string strKey;
 
@@ -293,25 +294,25 @@ bool JavaScriptExtenderProxy::Execute(const CefString& function, CefRefPtr<CefV8
 	CefStringUTF8 strFunction = ConvertToUtf8(function);
 	cef3Trace("Function: %s, argc: %d", strFunction.c_str(), arguments.size());
 
-	auto v8Context = CefV8Context::GetCurrentContext();
+	CefRefPtr<CefV8Context> v8Context = CefV8Context::GetCurrentContext();
 
 	v8Context->Enter();
 
 	int nBrowserId = ProcessApp::CreateBrowserId(v8Context->GetBrowser());
 	JavaScriptContextHandle<JavaScriptExtenderProxy> context(nBrowserId);
 
-	JSONNode o = ConvertV8ToJson(object, CefV8Context::GetCurrentContext(), true);
+	JSONNode o = ConvertV8ToJson(object, v8Context, true);
 	o.set_name("object");
 
 	std::vector<JSONNode> a;
 
 	for (size_t x = 0; x < arguments.size(); ++x)
-		a.push_back(ConvertV8ToJson(arguments[x], CefV8Context::GetCurrentContext()));
+		a.push_back(ConvertV8ToJson(arguments[x], v8Context));
 
 	try
 	{
 		JSONNode ret = JavaScriptContextHelper<JavaScriptExtenderProxy>::Self.invokeFunction(m_strName, strFunction, o, a);
-		retval = ConvertJsonToV8(ret, CefV8Context::GetCurrentContext());
+		retval = ConvertJsonToV8(ret, v8Context);
 	}
 	catch (std::exception &e)
 	{
@@ -329,7 +330,7 @@ JSONNode JavaScriptExtenderProxy::execute(const std::string &strFunction, JSONNo
 	assert(m_Function->IsFunction());
 
 	if (!m_Function || !m_Function->IsFunction())
-		throw std::exception("No valid v8 function");
+		throw exception("No valid v8 function");
 
 	CefRefPtr<CefV8Value> o = ConvertJsonToV8(object, m_Context);
 	CefV8ValueList a;

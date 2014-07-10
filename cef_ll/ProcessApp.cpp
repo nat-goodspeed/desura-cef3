@@ -35,6 +35,10 @@ $/LicenseInfo$
 #include <memory>
 #include <assert.h>
 
+#ifndef WIN32
+#include "SharedPtr.h"
+#endif
+
 extern CefStringUTF8 ConvertToUtf8(const CefString& str);
 CefRefPtr<CefCommandLine> g_command_line;
 
@@ -68,7 +72,7 @@ public:
 	CefRefPtr<CefBrowser> m_Browser;
 };
 
-
+template <>
 JavaScriptContextHelper<JavaScriptExtenderProxy> JavaScriptContextHelper<JavaScriptExtenderProxy>::Self;
 
 
@@ -87,7 +91,7 @@ ProcessApp::ProcessApp()
 
 ProcessApp::~ProcessApp()
 {
-	JavaScriptContextHelper<JavaScriptExtenderProxy>::Self.setTarget(nullptr);
+	JavaScriptContextHelper<JavaScriptExtenderProxy>::Self.setTarget(NULL);
 	
 	m_bIsStopped = true;
 
@@ -129,7 +133,11 @@ CefRefPtr<CefRenderProcessHandler> ProcessApp::GetRenderProcessHandler()
 
 int ProcessApp::CreateBrowserId(const CefRefPtr<CefBrowser>& browser)
 {
+#ifdef WIN32
 	return (browser->GetIdentifier() << 16) + (GetCurrentProcessId() & 0xFFFF);
+#else
+	return (browser->GetIdentifier() << 16) + (pthread_self() & 0xFFFF);
+#endif
 }
 
 std::string ProcessApp::CreateBrowserExtenderId(const CefRefPtr<CefBrowser>& browser)
@@ -167,7 +175,7 @@ void ProcessApp::OnBrowserDestroyed(CefRefPtr<CefBrowser> browser)
 
 
 	tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
-	std::map<int, CefRefPtr<CefBrowser>>::iterator it = m_mBrowsers.find(bid);
+	std::map<int, CefRefPtr<CefBrowser> >::iterator it = m_mBrowsers.find(bid);
 
 	if (it != m_mBrowsers.end())
 		m_mBrowsers.erase(it);
@@ -264,7 +272,7 @@ void ProcessApp::OnContextReleased(CefRefPtr<CefBrowser> browser, CefRefPtr<CefF
 	{
 		tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
 
-		auto it = m_mBrowserProxies.find(strNameOrId);
+		std::map<std::string, CefRefPtr<JavaScriptExtenderProxy> >::iterator it = m_mBrowserProxies.find(strNameOrId);
 
 		if (it != m_mBrowserProxies.end())
 			m_mBrowserProxies.erase(it);
@@ -326,7 +334,7 @@ void ProcessApp::run()
 
 	while (!m_bIsStopped)
 	{
-		std::vector<std::shared_ptr<zmq::message_t>> vMsgList;
+		std::vector<std::shared_ptr<zmq::message_t> > vMsgList;
 
 		int64_t more = 0;
 		size_t more_size = sizeof(more);
@@ -441,7 +449,7 @@ CefRefPtr<JavaScriptExtenderProxy> ProcessApp::findExtender(JSONNode msg)
 	{
 		tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
 
-		auto it = m_mBrowserProxies.find(strNameOrId);
+		std::map<std::string, CefRefPtr<JavaScriptExtenderProxy> >::const_iterator it = m_mBrowserProxies.find(strNameOrId);
 
 		if (it != m_mBrowserProxies.end())
 			return it->second;

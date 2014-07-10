@@ -421,7 +421,8 @@ ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI> JavaScriptObject::getFunct
 	if (!isFunction())
 		return NULL;
 
-	return *m_pJavaScriptExtender;
+	ChromiumDLL::JavaScriptExtenderI* pRet = m_pJavaScriptExtender.get()->operator->();
+	return pRet;
 }
 
 ChromiumDLL::JSObjHandle JavaScriptObject::executeFunction(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFunctionArgs>& args)
@@ -621,7 +622,7 @@ ChromiumDLL::JSObjHandle JavaScriptProxyObject::getValue(int index)
 bool JavaScriptProxyObject::setValue(const char* key, ChromiumDLL::JSObjHandle value)
 {
 	JavaScriptContextHandle<JavaScriptExtenderRef> context(m_nBrowserId);
-	auto o = JavaScriptObjectFactory::GetNode(value, true);
+	JSONNode o = JavaScriptObjectFactory::GetNode(value, true);
 	o.set_name("value");
 
 	JSONNode args(JSON_NODE);
@@ -635,7 +636,7 @@ bool JavaScriptProxyObject::setValue(const char* key, ChromiumDLL::JSObjHandle v
 bool JavaScriptProxyObject::setValue(int index, ChromiumDLL::JSObjHandle value)
 {
 	JavaScriptContextHandle<JavaScriptExtenderRef> context(m_nBrowserId);
-	auto o = JavaScriptObjectFactory::GetNode(value, true);
+	JSONNode o = JavaScriptObjectFactory::GetNode(value, true);
 	o.set_name("value");
 
 	JSONNode args(JSON_NODE);

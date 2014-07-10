@@ -92,7 +92,7 @@ private:
 	IMPLEMENT_REFCOUNTING(ProcessApp);
 
 	SharedMem m_SharedMemInfo;
-	std::vector<CefRefPtr<JavaScriptExtenderProxy>> m_vJSExtenders;
+	std::vector<CefRefPtr<JavaScriptExtenderProxy> > m_vJSExtenders;
 
 
 	zmq::context_t m_ZmqContext;
@@ -109,8 +109,8 @@ private:
 	CefRefPtr<JavaScriptExtenderProxy> m_pCurrentExtender;
 
 	tthread::mutex m_BrowserLock;
-	std::map<int, CefRefPtr<CefBrowser>> m_mBrowsers;
-	std::map<std::string, CefRefPtr<JavaScriptExtenderProxy>> m_mBrowserProxies;
+	std::map<int, CefRefPtr<CefBrowser> > m_mBrowsers;
+	std::map<std::string, CefRefPtr<JavaScriptExtenderProxy> > m_mBrowserProxies;
 
 	tthread::mutex m_StartLock;
 	bool m_bConnected;

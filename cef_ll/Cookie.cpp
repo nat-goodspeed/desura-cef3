@@ -142,7 +142,7 @@ public:
 	bool Visit(const CefCookie& cookie, int count, int total,
 		bool& deleteCookie) OVERRIDE
 	{
-		auto c = new Cookie(cookie);
+		ChromiumDLL::RefPtr<Cookie> c = new Cookie(cookie);
 		return m_Visitor->visit(c);
 	}
 

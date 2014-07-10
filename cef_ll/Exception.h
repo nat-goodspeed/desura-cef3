@@ -23,73 +23,38 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_SHAREDMEM_H
-#define DESURA_SHAREDMEM_H
-#ifdef _WIN32
-#pragma once
-#endif
+#ifndef THIRDPARY_CEF3_EXCEPTION_H
+#define THIRDPARY_CEF3_EXCEPTION_H
+
+#ifdef WIN32
+
+typedef std::exception exception;
+
+#else
 
 #include <string>
-#include <string.h>
 
-union IntToBuff
-{
-	int i;
-	char b[4];
-};
-
-inline void writeInt(char* szBuff, int nVal)
-{
-	IntToBuff t;
-	t.i = nVal;
-	memcpy(szBuff, t.b, 4);
-}
-
-inline int readInt(char* szBuff)
-{
-	IntToBuff t;
-	memcpy(t.b, szBuff, 4);
-
-	return t.i;
-}
-
-class SharedMem
+class exception : public std::exception
 {
 public:
-	SharedMem();
-	~SharedMem();
-
-	bool init(const char* szName, size_t nSize, bool bReadOnly = true);
-
-	size_t getSize() const
+	exception(const std::string& strWhat)
+		: m_strWhat(strWhat)
 	{
-		return m_nSize;
 	}
 
-	void* getMem() const
+	virtual ~exception() _GLIBCXX_USE_NOEXCEPT
 	{
-		return m_pMemory;
 	}
 
-	const char* getName() const
+	const char* what() const _GLIBCXX_USE_NOEXCEPT
 	{
-		return m_strName.c_str();
+		return m_strWhat.c_str();
 	}
-
+	
 private:
-#ifdef WIN32
-	HANDLE m_hMappedFile;
-#else
-	int m_hMappedFile;
-#endif
-
-	size_t m_nSize;
-	std::string m_strName;
-
-	void *m_pMemory;
+	const std::string m_strWhat;
 };
 
-
-
+#endif
 
 #endif

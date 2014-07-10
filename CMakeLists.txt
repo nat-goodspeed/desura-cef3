@@ -334,6 +334,12 @@ add_library(libzeromq STATIC ${zeromq_sources} ${zeromq_sources_platform})
 if(WIN32)
 	add_executable(3p_cef3_host WIN32 ${cef_ll_host_sources})
 else()
+	add_custom_command(TARGET libzeromq
+		PRE_BUILD
+		WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zeromq-4.0.4
+		COMMAND ./configure
+	)
+
 	add_executable(3p_cef3_host ${cef_ll_host_sources})
 endif()
 
@@ -361,7 +367,14 @@ file(GLOB 3p_cef3_test_ogl_sources
 	cef_ll_test/resource.h 
 	cef_ll_test/ll_test.rc
 )
+else()
+file(GLOB 3p_cef3_test_ogl_sources
+	${3p_cef3_test_ogl_sources}
+	cef_ll_test/ll_test_nix.cpp
+	cef_ll_test/resource.h 
+)
 endif()
+
 
 add_executable(3p_cef3_test_ogl ${3p_cef3_test_ogl_sources})
 

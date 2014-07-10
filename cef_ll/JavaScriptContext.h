@@ -31,22 +31,27 @@ $/LicenseInfo$
 
 #include "ChromiumBrowserI.h"
 #include "JavaScriptFactory.h"
-#include "include\cef_base.h"
+#include "include/cef_base.h"
+#include "include/cef_task.h"
 
 #include "libjson.h"
 #include "tinythread.h"
 
 #include "Controller.h"
+#include "Exception.h"
 
-#include <xstring>
+#include <string>
 #include <vector>
 #include <assert.h>
+
+template <typename T>
+class JavaScriptContextHelper;
 
 template <typename T>
 class JavaScriptContextHandle
 {
 public:
-	JavaScriptContextHandle(int nBrowser)
+	JavaScriptContextHandle<T>(int nBrowser)
 		: m_nBrowser(nBrowser)
 	{
 		JavaScriptContextHelper<T>::Self.push(m_nBrowser);
@@ -242,7 +247,7 @@ JSONNode JavaScriptContextHelper<T>::invokeFunction(const std::string &strJSName
 
 
 		if (!m_pTarget->send(nBrowserId, msg))
-			throw std::exception("Failed to send request");
+			throw exception("Failed to send request");
 
 		res = waitForResponse();
 	}
@@ -271,7 +276,7 @@ JSONNode JavaScriptContextHelper<T>::invokeFunction(const std::string &strJSName
 
 
 template <typename T>
-JSONNode JavaScriptContextHelper<T>::invokeObjectRequest(const std::string &strJSNameOrFunctId, const std::string &strObjectId, const std::string &strRequestType, JSONNode args = JSONNode())
+JSONNode JavaScriptContextHelper<T>::invokeObjectRequest(const std::string &strJSNameOrFunctId, const std::string &strObjectId, const std::string &strRequestType, JSONNode args)
 {
 	cef3Trace("Id: %s Type: %s", strObjectId.c_str(), strRequestType.c_str());
 
@@ -309,7 +314,7 @@ JSONNode JavaScriptContextHelper<T>::invokeObjectRequest(const std::string &strJ
 
 
 		if (!m_pTarget->send(nBrowserId, msg))
-			throw std::exception("Failed to send request");
+			throw exception("Failed to send request");
 
 		res = waitForResponse();
 	}
@@ -357,7 +362,7 @@ JSONNode JavaScriptContextHelper<T>::waitForResponse()
 			if (!m_WaitCond.wait_timed(guard, nWaitTimeout))
 			{
 				cef3Trace("Timed out");
-				throw std::exception("Timed out waiting for response from browser");
+				throw exception("Timed out waiting for response from browser");
 				break;
 			}
 		}
@@ -375,7 +380,7 @@ JSONNode JavaScriptContextHelper<T>::waitForResponse()
 				nEmptyRespone++;
 
 				if (nEmptyRespone == 3)
-					throw std::exception("Received empty response too many times.");
+					throw exception("Received empty response too many times.");
 
 				continue;
 			}
@@ -393,7 +398,7 @@ JSONNode JavaScriptContextHelper<T>::waitForResponse()
 			nEmptyRespone++;
 
 			if (nEmptyRespone == 3)
-				throw std::exception("Received empty response too many times.");
+				throw exception("Received empty response too many times.");
 
 			continue;
 		}
@@ -414,7 +419,7 @@ JSONNode JavaScriptContextHelper<T>::waitForResponse()
 			cef3Trace("function exception - Extender: %s, nBrowser: %d", info.m_pExtender->getName(), info.m_nBrowser);
 
 			std::string strExcpt = jsonReq["exception"].as_string();
-			throw std::exception(strExcpt.c_str());
+			throw exception(strExcpt.c_str());
 		}
 		else if (strAction == "ObjectReturn")
 		{

@@ -76,7 +76,7 @@ public:
 		std::string host = url.substr(slashes[1]+1, slashes[2]-slashes[1]-1);
 
 		std::string strKey = scheme + ":" + host;
-		std::map<std::string, ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>>::iterator it = m_mSchemeMap.find(strKey);
+		std::map<std::string, ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI> >::iterator it = m_mSchemeMap.find(strKey);
 
 		if (it == m_mSchemeMap.end())
 		{
@@ -113,7 +113,7 @@ public:
 	IMPLEMENT_REFCOUNTING(SchemeHandlerFactory);
 
 private:
-	std::map<std::string, ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>> m_mSchemeMap;
+	std::map<std::string, ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI> > m_mSchemeMap;
 };
 
 bool SchemeExtender::Register(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>& se)

@@ -277,15 +277,16 @@ void ChromiumBrowser::init(const char *defaultUrl, bool offScreen, int width, in
 class CreateTask : public CefTask
 {
 public:
-	CreateTask(ChromiumBrowser* browser, const std::string& defaultUrl)
+	CreateTask(ChromiumBrowser* browser, const std::string& defaultUrl, const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults)
+		: m_pBrowser(browser)
+		, m_szDefaultUrl(defaultUrl)
+		, m_pDefaults(defaults)
 	{
-		m_pBrowser = browser;
-		m_szDefaultUrl = defaultUrl;
 	}
 
 	void Execute()
 	{
-		m_pBrowser->initCallback(m_szDefaultUrl);
+		m_pBrowser->initCallback(m_szDefaultUrl, m_pDefaults);
 	}
 
 	virtual int AddRef(){return 1;}
@@ -294,26 +295,22 @@ public:
 
 	ChromiumBrowser *m_pBrowser;
 	std::string m_szDefaultUrl;
+	ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI> m_pDefaults;
 };
 
-void ChromiumBrowser::init(const char *defaultUrl,
-						   bool /*offScreen*/, int /*width*/, int /*height*/)
+void ChromiumBrowser::init(const char *defaultUrl, bool offScreen, int width, int height, const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults)
 {
-	CefPostTask(TID_UI, new CreateTask(this, defaultUrl));
+	CefPostTask(TID_UI, new CreateTask(this, defaultUrl, defaults));
 }
 
-void ChromiumBrowser::initCallback(const std::string& defaultUrl)
+void ChromiumBrowser::initCallback(const std::string& defaultUrl, const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults)
 {
 	CefWindowInfo winInfo;
 	winInfo.SetAsChild(GTK_WIDGET(m_hFormHandle));
 
-	m_pBrowser = CefBrowserHost::CreateBrowserSync(winInfo, m_rEventHandler, defaultUrl.c_str(), getBrowserDefaults(),
-                                                   // nat: CreateBrowserSync()
-                                                   // now requires a
-                                                   // CefRequestContext. I do
-                                                   // not know what to use for
-                                                   // that.
+	m_pBrowser = CefBrowserHost::CreateBrowserSync(winInfo, m_rEventHandler, defaultUrl.c_str(), getBrowserDefaults(defaults),
                                                    CefRefPtr<CefRequestContext>());
+
 	g_signal_connect(GTK_WIDGET(m_hFormHandle), "button-press-event", G_CALLBACK(gtkFocus), this);
 	gtk_widget_show_all(GTK_WIDGET(m_hFormHandle));
 }

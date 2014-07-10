@@ -25,14 +25,22 @@ $/LicenseInfo$
 
 #include "ChromiumApp.h"
 #include "SchemeExtender.h"
+#include "Controller.h"
 
 #include "JavaScriptObject.h"
 #include "JavaScriptFactory.h"
 #include "JavaScriptContext.h"
 
+#include "Exception.h"
+
 #include "libjson.h"
 #include <memory>
-#include "Controller.h"
+#include <vector>
+
+#ifndef WIN32
+#include "SharedPtr.h"
+#endif
+
 
 std::vector<std::string> ChromiumApp::getSchemeList()
 {
@@ -50,6 +58,7 @@ std::vector<std::string> ChromiumApp::getSchemeList()
 	return ret;
 }
 
+template <>
 JavaScriptContextHelper<JavaScriptExtenderRef> JavaScriptContextHelper<JavaScriptExtenderRef>::Self;
 
 
@@ -81,7 +90,7 @@ public:
 		if (!request->getPostData() || request->getPostData()->getElementCount() == 0)
 			return true;
 
-		auto el = request->getPostData()->getElement(0);
+		ChromiumDLL::RefPtr<ChromiumDLL::PostElementI> el = request->getPostData()->getElement(0);
 		m_strResponse.resize(el->getBytesCount());
 		el->getBytes(m_strResponse.size(), &m_strResponse[0]);
 		return true;
@@ -146,7 +155,7 @@ ChromiumApp::ChromiumApp()
 
 ChromiumApp::~ChromiumApp()
 {
-	JavaScriptContextHelper<JavaScriptExtenderRef>::Self.setTarget(nullptr);
+	JavaScriptContextHelper<JavaScriptExtenderRef>::Self.setTarget(NULL);
 
 	m_ZmqMonitor.stop();
 	m_bIsStopped = true;
@@ -193,12 +202,23 @@ void ChromiumApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> command_l
 	if (initJSExtenderSharedMem())
 	{
 		char szBuff[16] = { 0 };
+#ifdef WIN32
 		_snprintf(szBuff, 16, "%d", m_SharedMemInfo.getSize());
+#else
+		snprintf(szBuff, 16, "%lu", m_SharedMemInfo.getSize());
+#endif
 
 		command_line->AppendSwitchWithValue("desura-jse-name", m_SharedMemInfo.getName());
 		command_line->AppendSwitchWithValue("desura-jse-size", szBuff);
 	}
 }
+
+class JSInfo
+{
+public:
+	std::string strName;
+	std::string strBinding;
+};
 
 bool ChromiumApp::initJSExtenderSharedMem()
 {
@@ -209,14 +229,6 @@ bool ChromiumApp::initJSExtenderSharedMem()
 		return false;
 
 	initIpc();
-
-
-	class JSInfo
-	{
-	public:
-		std::string strName;
-		std::string strBinding;
-	};
 
 	std::vector<JSInfo> vInfo;
 
@@ -312,7 +324,7 @@ void ChromiumApp::run()
 {
 	while (!m_bIsStopped)
 	{
-		std::vector<std::shared_ptr<zmq::message_t>> vMsgList;
+		std::vector<std::shared_ptr<zmq::message_t> > vMsgList;
 
 		int64_t more = 0;
 		size_t more_size = sizeof(more);
@@ -433,7 +445,7 @@ void ChromiumApp::processMessageReceived(const std::string &strFrom, const std::
 		if (msg.find("browser") != msg.end())
 		{
 			tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
-			std::map<int, ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI>>::iterator it = m_mBrowserContext.find(msg["browser"].as_int());
+			std::map<int, ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> >::iterator it = m_mBrowserContext.find(msg["browser"].as_int());
 
 			if (it != m_mBrowserContext.end())
 				m_mBrowserContext.erase(it);
@@ -469,7 +481,7 @@ ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> ChromiumApp::GetGlobalObject
 		nBrowserIdentifier >>= 16;
 
 	tthread::lock_guard<tthread::mutex> guard(m_BrowserLock);
-	std::map<int, ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI>>::iterator it = m_mBrowserContext.find(nBrowserIdentifier);
+	std::map<int, ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> >::iterator it = m_mBrowserContext.find(nBrowserIdentifier);
 
 	if (it != m_mBrowserContext.end())
 		return it->second;
@@ -619,7 +631,7 @@ JSONNode JavaScriptExtenderRef::execute(const std::string &strFunction, JSONNode
 	{
 		char szException[255] = { 0 };
 		pRet->getStringValue(szException, 255);
-		throw std::exception(szException);
+		throw exception(szException);
 	}
 
 	return JavaScriptObjectFactory::GetNode(pRet, true);

@@ -29,6 +29,7 @@ $/LicenseInfo$
 #include <list>
 #include <map>
 #include <stdint.h>
+#include <string>
 
 #pragma pack(push)
 #pragma pack(1)
@@ -86,7 +87,7 @@ public:
 	{
 	}
 
-	void trace(const std::string &strTrace, std::map<std::string, std::string> *mpArgs) override
+	void trace(const std::string &strTrace, std::map<std::string, std::string> *mpArgs)
 	{
 	}
 };

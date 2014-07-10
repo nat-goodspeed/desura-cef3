@@ -23,6 +23,8 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
+#ifdef WIN32
+
 #include <Windows.h>
 #include "SharedMem.h"
 
@@ -69,3 +71,6 @@ bool SharedMem::init(const char* szName, size_t nSize, bool bReadOnly)
 	m_pMemory = MapViewOfFile(m_hMappedFile, nFileAccess, 0, 0, nSize);
 	return !!m_pMemory;
 }
+
+
+#endif

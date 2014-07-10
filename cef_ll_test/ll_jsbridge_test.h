@@ -34,40 +34,40 @@
 #define CEF_IGNORE_FUNCTIONS 1
 #include "ChromiumBrowserI.h"
 #include "ChromiumRefCount.h"
-#include <xstring>
+#include <string>
 
 
 
 class JSBridgeTestScheme : public ChromiumDLL::ChromiumRefCount<ChromiumDLL::SchemeExtenderI>
 {
 public:
-	virtual ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI> clone(const char* schemeName) override;
-	virtual const char* getSchemeName() override;
-	virtual const char* getHostName() override;
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI> clone(const char* schemeName) OVERRIDE;
+	virtual const char* getSchemeName() OVERRIDE;
+	virtual const char* getHostName() OVERRIDE;
 
 	//! Processes the request. Call response ready when ready to reply
 	//! Set redirect to true to redirect to another url (read from getRedirectUrl)
 	//! 
-	virtual bool processRequest(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeRequestI>& request, bool* redirect) override;
+	virtual bool processRequest(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeRequestI>& request, bool* redirect) OVERRIDE;
 
 	//! Called when response is ready
 	//!
-	virtual size_t getResponseSize() override;
+	virtual size_t getResponseSize() OVERRIDE;
 
 	//! Return NULL to use default
-	virtual const char* getResponseMimeType() override;
+	virtual const char* getResponseMimeType() OVERRIDE;
 
 	//! Return NULL to cancel redirect
-	virtual const char* getRedirectUrl() override;
+	virtual const char* getRedirectUrl() OVERRIDE;
 
 	//! Return false to cancel read
 	//! Set readSize to zero and return true to wait for callback
 	//! 
-	virtual bool read(char* buffer, int size, int* readSize) override;
+	virtual bool read(char* buffer, int size, int* readSize) OVERRIDE;
 
 	//! Cancel request
 	//!
-	virtual void cancel() override;
+	virtual void cancel() OVERRIDE;
 
 private:
 	std::string m_strResponse;
@@ -81,12 +81,12 @@ class JSBridgeTestExtender : public ChromiumDLL::ChromiumRefCount<ChromiumDLL::J
 public:
 	JSBridgeTestExtender(ChromiumDLL::ChromiumControllerI* &pController);
 
-	virtual ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI> clone() override;
-	virtual ChromiumDLL::JSObjHandle execute(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFunctionArgs>& args) override;
+	virtual ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptExtenderI> clone() OVERRIDE;
+	virtual ChromiumDLL::JSObjHandle execute(const ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptFunctionArgs>& args) OVERRIDE;
 
 
-	virtual const char* getName() override;
-	virtual const char* getRegistrationCode() override;
+	virtual const char* getName() OVERRIDE;
+	virtual const char* getRegistrationCode() OVERRIDE;
 
 private:
 	ChromiumDLL::JSObjHandle m_fnV1;

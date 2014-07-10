@@ -23,73 +23,56 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_SHAREDMEM_H
-#define DESURA_SHAREDMEM_H
-#ifdef _WIN32
-#pragma once
-#endif
+#ifndef THIRDPARY_CEF3_SHAREDPTR_H
+#define THIRDPARY_CEF3_SHAREDPTR_H
 
-#include <string>
-#include <string.h>
+#ifndef WIN32
 
-union IntToBuff
+namespace std
 {
-	int i;
-	char b[4];
-};
+	template <typename T>
+	class shared_ptr
+	{
+	public:
+		shared_ptr(T* pT)
+			: m_pT(pT)
+			, m_nCount(new int(1))
+		{
+		}
 
-inline void writeInt(char* szBuff, int nVal)
-{
-	IntToBuff t;
-	t.i = nVal;
-	memcpy(szBuff, t.b, 4);
+		shared_ptr(const shared_ptr<T> &t)
+			: m_pT(t.m_pT)
+			, m_nCount(t.m_nCount)
+		{
+			++(*m_nCount);
+		}
+
+		~shared_ptr()
+		{
+			--(*m_nCount);
+			if (*m_nCount == 0)
+			{
+				delete m_pT;
+				delete m_nCount;
+			}
+		}
+
+		T* operator->() const
+		{
+			return m_pT;
+		}
+
+		T* get() const
+		{
+			return m_pT;
+		}
+
+	private:
+		int* m_nCount;
+		T* m_pT;
+	};
+
 }
-
-inline int readInt(char* szBuff)
-{
-	IntToBuff t;
-	memcpy(t.b, szBuff, 4);
-
-	return t.i;
-}
-
-class SharedMem
-{
-public:
-	SharedMem();
-	~SharedMem();
-
-	bool init(const char* szName, size_t nSize, bool bReadOnly = true);
-
-	size_t getSize() const
-	{
-		return m_nSize;
-	}
-
-	void* getMem() const
-	{
-		return m_pMemory;
-	}
-
-	const char* getName() const
-	{
-		return m_strName.c_str();
-	}
-
-private:
-#ifdef WIN32
-	HANDLE m_hMappedFile;
-#else
-	int m_hMappedFile;
 #endif
-
-	size_t m_nSize;
-	std::string m_strName;
-
-	void *m_pMemory;
-};
-
-
-
 
 #endif

@@ -81,6 +81,8 @@ distribution.
 #include <signal.h>
 #include <sched.h>
 #include <unistd.h>
+#include <sys/time.h>
+#include <errno.h>
 #endif
 
 // Generic includes

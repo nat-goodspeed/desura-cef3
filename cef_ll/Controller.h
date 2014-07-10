@@ -28,10 +28,16 @@ $/LicenseInfo$
 
 #include "ChromiumBrowserI.h"
 #include "Tracer.h"
-#include "include\internal\cef_ptr.h"
+#include "include/internal/cef_ptr.h"
+
+#include <stdarg.h>
 
 #ifdef WIN32_SANDBOX_ENABLED
 #include "include/cef_sandbox_win.h"
+#endif
+
+#ifndef WIN32
+#include <stdio.h>
 #endif
 
 class ChromiumApp;
@@ -119,7 +125,7 @@ std::string TraceClassInfo(T *pClass)
 
 #ifdef WIN32
 #ifndef _delayimp_h
-extern "C" IMAGE_DOS_HEADER __ImageBase;
+extern "C" IMAGE_DOS_HEADER __ImageBase;#include <stdarg.h>
 #endif
 #endif
 
@@ -144,25 +150,26 @@ inline std::string GetModule(HMODULE hModule, bool addPid = false)
 #endif
 
 
+inline std::string getCurrentThreadIdString()
+{
+	char szBuff[32] = { 0 };
+
+#ifdef WIN32
+	_snprintf(szBuff, 32, "%d", ::GetCurrentThreadId());
+	return szBuff;
+#else
+	snprintf(szBuff, 32, "%lu", pthread_self());
+	return szBuff;
+#endif
+}
+
 inline void TraceS(const char* szFunction, const char* szClassInfo, const char* szFormat, ...)
 {
-	static auto getCurrentThreadId = []()
-	{
-#ifdef WIN32
-		return ::GetCurrentThreadId();
-#else
-		return (uint64)pthread_self();
-#endif
-	};
-
-	char szBuff[16] = { 0 };
-	_snprintf(szBuff, 16, "%d", getCurrentThreadId());
-
 	std::map<std::string, std::string> mArgs;
 
 	mArgs["function"] = szFunction ? szFunction : "";
 	mArgs["classinfo"] = szClassInfo ? szClassInfo : "";
-	mArgs["thread"] = szBuff;
+	mArgs["thread"] = getCurrentThreadIdString();
 
 
 #ifdef WIN32
@@ -184,7 +191,11 @@ inline void TraceS(const char* szFunction, const char* szClassInfo, const char* 
 	va_list arguments;
 	va_start(arguments, szFormat);
 
+#ifdef WIN32
 	int nSize = _vsnprintf(&strTrace[0], 1024, szFormat, arguments);
+#else
+	int nSize = vsnprintf(&strTrace[0], 1024, szFormat, arguments);
+#endif
 	strTrace.resize(nSize);
 
 	va_end(arguments);
@@ -201,12 +212,16 @@ void TraceT(const char* szFunction, T *pClass, const char* szFormat, ...)
 	va_list arguments;
 	va_start(arguments, szFormat);
 
+#ifdef WIN32
 	int nSize = _vsnprintf(&strTrace[0], 1024, szFormat, arguments);
+#else
+	int nSize = vsnprintf(&strTrace[0], 1024, szFormat, arguments);
+#endif
 	strTrace.resize(nSize);
 
 	va_end(arguments);
 
-	auto ci = TraceClassInfo(pClass);
+	std::string ci = TraceClassInfo(pClass);
 	TraceS(szFunction, ci.c_str(), strTrace.c_str());
 }
 
@@ -218,7 +233,7 @@ namespace
 }
 
 #define cef3Trace( ... ) TraceT(__FUNCTION__, this, __VA_ARGS__)
-#define cef3TraceS( ... ) TraceT(__FUNCTION__, (FakeTracerClass*)nullptr, __VA_ARGS__)
+#define cef3TraceS( ... ) TraceT(__FUNCTION__, (FakeTracerClass*)NULL, __VA_ARGS__)
 
 
 #endif

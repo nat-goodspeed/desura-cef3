@@ -28,7 +28,7 @@ $/LicenseInfo$
 #include "SharedObjectLoader.h"
 
 ChromiumDLL::ChromiumControllerI* g_ChromiumController = NULL;
-ChromiumDLL::ChromiumBrowserI* g_Browser = NULL;
+ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserI> g_Browser;
 
 typedef ChromiumDLL::ChromiumControllerI* (*CEF_InitFn)(bool, const char*, const char*, const char*);
 
@@ -44,9 +44,6 @@ void destroy(GtkWidget* widget, gpointer data)
 
 gboolean delete_event(GtkWidget* widget, GdkEvent* event, GtkWindow* window) 
 {
-	if (g_Browser)
-		g_Browser->destroy();
-
 	g_Browser = NULL;
 }
 

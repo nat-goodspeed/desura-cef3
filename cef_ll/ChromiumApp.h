@@ -134,8 +134,8 @@ private:
 	zmq::socket_t m_ZmqServer;
 	ZmqMonitor m_ZmqMonitor;
 
-	std::vector<CefRefPtr<JavaScriptExtenderRef>> m_vJSExtenders;
-	std::vector<ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI>> m_vSchemeExtenders;
+	std::vector<CefRefPtr<JavaScriptExtenderRef> > m_vJSExtenders;
+	std::vector<ChromiumDLL::RefPtr<ChromiumDLL::SchemeExtenderI> > m_vSchemeExtenders;
 
 	SharedMem m_SharedMemInfo;
 
@@ -147,7 +147,7 @@ private:
 
 	tthread::mutex m_BrowserLock;
 	std::map<int, std::string> m_mBrowserIdentity;
-	std::map<int, ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI>> m_mBrowserContext;
+	std::map<int, ChromiumDLL::RefPtr<ChromiumDLL::JavaScriptObjectI> > m_mBrowserContext;
 
 	int m_nZmqPort;
 
