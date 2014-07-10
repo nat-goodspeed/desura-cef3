@@ -125,7 +125,7 @@ std::string TraceClassInfo(T *pClass)
 
 #ifdef WIN32
 #ifndef _delayimp_h
-extern "C" IMAGE_DOS_HEADER __ImageBase;#include <stdarg.h>
+extern "C" IMAGE_DOS_HEADER __ImageBase;
 #endif
 #endif
 
