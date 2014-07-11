@@ -3,14 +3,13 @@
 #
 #
 
-project(cef_desura)
+project(3p_cef3)
 
 if(APPLE) 
   # see #418
   cmake_minimum_required(VERSION 2.8.10)
 elseif(WIN32)
-  #needed for x120_xp target
-  cmake_minimum_required(VERSION 2.8.12)
+  cmake_minimum_required(VERSION 2.8.10)
 else()
   cmake_minimum_required(VERSION 2.8.5)
 endif()
@@ -243,8 +242,12 @@ endif()
 set(CEF_DL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cef3)
 
 include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}/cef_desura_includes
-  ${CMAKE_CURRENT_SOURCE_DIR}/cef_desura
+  ${CMAKE_CURRENT_SOURCE_DIR}/cef_ll_includes
+  ${CMAKE_CURRENT_SOURCE_DIR}/cef_ll
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libjson/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libjson/code
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libtinythread
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zeromq-4.0.4/include
   ${CEF_DL_DIR}
   ${CEF_DL_DIR}/libcef_dll
 )
@@ -262,17 +265,56 @@ add_definitions(
   -DUSING_CEF_SHARED
   -DNOMINMAX
   -DCHROMIUM_API_SUPPORTS_V2
+  -DZMQ_STATIC
 )
 
-file(GLOB cef_desura_sources 
-	cef_desura/*.cpp 
-	cef_desura/*.h 
+if(DEBUG)
+	add_definitions(
+		-DJSON_DEBUG
+	)
+endif()
+
+file(GLOB cef_ll_sources 
+	cef_ll/*.cpp 
+	cef_ll/*.h 
 )
 
-file(GLOB cef_desura_host_sources 
-	cef_desura_host/*.cpp 
-	cef_desura_host/*.h 
+file(GLOB cef_ll_host_sources 
+	cef_ll_host/*.cpp 
+	cef_ll_host/*.h 
 )
+
+file(GLOB libjson_sources
+	third_party/libjson/code/*.cpp
+	third_party/libjson/code/*.h
+)
+
+file(GLOB libtinythread_sources
+	third_party/libtinythread/*.cpp
+	third_party/libtinythread/*.h
+)
+
+file(GLOB zeromq_sources
+	third_party/zeromq-4.0.4/src/*.h
+	third_party/zeromq-4.0.4/src/*.cpp
+)
+
+if(WIN32)
+include_directories(
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zeromq-4.0.4/builds/msvc
+)
+
+file(GLOB zeromq_sources_platform
+	third_party/zeromq-4.0.4/builds/msvc/*.cpp
+	third_party/zeromq-4.0.4/builds/msvc/*.hpp
+)
+
+add_definitions(
+  -D__WINDOWS__
+  -D_WINSOCKAPI_
+)
+
+endif()
 
 file(GLOB libcef_dll_wrapper_sources 
 	${CEF_INCLUDE_PATH}/*.h 
@@ -289,51 +331,95 @@ file(GLOB libcef_dll_wrapper_sources
 	${CEF_DLLSOURCE_PATH}/wrapper/*.cc
 )
 
-add_library(cef_desura SHARED ${cef_desura_sources})
+add_library(3p_cef3 SHARED ${cef_ll_sources})
 add_library(libcef_dll_wrapper STATIC ${libcef_dll_wrapper_sources})
 
+add_library(libjson STATIC ${libjson_sources})
+add_library(libtinythread STATIC ${libtinythread_sources})
+add_library(libzeromq STATIC ${zeromq_sources} ${zeromq_sources_platform})
+
 if(WIN32)
-	add_executable(cef_desura_host WIN32 ${cef_desura_host_sources})
+	add_executable(3p_cef3_host WIN32 ${cef_ll_host_sources})
 elseif(APPLE)
-	add_executable(cef_desura_host MACOSX_BUNDLE ${cef_desura_host_sources})
+	add_executable(cef_host MACOSX_BUNDLE ${cef_ll_host_sources})
 else()
-	add_executable(cef_desura_host ${cef_desura_host_sources})
+	add_custom_command(TARGET libzeromq
+		PRE_BUILD
+		WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zeromq-4.0.4
+		COMMAND ./configure
+	)
+
+	add_executable(3p_cef3_host ${cef_ll_host_sources})
 endif()
 
-set_property(TARGET cef_desura PROPERTY COMPILE_DEFINITIONS BUILDING_CEF_DESURA_SHARED)
+set_property(TARGET 3p_cef3 PROPERTY COMPILE_DEFINITIONS BUILDING_3P_CEF3_SHARED)
 
-target_link_libraries(cef_desura
+target_link_libraries(3p_cef3
   libcef_dll_wrapper
+  libjson
+  libtinythread
+  libzeromq
 )
 
-target_link_libraries(cef_desura_host
+target_link_libraries(3p_cef3_host
 )
 
-add_executable(cef_desura_test_ogl cef_desura_test/main_opengl.cpp)
-
-add_dependencies(cef_desura cef_desura_host)
-add_dependencies(cef_desura_test_ogl cef_desura)
+file(GLOB 3p_cef3_test_ogl_sources
+	cef_ll_test/main_opengl.cpp 
+	cef_ll_test/ll_jsbridge_test.cpp
+)
 
 if(WIN32)
-	add_executable(cef_desura_test_msw WIN32 cef_desura_test/main_msw.cpp cef_desura_test/desura_scheme.cpp)
+file(GLOB 3p_cef3_test_ogl_sources
+	${3p_cef3_test_ogl_sources}
+	cef_ll_test/ll_test_win32.cpp
+	cef_ll_test/resource.h 
+	cef_ll_test/ll_test.rc
+)
+else()
+file(GLOB 3p_cef3_test_ogl_sources
+	${3p_cef3_test_ogl_sources}
+	cef_ll_test/ll_test_nix.cpp
+	cef_ll_test/resource.h 
+)
+endif()
 
-	target_link_libraries(cef_desura_test_ogl
-		${CMAKE_CURRENT_SOURCE_DIR}/cef_desura_test/freeglut/freeglut.lib
+
+add_executable(3p_cef3_test_ogl ${3p_cef3_test_ogl_sources})
+
+add_dependencies(3p_cef3 3p_cef3_host)
+add_dependencies(3p_cef3_test_ogl 3p_cef3)
+
+if(WIN32)
+	add_executable(3p_cef3_test_msw WIN32 cef_ll_test/main_msw.cpp cef_ll_test/ll_scheme.cpp cef_ll_test/ll_jsextender.cpp cef_ll_test/ll_jsbridge_test.cpp cef_ll_test/resource.h cef_ll_test/ll_test.rc cef_ll_test/ll_test_win32.cpp)
+
+	target_link_libraries(3p_cef3_test_ogl
+		${CMAKE_CURRENT_SOURCE_DIR}/cef_ll_test/freeglut/freeglut.lib
 	)
 
-	target_link_libraries(cef_desura
+	target_link_libraries(3p_cef3
 		${CEF_BIN_PATH}/libcef.lib
+		ws2_32.lib
 	)
 
-	add_copy_target_file_step(cef_desura_test_ogl cef_desura_test/freeglut.dll)
+	#build bot builds with visual studio 2010 and so should we
+	if(MSVC_VERSION EQUAL 1600)
+		add_definitions(-DWIN32_SANDBOX_ENABLED)
+		target_link_libraries(3p_cef3 ${CEF_BIN_PATH}/cef_sandbox.lib)
+	endif()
 
-	SetStaticRuntime(cef_desura_host)
-	SetStaticRuntime(cef_desura)
+	add_copy_target_file_step(3p_cef3_test_ogl cef_ll_test/freeglut.dll)
+
+	SetStaticRuntime(3p_cef3_host)
+	SetStaticRuntime(3p_cef3)
 	SetStaticRuntime(libcef_dll_wrapper)
-	SetStaticRuntime(cef_desura_test_msw)
-	SetStaticRunTime(cef_desura_test_ogl)
-
-	add_dependencies(cef_desura_test_msw cef_desura)
+	SetStaticRuntime(3p_cef3_test_msw)
+	SetStaticRunTime(3p_cef3_test_ogl)
+	SetStaticRuntime(libjson)
+	SetStaticRuntime(libtinythread)
+	SetStaticRuntime(libzeromq)
+	
+	add_dependencies(3p_cef3_test_msw 3p_cef3)
 
 elseif(APPLE)
 	add_definitions(-DNIX)
@@ -360,9 +446,9 @@ elseif(APPLE)
 elseif(UNIX)
 	add_definitions(-DNIX)
 
-	add_executable(cef_desura_test_gtk cef_desura_test/main_gtk.cpp)
+	add_executable(3p_cef3_test_gtk cef_ll_test/main_gtk.cpp)
 
-	target_link_libraries(cef_desura_test_ogl
+	target_link_libraries(3p_cef3_test_ogl
 		${OPENGL_LIBRARIES}
 		${GLUT_glut_LIBRARY}
 		${CMAKE_DL_LIBS}
@@ -372,16 +458,16 @@ elseif(UNIX)
 		${GTK2_LIBRARIES}
 	)
 
-	target_link_libraries(cef_desura_test_gtk
+	target_link_libraries(3p_cef3_test_gtk
 		${GTK2_LIBRARIES}
 		${CMAKE_DL_LIBS}
 	)
 
-	target_link_libraries(cef_desura
+	target_link_libraries(3p_cef3
 		${CEF_BIN_PATH}/libcef.so
 	)
 
-	target_link_libraries(cef_desura_host
+	target_link_libraries(3p_cef3_host
 		${GTK2_LIBRARIES}
 		${CMAKE_DL_LIBS}
 	)

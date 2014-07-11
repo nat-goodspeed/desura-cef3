@@ -1,0 +1,313 @@
+<html>
+<head>
+    <title>
+        Javascript Bridge Test
+    </title>
+    <style>
+        .pending {
+            color: darkblue;
+        }
+
+        .failed {
+            color: red;
+        }
+
+        .passed {
+            color: green;
+        }
+    </style>
+    <script>
+        var testFunction = function () { };
+        var testObject = { a: 123 };
+        var testArray = [190, 1, 84];
+
+        var setHtml = function (id, val, klass) {
+            var el = document.getElementById(id);
+
+            el.innerHTML = val;
+            el.className = klass;
+        }
+
+        var hit = false;
+
+        window.jscallback = function () {
+            hit = true;
+        }
+
+        window.jsobject = {
+            count: null,
+            first: testFunction,
+            second: 2
+        };
+
+        window.jsarray = [0, 1, 2];
+
+        var v1 = function (jsarrayCount) {
+
+            if (window.jsobject.count != 3) {
+                setHtml("win_jsobject_count", "Failed (count not set to num fields)", "failed");
+            }
+            else {
+                setHtml("win_jsobject_count", "Passed", "passed");
+            }
+
+            if (window.jsobject.second != testFunction) {
+                setHtml("win_jsobject_set", "Failed (window.jsobject.second should be set to window.jsobject.first)", "failed");
+            }
+            else {
+                setHtml("win_jsobject_set", "Passed", "passed");
+            }
+
+            if (typeof window.jsobject.first != "undefined") {
+                setHtml("win_jsobject_del", "Failed (window.jsobject.first should be deleted)", "failed");
+            }
+            else {
+                setHtml("win_jsobject_del", "Passed", "passed");
+            }
+
+            if (typeof window.jsobject.third == "undefined") {
+                setHtml("win_jsobject_add", "Failed (window.jsobject.third should be added)", "failed");
+            }
+            else {
+                setHtml("win_jsobject_add", "Passed", "passed");
+            }
+
+
+
+            if (window.jsarray[0] != 3) {
+                setHtml("win_jsarray_count", "Failed (window.jsarray[0] not set to num fields)", "failed");
+            }
+            else {
+                setHtml("win_jsarray_count", "Passed", "passed");
+            }
+
+            if (window.jsarray[1] != 0) {
+                setHtml("win_jsarray_set", "Failed (window.jsarray[1] should be set to window.jsarray[0])", "failed");
+            }
+            else {
+                setHtml("win_jsarray_set", "Passed", "passed");
+            }
+
+            if (typeof window.jsarray[2] != "undefined") {
+                setHtml("win_jsarray_del", "Failed (window.jsarray[2] should be deleted)", "failed");
+            }
+            else {
+                setHtml("win_jsarray_del", "Passed", "passed");
+            }
+
+            if (window.jsarray[3] != 3) {
+                setHtml("win_jsarray_add", "Failed (window.jsarray[3] should be added with value 3)", "failed");
+            }
+            else {
+                setHtml("win_jsarray_add", "Passed", "passed");
+            }
+        }
+
+        var v2 = function () {
+            var passed = false;
+
+            if (window.cppobject && window.cppobject.a == 123)
+                passed = true;
+
+            setHtml("win_cppobject", passed ? "Passed" : "Failed (window.cppobject is null)", passed ? "passed" : "failed");
+        }
+
+        var v3 = function(){
+            setHtml("win_jscallback", hit ? "Passed" : "Failed (not executed)", hit ? "passed" : "failed");
+        }
+
+        var dt = function (strType, value, side) {
+            var passed = false;
+            var expected = null;
+
+            if (strType == "undefined") {
+                passed = typeof value === "undefined";
+            }
+            else if (strType == "null") {
+                passed = typeof value === "object" && !value;
+            }
+            else if (strType == "double") {
+                passed = typeof value === "number" && value == 123.456;
+                expected = 123.456;
+            }
+            else if (strType == "bool") {
+                passed = typeof value === "boolean" && value == true;
+                expected = true;
+            }
+            else if (strType == "int") {
+                passed = typeof value === "number" && value == 789;
+                expected = 789;
+            }
+            else if (strType == "string") {
+                passed = typeof value === "string" && value == "Im a string";
+                expected = "Im a string";
+            }
+            else if (strType == "function") {
+                if (side == "in")
+                    passed = typeof value === "function" && value();
+                else
+                    passed = typeof value === "function" && value == testFunction;
+            }
+            else if (strType == "object") {
+                passed = typeof value === "object" && value && !Array.isArray(value) && value.a == testObject.a;
+                expected = testObject;
+            }
+            else if (strType == "array") {
+                passed = typeof value === "object" && value && Array.isArray(value) && value.length == testArray.length && value[0] == testArray[0];
+                expected = testArray;
+            }
+            else {
+                return;
+            }
+
+            if (expected) {
+                compare = "(" + JSON.stringify(value) + " == " + JSON.stringify(expected) + ")";
+                setHtml(side + "_" + strType, passed ? "Passed " + compare : "Failed " + compare, passed ? "passed" : "failed");
+            }
+            else {
+                setHtml(side + "_" + strType, passed ? "Passed" : "Failed", passed ? "passed" : "failed");
+            }
+        }
+
+        window.onload = function () {
+            jsbridge.runTests(v1, v2, v3, dt);
+
+            jsbridge.dataTypes("undefined", undefined);
+            jsbridge.dataTypes("null", null);
+            jsbridge.dataTypes("double", 123.456);
+            jsbridge.dataTypes("bool", true);
+            jsbridge.dataTypes("int", 789);
+            jsbridge.dataTypes("string", "Im a string");
+            jsbridge.dataTypes("function", testFunction);
+            jsbridge.dataTypes("object", testObject);
+            jsbridge.dataTypes("array", testArray);
+        }
+    </script>
+</head>
+<body>
+    <table>
+        <tr>
+            <th>Test</th>
+            <th>Result</th>
+        </tr>
+        <tr>
+            <td>DT [JS -> C++]: Undefined</td>
+            <td><span id="out_undefined" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [JS -> C++]: Null</td>
+            <td><span id="out_null" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [JS -> C++]: Double</td>
+            <td><span id="out_double" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [JS -> C++]: Bool</td>
+            <td><span id="out_bool" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [JS -> C++]: Int</td>
+            <td><span id="out_int" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [JS -> C++]: String</td>
+            <td><span id="out_string" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [JS -> C++]: Function</td>
+            <td><span id="out_function" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [JS -> C++]: Object</td>
+            <td><span id="out_object" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [JS -> C++]: Array</td>
+            <td><span id="out_array" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td colspan="2"><hr /></td>
+        </tr>
+        <tr>
+            <td>DT [C++ -> JS]: Undefined</td>
+            <td><span id="in_undefined" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [C++ -> JS]: Null</td>
+            <td><span id="in_null" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [C++ -> JS]: Double</td>
+            <td><span id="in_double" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [C++ -> JS]: Bool</td>
+            <td><span id="in_bool" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [C++ -> JS]: Int</td>
+            <td><span id="in_int" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [C++ -> JS]: String</td>
+            <td><span id="in_string" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [C++ -> JS]: Function</td>
+            <td><span id="in_function" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [C++ -> JS]: Object</td>
+            <td><span id="in_object" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>DT [C++ -> JS]: Array</td>
+            <td><span id="in_array" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td colspan="2"><hr /></td>
+        </tr>
+        <tr>
+            <td>window.jscallback</td>
+            <td><span id="win_jscallback" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>window.jsobject count</td>
+            <td><span id="win_jsobject_count" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>window.jsobject get/set</td>
+            <td><span id="win_jsobject_set" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>window.jsobject add</td>
+            <td><span id="win_jsobject_add" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>window.jsobject del</td>
+            <td><span id="win_jsobject_del" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>window.cppobject</td>
+            <td><span id="win_cppobject" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>window.jsarray count</td>
+            <td><span id="win_jsarray_count" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>window.jsarray get/set</td>
+            <td><span id="win_jsarray_set" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>window.jsarray add</td>
+            <td><span id="win_jsarray_add" class="pending">Pending...</span></td>
+        </tr>
+        <tr>
+            <td>window.jsarray del</td>
+            <td><span id="win_jsarray_del" class="pending">Pending...</span></td>
+        </tr>
+    </table>
+</body>
+</html>
