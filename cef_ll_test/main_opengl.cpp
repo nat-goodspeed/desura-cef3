@@ -137,7 +137,9 @@ public:
 	}
 };
 
-class cefGL : public ChromiumDLL::ChromiumRefCount<Proxy>
+class cefGL : 
+	public ChromiumDLL::ChromiumRefCount<Proxy>,
+	public ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>
 {
     public:
         cefGL() :
@@ -162,6 +164,16 @@ class cefGL : public ChromiumDLL::ChromiumRefCount<Proxy>
         {
 			//std::cout << "LLQtWebKit version: " << LLQtWebKit::getInstance()->getVersion() << std::endl;
         };
+
+		bool enablePlugins()
+		{
+			return false;
+		}
+
+		bool enableFlash()
+		{
+			return false;
+		}
 
 		void initOpenGL()
 		{
@@ -463,9 +475,9 @@ class cefGL : public ChromiumDLL::ChromiumRefCount<Proxy>
                 exit( 0 );
             }
 
-			if (keyIn == 'z' && isDown)
+			if (keyIn == 'f' && isDown)
 			{
-				pRenderer->getBrowser()->loadUrl("https://osiris.lindenlab.com/love/index.php");
+				pRenderer->getBrowser()->loadUrl("http://youtube.com");
 			}
 
 			if (keyIn == 'w' && isDown)

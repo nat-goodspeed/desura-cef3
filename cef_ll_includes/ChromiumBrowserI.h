@@ -1077,7 +1077,8 @@ namespace ChromiumDLL
 	class ChromiumCookieManagerI : public IntrusiveRefPtrI
 	{
 	public:
-		virtual void purgeAll() = 0;
+        virtual void purge(const char* domain) = 0;
+        virtual void purgeAll() = 0;
 
 		virtual void setCookie(const char* ulr, const RefPtr<CookieI>& cookie) = 0;
 		virtual void delCookie(const char* url, const char* name) = 0;

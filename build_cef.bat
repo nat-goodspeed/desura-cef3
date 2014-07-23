@@ -13,5 +13,5 @@ IF NOT EXIST build_vis (
 )
 
 cd build_vis
-cmake .. -G "Visual Studio 10" -DDEBUG=ON
+cmake .. -G "Visual Studio 10" -DDEBUG=OFF
 cd ..
