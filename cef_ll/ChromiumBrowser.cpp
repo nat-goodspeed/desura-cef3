@@ -236,8 +236,8 @@ ChromiumBrowser::~ChromiumBrowser()
 CefBrowserSettings ChromiumBrowser::getBrowserDefaults(const ChromiumDLL::RefPtr<ChromiumDLL::ChromiumBrowserDefaultsI>& defaults)
 {
 	CefBrowserSettings browserDefaults;
-	browserDefaults.universal_access_from_file_urls = STATE_ENABLED;
-	browserDefaults.file_access_from_file_urls = STATE_ENABLED;
+	browserDefaults.universal_access_from_file_urls = STATE_DISABLED;
+	browserDefaults.file_access_from_file_urls = STATE_DISABLED;
 	browserDefaults.java = (defaults && defaults->enableJava()) ? STATE_ENABLED : STATE_DISABLED;
 	browserDefaults.plugins = (!defaults || defaults->enablePlugins()) ? STATE_ENABLED : STATE_DISABLED;
 	browserDefaults.javascript = (!defaults || defaults->enableJavascript()) ? STATE_ENABLED : STATE_DISABLED;

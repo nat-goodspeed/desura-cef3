@@ -121,14 +121,33 @@ public:
 class DeleteCookiesVisitor : public CefCookieVisitor
 {
 public:
+	DeleteCookiesVisitor(const char* domain) :
+		mDomain(domain)
+	{
+	}
+
+	DeleteCookiesVisitor() :
+	  mDomain("")
+	{
+	}
+
 	bool Visit(const CefCookie& cookie, int count, int total,
 		bool& deleteCookie) OVERRIDE
 	{
-		deleteCookie = true;
+		CefString cookie_domain = cookie.domain.str;
+
+		// TODO find() might not be clever enough here - what about myfacebook.com vs facebook.com?
+		if ( mDomain.length() == 0 || cookie_domain.ToString().find(mDomain) != std::string::npos )
+		{
+			deleteCookie = true;
+		}
+
 		return true;
 	}
 
 	IMPLEMENT_REFCOUNTING(DeleteCookiesVisitor);
+private:
+	std::string mDomain;
 };
 
 class CookiesVisitor : public CefCookieVisitor
@@ -154,6 +173,11 @@ public:
 void CookieManager::purgeAll()
 {
 	CefCookieManager::GetGlobalManager()->VisitAllCookies(new DeleteCookiesVisitor());
+}
+
+void CookieManager::purge(const char* domain)
+{
+	CefCookieManager::GetGlobalManager()->VisitAllCookies(new DeleteCookiesVisitor(domain));
 }
 
 void CookieManager::setCookie(const char* url, const ChromiumDLL::RefPtr<ChromiumDLL::CookieI>& cookie)

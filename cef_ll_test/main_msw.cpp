@@ -145,7 +145,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 	case WM_CREATE: 
 		std::cout << "WM_CREATE" << std::endl;
-		g_Browser = g_ChromiumController->NewChromiumBrowser((int*)hWnd, "", "jsbridge://run");
+		g_Browser = g_ChromiumController->NewChromiumBrowser((int*)hWnd, "", "http://google.com");
 		g_Browser->setEventCallback(g_EventCallback);
 		return 0;
 

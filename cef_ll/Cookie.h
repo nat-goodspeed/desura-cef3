@@ -38,6 +38,7 @@ class CookieManager : public ChromiumDLL::ChromiumCookieManagerI
 {
 public:
 	virtual void purgeAll();
+	virtual void purge(const char* domain);
 	virtual void setCookie(const char* ulr, const ChromiumDLL::RefPtr<ChromiumDLL::CookieI>& cookie);
 
 	virtual void delCookie(const char* url, const char* name);
