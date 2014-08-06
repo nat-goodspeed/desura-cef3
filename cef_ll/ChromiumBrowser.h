@@ -43,6 +43,8 @@ class ChromiumBrowserEvents;
 
 #ifdef OS_WIN
 	typedef HWND WIN_HANDLE;
+#elif defined(__APPLE__)
+	typedef NSView* WIN_HANDLE;
 #else
 	typedef void* WIN_HANDLE;
 #endif

@@ -171,7 +171,10 @@ if(WIN32)
 		set_target_properties(${target} PROPERTIES COMPILE_FLAGS "/MT")
 	  endif()
 	endmacro()
+
 elseif(APPLE)
+	# we download the mac32 buildbot package
+	add_compiler_flags(-std=c++11 -m32)
 
 elseif(UNIX)
 	if(DEBUG)
@@ -220,12 +223,16 @@ endfunction()
 # Projects
 ###############################################################################
 
-if(UNIX)
-	FIND_PACKAGE(GTK2 COMPONENTS gtk)
+if(UNIX OR APPLE)
+	if(UNIX)
+		FIND_PACKAGE(GTK2 COMPONENTS gtk)
+		include_directories(
+			${GTK2_INCLUDE_DIRS}
+		)
+	endif()
 	FIND_PACKAGE(OpenGL)
 	FIND_PACKAGE(GLUT)
 	include_directories(
-		${GTK2_INCLUDE_DIRS}
 		${OPENGL_INCLUDE_DIRS}
 		${GLUT_INCLUDE_DIR}
 	)
@@ -333,6 +340,8 @@ add_library(libzeromq STATIC ${zeromq_sources} ${zeromq_sources_platform})
 
 if(WIN32)
 	add_executable(3p_cef3_host WIN32 ${cef_ll_host_sources})
+elseif(APPLE)
+	add_executable(cef_host MACOSX_BUNDLE ${cef_ll_host_sources})
 else()
 	add_custom_command(TARGET libzeromq
 		PRE_BUILD
@@ -411,6 +420,29 @@ if(WIN32)
 	SetStaticRuntime(libzeromq)
 	
 	add_dependencies(3p_cef3_test_msw 3p_cef3)
+
+elseif(APPLE)
+	add_definitions(-DNIX)
+
+	target_link_libraries(cef_desura_test_ogl
+		${OPENGL_LIBRARIES}
+		${GLUT_glut_LIBRARY}
+		${CMAKE_DL_LIBS}
+	)
+
+	find_library(LIBCEF NAMES "Chromium Embedded Framework" PATHS "${CEF_BIN_PATH}")
+
+	target_link_libraries(cef_desura
+		${LIBCEF}
+	)
+	add_executable(cef_desura_test_mac MACOSX_BUNDLE cef_desura_test/main_mac.mm)
+	
+	set_target_properties(cef_desura_test_mac PROPERTIES MACOSX_BUNDLE_INFO_PLIST cef_desura_test/mac/Info.plist)
+	set_target_properties(cef_desura_host PROPERTIES MACOSX_BUNDLE_INFO_PLIST cef_desura_test/mac/helper-Info.plist)
+	
+	target_link_libraries(cef_desura_test_mac
+		${CMAKE_DL_LIBS}
+	)	
 elseif(UNIX)
 	add_definitions(-DNIX)
 
@@ -452,7 +484,11 @@ file(GLOB cef_res_files ${CEF_DL_DIR}/Resources/*.*)
 add_custom_target(copy_bin_files ALL)
 
 foreach(file ${cef_bin_files})
-	add_copy_target_file_step(copy_bin_files ${file})
+	if(IS_DIRECTORY "${file}")
+	  add_copy_target_dir_step(copy_bin_files "${file}")
+	else()
+	  add_copy_target_file_step(copy_bin_files "${file}")
+	endif()
 endforeach()
 
 foreach(file ${cef_res_files})

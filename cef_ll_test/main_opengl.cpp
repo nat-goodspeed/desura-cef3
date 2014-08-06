@@ -29,7 +29,11 @@ $/LicenseInfo$
     #include "freeglut/freeglut.h"
 #else
     #include <GL/gl.h>
-    #include <GL/glut.h>
+    #if defined(__APPLE__)
+        #include "glut.h"
+    #else
+        #include <GL/glut.h>
+    #endif
 #endif
 
 #include <string.h>
@@ -197,8 +201,10 @@ class cefGL :
 		{
 #ifdef WIN32
 			const char* szCefDLL = "3p_cef3.dll";
+#elif defined(__APPLE__)
+			const char* szCefDLL = "libcef3.dylib";
 #else
-			const char* szCefDLL = "lib3p_cef3.dll";
+			const char* szCefDLL = "libcef3.so";
 #endif
 
 			if (!g_CEFDll.load(szCefDLL))

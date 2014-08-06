@@ -87,4 +87,21 @@ else()
 		DEPENDERS build
 		COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR> "${CMAKE_BINARY_DIR}/../cef3"
 	)
+
+	if(APPLE)
+	  # Out of the box, the Mac framework library comes as "Chromium Embedded
+	  # Framework.framework/Chromium Embedded Framework", but stamped with an
+	  # install_name_tool -id of just "@executable_path/Chromium Embedded
+	  # Framework". When we later copy the whole .framework directory to
+	  # @executable_path, that doesn't work. Empirically, it works to twiddle
+	  # the install_name_tool -id as follows.
+	  ExternalProject_Add_Step(
+	    cef_bin_dl
+	    install_name
+	    DEPENDEES custom_build
+	    DEPENDERS build
+	    COMMAND install_name_tool -id "@executable_path/Chromium Embedded Framework.framework/Chromium Embedded Framework" "${CMAKE_BINARY_DIR}/../cef3/Release/Chromium Embedded Framework.framework/Chromium Embedded Framework"
+	  )
+	endif()
+
 endif()
