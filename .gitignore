@@ -1,2 +1,19 @@
 build_*/
+stage/
+CEF-*.tar.bz2
 cef3/
+cache/
+cmake_install.cmake
+CMakeCache.txt
+CMakeFiles/
+# windows
+3p_cef3.*
+3p_cef3_host.*
+3p_cef3_test_*
+ALL_BUILD.*
+ZERO_CHECK.*
+copy_bin_files.*
+libcef_dll_wrapper.*
+debug.log
+Release/
+Win32/
