@@ -20,8 +20,16 @@ fi
 
 # load autobuild provided shell functions and variables
 set +x
+# bug in autobuild 0.8 source_environment: on Windows, it replaces AUTOBUILD
+# with a bogus path
+SAVE_AUTOBUILD="$AUTOBUILD"
 eval "$("$AUTOBUILD" source_environment)"
+AUTOBUILD="$SAVE_AUTOBUILD"
+unset SAVE_AUTOBUILD
 set -x
+
+# pick up third-party libraries
+"$AUTOBUILD" install
 
 stage="$(pwd)/stage"
 pushd "$CEF_SOURCE_DIR"
