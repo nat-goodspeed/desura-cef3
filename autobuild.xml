@@ -114,9 +114,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>e0e8d9b4b4bed7bb1055ffd5773dcb17</string>
+              <string>18648e06ae16ca784ac781b2ded9cb59</string>
               <key>url</key>
-              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/nat_3p-zeromq/rev/292751/arch/Darwin/installer/zeromq-4.0.4-darwin-201408080543.tar.bz2</string>
+              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/nat_3p-zeromq/rev/294219/arch/Darwin/installer/zeromq-4.0.4-darwin-20140916.tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin</string>
@@ -126,9 +126,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>0b42875959c3688f2d522b59759ebba9</string>
+              <string>13f9042e4e18d1866bf12e876f298401</string>
               <key>url</key>
-              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/nat_3p-zeromq/rev/292751/arch/Linux/installer/zeromq-4.0.4-linux-201408081243.tar.bz2</string>
+              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/nat_3p-zeromq/rev/294219/arch/Linux/installer/zeromq-4.0.4-linux-20140915.tar.bz2</string>
             </map>
             <key>name</key>
             <string>linux</string>
@@ -138,9 +138,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>049b546fae324c37695f837bdd59375d</string>
+              <string>79747fd3b7fb0b9b9bc0f66a10a44cb1</string>
               <key>url</key>
-              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/nat_3p-zeromq/rev/292437/arch/CYGWIN/installer/zeromq-4.0.4-windows-20140808.tar.bz2</string>
+              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/nat_3p-zeromq/rev/294219/arch/CYGWIN/installer/zeromq-4.0.4-windows-20140915.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>

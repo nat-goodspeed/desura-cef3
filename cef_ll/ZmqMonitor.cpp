@@ -25,7 +25,7 @@ $/LicenseInfo$
 
 #include "ZmqMonitor.h"
 #include "Controller.h"
-
+#include <cassert>
 
 ZmqMonitor::ZmqMonitor(zmq::context_t& context, zmq::socket_t& socket)
 	: m_ZmqContext(context)
@@ -64,7 +64,7 @@ void ZmqMonitor::runThread(void* pObj)
 	{
 		static_cast<ZmqMonitor*>(pObj)->run();
 	}
-	catch (std::exception &e)
+	catch (const std::exception& /*e*/)
 	{
 		int a = 1;
 	}

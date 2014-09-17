@@ -5,7 +5,7 @@
 
 project(3p_cef3)
 
-if(APPLE) 
+if(APPLE)
   # see #418
   cmake_minimum_required(VERSION 2.8.10)
 elseif(WIN32)
@@ -49,7 +49,7 @@ endif()
 
 MACRO(PARSE_ARGUMENTS prefix arg_names option_names)
   SET(DEFAULT_ARGS)
-  FOREACH(arg_name ${arg_names})    
+  FOREACH(arg_name ${arg_names})
     SET(${prefix}_${arg_name})
   ENDFOREACH(arg_name)
   FOREACH(option ${option_names})
@@ -58,16 +58,16 @@ MACRO(PARSE_ARGUMENTS prefix arg_names option_names)
 
   SET(current_arg_name DEFAULT_ARGS)
   SET(current_arg_list)
-  FOREACH(arg ${ARGN})            
-    SET(larg_names ${arg_names})    
-    LIST(FIND larg_names "${arg}" is_arg_name)                   
+  FOREACH(arg ${ARGN})
+    SET(larg_names ${arg_names})
+    LIST(FIND larg_names "${arg}" is_arg_name)
     IF (is_arg_name GREATER -1)
       SET(${prefix}_${current_arg_name} ${current_arg_list})
       SET(current_arg_name ${arg})
       SET(current_arg_list)
     ELSE (is_arg_name GREATER -1)
-      SET(loption_names ${option_names})    
-      LIST(FIND loption_names "${arg}" is_option)            
+      SET(loption_names ${option_names})
+      LIST(FIND loption_names "${arg}" is_option)
       IF (is_option GREATER -1)
          SET(${prefix}_${arg} TRUE)
       ELSE (is_option GREATER -1)
@@ -140,7 +140,18 @@ if(WIN32)
 	add_linker_flags(/ignore:4006
 					 /ignore:4099
 					 /ignore:4221)
-	add_compiler_flags(/wd4996 /MP)
+	# /GS- bypasses unresolved ___security_cookie, @__security_check_cookie@4
+	add_compiler_flags(/wd4996 /MP /GS-)
+	# In several files, even indirectly via CEF source code, we #include
+	# winsock2.h. Not only are winsock2.h and winsock.h incompatible --
+	# #including both in the same compilation fails with conflicting
+	# definitions -- but Microsoft headers actually lead you into this
+	# problem. #including winsock2.h eventually #includes windows.h -- which
+	# in turn #includes winsock.h! You can suppress the latter with the magic
+	# WIN32_LEAN_AND_MEAN macro, and at first I tried sprinkling that around
+	# to all the places that would need it. But that was too intrusive. Just
+	# define the darn thing globally.
+	add_definitions(-DWIN32_LEAN_AND_MEAN)
 
 	# jom needs /FS msvc12 for parallel builds
 	if(MSVC12)
@@ -155,7 +166,7 @@ if(WIN32)
 					-D_WIN32_WINNT=${WIN_SDK_MIN}
 					-D_WIN32_IE=${WIN_IE_VERSION}
 					-D_USING_V120_SDK71_)
-									
+
 	macro(SetSharedRuntime target)
 	  if(DEBUG)
 		set_target_properties(${target} PROPERTIES COMPILE_FLAGS "/MDd")
@@ -182,7 +193,7 @@ elseif(UNIX)
 	else()
 		add_definitions(-DNDEBUG)
 	endif()
-	
+
 	add_compiler_flags(-fPIC)
 	add_linker_flags(-fPIC)
 
@@ -200,7 +211,7 @@ elseif(UNIX)
 					  )
 	  # link libgcc staticly
 	  add_compiler_flags(-static-libgcc)
-	endif()	
+	endif()
 
 	if(32BITBUILD)
 		add_compiler_flags(-m32)
@@ -244,10 +255,9 @@ set(CEF_DL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cef3)
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/cef_ll_includes
   ${CMAKE_CURRENT_SOURCE_DIR}/cef_ll
-  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libjson/include
-  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libjson/code
-  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libtinythread
-  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zeromq-4.0.4/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/stage/packages/include/libjson
+  ${CMAKE_CURRENT_SOURCE_DIR}/stage/packages/include/tinythreadpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/stage/packages/include
   ${CEF_DL_DIR}
   ${CEF_DL_DIR}/libcef_dll
 )
@@ -274,50 +284,18 @@ if(DEBUG)
 	)
 endif()
 
-file(GLOB cef_ll_sources 
-	cef_ll/*.cpp 
-	cef_ll/*.h 
+file(GLOB cef_ll_sources
+	cef_ll/*.cpp
+	cef_ll/*.h
 )
 
-file(GLOB cef_ll_host_sources 
-	cef_ll_host/*.cpp 
-	cef_ll_host/*.h 
+file(GLOB cef_ll_host_sources
+	cef_ll_host/*.cpp
+	cef_ll_host/*.h
 )
 
-file(GLOB libjson_sources
-	third_party/libjson/code/*.cpp
-	third_party/libjson/code/*.h
-)
-
-file(GLOB libtinythread_sources
-	third_party/libtinythread/*.cpp
-	third_party/libtinythread/*.h
-)
-
-file(GLOB zeromq_sources
-	third_party/zeromq-4.0.4/src/*.h
-	third_party/zeromq-4.0.4/src/*.cpp
-)
-
-if(WIN32)
-include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zeromq-4.0.4/builds/msvc
-)
-
-file(GLOB zeromq_sources_platform
-	third_party/zeromq-4.0.4/builds/msvc/*.cpp
-	third_party/zeromq-4.0.4/builds/msvc/*.hpp
-)
-
-add_definitions(
-  -D__WINDOWS__
-  -D_WINSOCKAPI_
-)
-
-endif()
-
-file(GLOB libcef_dll_wrapper_sources 
-	${CEF_INCLUDE_PATH}/*.h 
+file(GLOB libcef_dll_wrapper_sources
+	${CEF_INCLUDE_PATH}/*.h
 	${CEF_INCLUDE_PATH}/internal/*.h
 	${CEF_INCLUDE_PATH}/capi/cef_base_capi.h
 	${CEF_INCLUDE_PATH}/wrapper/*.h
@@ -334,38 +312,45 @@ file(GLOB libcef_dll_wrapper_sources
 add_library(3p_cef3 SHARED ${cef_ll_sources})
 add_library(libcef_dll_wrapper STATIC ${libcef_dll_wrapper_sources})
 
-add_library(libjson STATIC ${libjson_sources})
-add_library(libtinythread STATIC ${libtinythread_sources})
-add_library(libzeromq STATIC ${zeromq_sources} ${zeromq_sources_platform})
-
 if(WIN32)
+	# empirically, these eliminate duplicate-definition link errors
+	set_target_properties(3p_cef3 PROPERTIES
+						  LINK_FLAGS "/nodefaultlib:libcmt /nodefaultlib:msvcprt")
 	add_executable(3p_cef3_host WIN32 ${cef_ll_host_sources})
+	set_target_properties(3p_cef3_host PROPERTIES LINK_FLAGS "/verbose")
 elseif(APPLE)
 	add_executable(cef_host MACOSX_BUNDLE ${cef_ll_host_sources})
 else()
-	add_custom_command(TARGET libzeromq
-		PRE_BUILD
-		WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zeromq-4.0.4
-		COMMAND ./configure
-	)
-
 	add_executable(3p_cef3_host ${cef_ll_host_sources})
 endif()
 
 set_property(TARGET 3p_cef3 PROPERTY COMPILE_DEFINITIONS BUILDING_3P_CEF3_SHARED)
 
+set(PKGLIBREL "${CMAKE_CURRENT_SOURCE_DIR}/stage/packages/lib/release")
+set(PKGLIBDEB "${CMAKE_CURRENT_SOURCE_DIR}/stage/packages/lib/debug")
+
+if (DEBUG)
+  set(PKGLIBDIR "${PKGLIBDEB}")
+else ()
+  set(PKGLIBDIR "${PKGLIBREL}")
+endif ()
+
+find_library(LIBJSON       NAMES libjson json PATHS "${PKGLIBDIR}")
+find_library(LIBTINYTHREAD NAMES tinythreadpp PATHS "${PKGLIBDIR}")
+find_library(LIBZEROMQ     NAMES libzmq zmq   PATHS "${PKGLIBDIR}")
+
 target_link_libraries(3p_cef3
   libcef_dll_wrapper
-  libjson
-  libtinythread
-  libzeromq
+  "${LIBJSON}"
+  "${LIBTINYTHREAD}"
+  "${LIBZEROMQ}"
 )
 
 target_link_libraries(3p_cef3_host
 )
 
 file(GLOB 3p_cef3_test_ogl_sources
-	cef_ll_test/main_opengl.cpp 
+	cef_ll_test/main_opengl.cpp
 	cef_ll_test/ll_jsbridge_test.cpp
 )
 
@@ -373,14 +358,14 @@ if(WIN32)
 file(GLOB 3p_cef3_test_ogl_sources
 	${3p_cef3_test_ogl_sources}
 	cef_ll_test/ll_test_win32.cpp
-	cef_ll_test/resource.h 
+	cef_ll_test/resource.h
 	cef_ll_test/ll_test.rc
 )
 else()
 file(GLOB 3p_cef3_test_ogl_sources
 	${3p_cef3_test_ogl_sources}
 	cef_ll_test/ll_test_nix.cpp
-	cef_ll_test/resource.h 
+	cef_ll_test/resource.h
 )
 endif()
 
@@ -415,16 +400,13 @@ if(WIN32)
 	SetStaticRuntime(libcef_dll_wrapper)
 	SetStaticRuntime(3p_cef3_test_msw)
 	SetStaticRunTime(3p_cef3_test_ogl)
-	SetStaticRuntime(libjson)
-	SetStaticRuntime(libtinythread)
-	SetStaticRuntime(libzeromq)
-	
+
 	add_dependencies(3p_cef3_test_msw 3p_cef3)
 
 elseif(APPLE)
 	add_definitions(-DNIX)
 
-	target_link_libraries(cef_desura_test_ogl
+	target_link_libraries(cef_cef3_test_ogl
 		${OPENGL_LIBRARIES}
 		${GLUT_glut_LIBRARY}
 		${CMAKE_DL_LIBS}
@@ -432,17 +414,17 @@ elseif(APPLE)
 
 	find_library(LIBCEF NAMES "Chromium Embedded Framework" PATHS "${CEF_BIN_PATH}")
 
-	target_link_libraries(cef_desura
+	target_link_libraries(cef_cef3
 		${LIBCEF}
 	)
-	add_executable(cef_desura_test_mac MACOSX_BUNDLE cef_desura_test/main_mac.mm)
-	
-	set_target_properties(cef_desura_test_mac PROPERTIES MACOSX_BUNDLE_INFO_PLIST cef_desura_test/mac/Info.plist)
-	set_target_properties(cef_desura_host PROPERTIES MACOSX_BUNDLE_INFO_PLIST cef_desura_test/mac/helper-Info.plist)
-	
-	target_link_libraries(cef_desura_test_mac
+	add_executable(cef_cef3_test_mac MACOSX_BUNDLE cef_cef3_test/main_mac.mm)
+
+	set_target_properties(cef_cef3_test_mac PROPERTIES MACOSX_BUNDLE_INFO_PLIST cef_cef3_test/mac/Info.plist)
+	set_target_properties(cef_cef3_host PROPERTIES MACOSX_BUNDLE_INFO_PLIST cef_cef3_test/mac/helper-Info.plist)
+
+	target_link_libraries(cef_cef3_test_mac
 		${CMAKE_DL_LIBS}
-	)	
+	)
 elseif(UNIX)
 	add_definitions(-DNIX)
 
