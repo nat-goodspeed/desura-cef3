@@ -511,7 +511,7 @@ namespace ChromiumDLL
 		//! Return false to cancel read
 		//! Set readSize to zero and return true to wait for callback
 		//! 
-		virtual bool read(char* buffer, int size, int* readSize) = 0;
+		virtual bool read(char* buffer, size_t size, size_t* readSize) = 0;
 
 		//! Cancel request
 		//!

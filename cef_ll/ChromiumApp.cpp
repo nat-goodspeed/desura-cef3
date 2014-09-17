@@ -111,7 +111,7 @@ public:
 		return NULL;
 	}
 
-	bool read(char* buffer, int size, int* readSize)
+	bool read(char* buffer, size_t size, size_t* readSize)
 	{
 		if (size < m_strResponse.size())
 		{
@@ -289,7 +289,7 @@ void ChromiumApp::runThread(void* pObj)
 	{
 		static_cast<ChromiumApp*>(pObj)->run();
 	}
-	catch (std::exception &e)
+	catch (const std::exception& /*e*/)
 	{
 		int a = 1;
 	}
@@ -394,7 +394,7 @@ void ChromiumApp::processMessageReceived(const std::string &strFrom, const std::
 	{
 		msg = JSONWorker::parse(strJson);
 	}
-	catch (std::exception &e)
+	catch (const std::exception& /*e*/)
 	{
 		return;
 	}

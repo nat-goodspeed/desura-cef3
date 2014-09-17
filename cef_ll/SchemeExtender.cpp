@@ -192,7 +192,9 @@ bool SchemeExtender::ReadResponse(void* data_out, int bytes_to_read, int& bytes_
 	if (!m_pSchemeExtender)
 		return false;
 
-	bool res = m_pSchemeExtender->read((char*)data_out, bytes_to_read, &bytes_read);
+	size_t sbytes_read;
+	bool res = m_pSchemeExtender->read((char*)data_out, bytes_to_read, &sbytes_read);
+	bytes_read = sbytes_read;
 
 	if (res)
 		callback->Continue();

@@ -96,7 +96,7 @@ public:
 
 	virtual bool processRequest(const ChromiumDLL::RefPtr<ChromiumDLL::SchemeRequestI>& request, bool* redirect);
 	virtual void cancel();
-	virtual bool read(char* buffer, int size, int* readSize);
+	virtual bool read(char* buffer, size_t size, size_t* readSize);
 
 private:
 	const std::string m_Js;
@@ -121,7 +121,7 @@ void ExternalLoaderScheme::cancel()
 {
 }
 
-bool ExternalLoaderScheme::read(char* buffer, int size, int* readSize)
+bool ExternalLoaderScheme::read(char* buffer, size_t size, size_t* readSize)
 {
 	strcpy(buffer, m_Js.c_str());
 	*readSize = m_Js.size();

@@ -74,7 +74,7 @@ const char* JSBridgeTestScheme::getRedirectUrl()
 	return NULL;
 }
 
-bool JSBridgeTestScheme::read(char* buffer, int size, int* readSize)
+bool JSBridgeTestScheme::read(char* buffer, size_t size, size_t* readSize)
 {
 	if (size < m_strResponse.size())
 	{

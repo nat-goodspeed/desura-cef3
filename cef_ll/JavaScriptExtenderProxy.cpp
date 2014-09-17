@@ -431,7 +431,7 @@ JSONNode JavaScriptGlobalObjectProxy::objectRequest(const std::string &strObject
 	}
 	else if (strFunction == "get_key")
 	{
-		int nIndex = argumets.as_int();
+		size_t nIndex(argumets.as_int());
 
 		std::vector<CefString> vKeys;
 		m_Object->GetKeys(vKeys);

@@ -63,7 +63,7 @@ public:
 	//! Return false to cancel read
 	//! Set readSize to zero and return true to wait for callback
 	//! 
-	virtual bool read(char* buffer, int size, int* readSize) OVERRIDE;
+	virtual bool read(char* buffer, size_t size, size_t* readSize) OVERRIDE;
 
 	//! Cancel request
 	//!
